@@ -22,9 +22,11 @@ importScripts(...[
     "fr/gc_rules_graph.js",
     "fr/gc_engine.js",
 ].map((file) => BASE + file));
+importScripts(new URL("fr_homophones.js", self.location).href);
 
 const MAX_SUGGESTIONS = 5;
 let spellChecker = null;
+let homophones = null;
 
 function init() {
     const start = performance.now();
@@ -36,6 +38,7 @@ function init() {
     if (!spellChecker || !spellChecker.oMainDic) {
         throw new Error("Dictionnaire principal de Grammalecte non chargé");
     }
+    homophones = Homophones.create((word) => spellChecker.getMorph(word));
     return { ms: performance.now() - start };
 }
 
@@ -394,6 +397,34 @@ function groupLinkedErrors(line, errors) {
     return result.sort((a, b) => a.start - b.start);
 }
 
+// --- Homophones ---
+// Nos règles (fr_homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
+// phrase est réanalysée avec la correction : les fautes que Grammalecte signalait
+// à cause du mauvais homophone (« Il ces trompé » → « trompé » à mettre au pluriel)
+// disparaissent alors, et on les retire.
+const sameFix = (error, fix) => error.suggestions.some((sugg) => sugg.toLowerCase().replace("’", "'") === fix.toLowerCase().replace("’", "'"));
+
+function addHomophones(line, grammar) {
+    const found = homophones.find(line).filter((h) => !grammar.some((e) => e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0])));
+    if (found.length === 0) {
+        return { grammar, extra: [] };
+    }
+    let fixed = "";
+    let cursor = 0;
+    const shifts = [];
+    for (const h of found) {
+        fixed += line.slice(cursor, h.start) + h.suggestions[0];
+        shifts.push({ at: h.end, delta: h.suggestions[0].length - (h.end - h.start) });
+        cursor = h.end;
+    }
+    fixed += line.slice(cursor);
+    const shift = (pos) => pos + shifts.filter((s) => s.at <= pos).reduce((sum, s) => sum + s.delta, 0);
+    const after = new Set(gc_engine.parse(fixed, "FR", false, null, false).map((e) => `${e.sRuleId}|${e.nStart}|${e.nEnd}`));
+    const overlaps = (e) => found.some((h) => e.start < h.end && e.end > h.start);
+    const kept = grammar.filter((e) => !overlaps(e) && after.has(`${e.rule}|${shift(e.start)}|${shift(e.end)}`));
+    return { grammar: kept, extra: found };
+}
+
 function check(text) {
     const start = performance.now();
     const matches = [];
@@ -410,7 +441,9 @@ function check(text) {
                 suggestions: err.aSuggestions || [],
                 rule: err.sRuleId,
             }));
-            for (const match of groupLinkedErrors(line, grammar)) {
+            const { grammar: independent, extra } = addHomophones(line, grammar);
+            const grouped = groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start));
+            for (const match of [...grouped, ...extra]) {
                 matches.push({ ...match, start: offset + match.start, end: offset + match.end });
             }
             for (const err of spellChecker.parseParagraph(line)) {

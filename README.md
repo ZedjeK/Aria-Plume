@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.9 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.10 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -22,6 +22,7 @@ ODL = **O**util **D**e **L**angage.
 | --- | --- | --- |
 | **Correction en direct** | Souligne les fautes pendant que tu écris, dans n'importe quel champ (Gmail, Discord, claude.ai…). Clic droit sur un mot souligné : l'infobulle propose la correction | Grammalecte (français), Harper (anglais) |
 | **Accords complets** | Quand un accord touche plusieurs mots, une seule vague couvre le passage et propose la phrase entièrement corrigée (« Les enfant sont prêt » → « Les enfants sont prêts ») | Grammalecte, relancé jusqu'à ce que le passage soit sans faute |
+| **Homophones** | Ce que Grammalecte laisse passer : « **Sa** marche pas » → *Ça*, « le serveur **et** tombé » → *est*, « il **à** fini » → *a*, « **ces** pas grave » → *C'est*, « il **ses** trompé » → *s'est*, « ils **on** fini » → *ont*. Règles prudentes : dans le doute, rien n'est souligné | Règles d'Aria sur la morphologie de Grammalecte |
 | **Panneau complet** | Toutes les fautes du champ actif ou de la sélection, avec leur explication | Grammalecte, Harper |
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
 | **Traduction de page** | Toute la page, au fil du défilement, liens et mise en forme conservés, bascule original ↔ traduction | Bergamot + modèles Mozilla |
@@ -71,7 +72,8 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 
 ### Limites à connaître
 
-- Grammalecte rate certains homophones : « **Sa** marche pas », « le serveur **et** tombé ».
+- Les règles d'homophones sont prudentes et laissent passer les cas ambigus (« **Sa** plante encore », où « plante » peut être un nom) et les mots inconnus du dictionnaire.
+- Les homophones couverts sont sa/ça, et/est, a/à, ces/ses/c'est/s'est et on/ont ; son/sont, ou/où ou ce/se restent à la charge de Grammalecte.
 - La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Le glossaire corrige les termes que tu y mets ; relis le reste du jargon technique.
 - Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
 - La traduction de page ne traite pas le contenu des iframes, et traduit toute la page dans le même sens.
@@ -98,6 +100,7 @@ extension/
 ├── offscreen/                  # document caché qui héberge les moteurs, glossaire de traduction
 ├── workers/
 │   ├── fr_worker.js            # Grammalecte : suggestions améliorées, accords complets
+│   ├── fr_homophones.js        # règles d'homophones (sa/ça, et/est, a/à, c'est/s'est, on/ont)
 │   └── en_worker.js            # Harper
 ├── content/
 │   ├── checker.js              # script de page : vagues, infobulles, panneau, traduction
@@ -109,6 +112,8 @@ extension/
 ├── icons/                      # logo (SVG) et icônes de l'extension
 ├── engines/                    # Grammalecte, Harper, Bergamot (tiers, non modifiés)
 └── models/                     # modèles de traduction Mozilla (gzip) et leurs empreintes
+tests/
+└── homophones/                 # corpus de phrases justes et fautives : node tests/homophones/run.js
 ```
 
 ## Licence
