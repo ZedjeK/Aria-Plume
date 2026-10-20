@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.8 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.9 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -26,7 +26,8 @@ ODL = **O**util **D**e **L**angage.
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
 | **Traduction de page** | Toute la page, au fil du défilement, liens et mise en forme conservés, bascule original ↔ traduction | Bergamot + modèles Mozilla |
 | **Dictionnaire personnel** | « Ajouter au dictionnaire » dans l'infobulle ou le panneau : le mot n'est plus souligné, en français comme en anglais, et il est proposé quand tu l'écris avec une faute de frappe. Liste modifiable, import et export en .txt | — |
-| **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire et sites désactivés, export et import dans un fichier | — |
+| **Glossaire de traduction** | Impose la traduction d'un terme dans les deux sens (« serveur ↔ server » : fini le « waiter ») et garde tels quels les termes à ne jamais traduire (« logs », « VLAN »). Vaut pour la sélection, la page entière et la traduction rapide | Bergamot, guidé par des marqueurs posés autour des termes |
+| **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.
@@ -58,7 +59,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 - **Aucun accès réseau** : la politique de sécurité de l'extension (`connect-src 'self'`) bride le service worker, le document offscreen et les moteurs : même en cas de bug, ils ne peuvent rien envoyer à l'extérieur. Le script injecté dans les pages n'est pas couvert par cette politique, mais il ne fait aucun appel réseau et ne communique qu'avec l'extension. Les moteurs et les modèles sont dans le dossier `extension`.
 - **Champs ignorés** : les champs de mot de passe, ceux que le site déclare comme numéro de carte bancaire ou code à usage unique (attribut `autocomplete`) et les éditeurs de code ne sont jamais lus. Un champ sensible mal balisé par le site peut être analysé, mais toujours en local.
 - **Modèles vérifiés** : l'empreinte SHA-256 publiée par Mozilla est contrôlée à chaque chargement d'un modèle.
-- **Rien d'envoyé** : les réglages, les mots ignorés et le dictionnaire personnel restent dans le stockage local du navigateur ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
+- **Rien d'envoyé** : les réglages, les mots ignorés, le dictionnaire personnel et le glossaire restent dans le stockage local du navigateur ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
 
 | Permission | Pourquoi |
 | --- | --- |
@@ -66,12 +67,13 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 | `offscreen` | Faire tourner les moteurs WebAssembly dans un document caché de l'extension |
 | `scripting` | Réinjecter le script dans un onglet ouvert avant une mise à jour de l'extension |
 | `contextMenus` | Entrées du clic droit |
-| `storage` | Réglages, mots ignorés, dictionnaire personnel et textes de la traduction rapide |
+| `storage` | Réglages, mots ignorés, dictionnaire personnel, glossaire et textes de la traduction rapide |
 
 ### Limites à connaître
 
 - Grammalecte rate certains homophones : « **Sa** marche pas », « le serveur **et** tombé ».
-- La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Relis le jargon technique.
+- La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Le glossaire corrige les termes que tu y mets ; relis le reste du jargon technique.
+- Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
 - La traduction de page ne traite pas le contenu des iframes, et traduit toute la page dans le même sens.
 - Les applications de bureau (Discord, Gmail…) et Google Docs, qui dessine son texte sur un canvas, sont hors de portée d'une extension.
 - Projet personnel, sans audit de sécurité indépendant.
@@ -93,7 +95,7 @@ Les fichiers des moteurs sont copiés sans modification depuis leur source offic
 extension/
 ├── manifest.json               # Manifest V3 : permissions, raccourcis, CSP sans réseau
 ├── background.js               # service worker : menus, raccourcis, détection de langue, routage
-├── offscreen/                  # document caché qui héberge les moteurs
+├── offscreen/                  # document caché qui héberge les moteurs, glossaire de traduction
 ├── workers/
 │   ├── fr_worker.js            # Grammalecte : suggestions améliorées, accords complets
 │   └── en_worker.js            # Harper

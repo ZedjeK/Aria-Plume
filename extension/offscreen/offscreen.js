@@ -4,6 +4,8 @@
 //   - en : Harper (worker module, WebAssembly)
 //   - traduction : Bergamot (son propre worker, WebAssembly) + modèles Mozilla compressés en gzip
 
+import { prepareGlossary } from "./glossary.js";
+
 class WorkerClient {
     constructor(url, options) {
         this.worker = new Worker(url, options);
@@ -135,18 +137,20 @@ async function handle(msg) {
             const pair = `${msg.from}-${msg.to}`;
             const pairCold = !warmPairs.has(pair);
             const start = performance.now();
+            const prepared = prepareGlossary(msg);
             const response = await translator.translate({
                 from: msg.from,
                 to: msg.to,
-                text: msg.text,
-                html: !!msg.html,
+                text: prepared ? prepared.html : msg.text,
+                html: prepared ? true : !!msg.html,
                 priority: msg.priority ?? 0,
                 jobId: msg.jobId ?? null,
             });
             warmPairs.add(pair);
             return {
                 ok: true,
-                text: response.target.text,
+                text: prepared ? prepared.finish(response.target.text) : response.target.text,
+                glossaryHits: prepared?.hits ?? 0,
                 engineMs: performance.now() - start,
                 loadMs: cold ? loadTimes.translation : 0,
                 cold,

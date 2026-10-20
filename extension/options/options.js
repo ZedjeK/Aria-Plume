@@ -1,6 +1,6 @@
 // Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, sanitize, splitWords, loadSettings } from "../shared/settings.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
@@ -54,6 +54,7 @@ function render() {
     );
 
     renderDictionary();
+    renderGlossary();
 
     $("#ignoredCount").textContent = settings.ignored.length;
     $("#ignored").replaceChildren(...settings.ignored.map((entry, index) => {
@@ -89,6 +90,62 @@ function renderDictionary() {
     $("#dictExport").disabled = settings.dictionary.length === 0;
 }
 
+function renderGlossary() {
+    const pairs = [...settings.glossary].sort((a, b) => a.fr.localeCompare(b.fr, "fr", { sensitivity: "base" }));
+    $("#glossaryCount").textContent = settings.glossary.length;
+    $("#glossary").replaceChildren(...pairs.map((pair) => {
+        const remove = el("button", { textContent: "×", title: "Retirer du glossaire" });
+        remove.setAttribute("aria-label", `Retirer « ${pair.fr} ↔ ${pair.en} » du glossaire`);
+        remove.addEventListener("click", () => save({ glossary: settings.glossary.filter((p) => p.fr !== pair.fr || p.en !== pair.en) }));
+        return el("li", {}, el("span", { className: "pair-fr", textContent: pair.fr }), el("span", { className: "pair-sep", textContent: "↔" }), el("span", { className: "pair-en", textContent: pair.en }), remove);
+    }));
+    const terms = [...settings.keepTerms].sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+    $("#keepCount").textContent = settings.keepTerms.length;
+    $("#keepTerms").replaceChildren(...terms.map((term) => {
+        const remove = el("button", { textContent: "×", title: "Laisser traduire ce terme" });
+        remove.setAttribute("aria-label", `Retirer « ${term} » des termes à ne pas traduire`);
+        remove.addEventListener("click", () => save({ keepTerms: settings.keepTerms.filter((t) => t !== term) }));
+        return el("li", {}, el("span", { className: "word", textContent: term }), remove);
+    }));
+    $("#clearGlossary").disabled = settings.glossary.length === 0 && settings.keepTerms.length === 0;
+}
+
+function setGlossaryStatus(text, kind) {
+    const status = $("#glossaryStatus");
+    status.textContent = text;
+    status.className = `status ${kind}`;
+}
+
+const INVALID_TERM = "Terme invalide : lettres, chiffres, apostrophe, point ou tiret, quatre mots et 60 caractères au plus.";
+
+async function addPair(frText, enText) {
+    const fr = cleanTerm(frText);
+    const en = cleanTerm(enText);
+    if (!fr || !en) {
+        setGlossaryStatus(INVALID_TERM, "ko");
+        return false;
+    }
+    // Un terme français n'a qu'une traduction imposée : la nouvelle remplace l'ancienne (idem côté anglais).
+    const rest = settings.glossary.filter((p) => p.fr.toLowerCase() !== fr.toLowerCase() && p.en.toLowerCase() !== en.toLowerCase());
+    const replaced = settings.glossary.length - rest.length;
+    await save({ glossary: [...rest, { fr, en }].slice(-MAX_GLOSSARY) });
+    setGlossaryStatus(replaced ? `« ${fr} ↔ ${en} » remplace l'ancienne traduction.` : `« ${fr} ↔ ${en} » ajouté.`, "ok");
+    return true;
+}
+
+async function addKeepTerms(text) {
+    const terms = [...new Set(String(text).split(/[,;\n]+/u).map(cleanTerm).filter(Boolean))];
+    if (terms.length === 0) {
+        setGlossaryStatus(INVALID_TERM, "ko");
+        return false;
+    }
+    const known = new Set(settings.keepTerms.map((t) => t.toLowerCase()));
+    const fresh = terms.filter((t) => !known.has(t.toLowerCase()));
+    await save({ keepTerms: [...settings.keepTerms, ...fresh].slice(-MAX_GLOSSARY) });
+    setGlossaryStatus(fresh.length ? `${fresh.length} terme${fresh.length > 1 ? "s" : ""} ajouté${fresh.length > 1 ? "s" : ""}.` : "Déjà dans la liste.", "ok");
+    return true;
+}
+
 function setDictStatus(text, kind) {
     const status = $("#dictStatus");
     status.textContent = text;
@@ -113,6 +170,22 @@ function build() {
         $("#dictInput").value = "";
     });
     $("#dictFilter").addEventListener("input", renderDictionary);
+
+    $("#glossaryForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (await addPair($("#glossaryFr").value, $("#glossaryEn").value)) {
+            $("#glossaryFr").value = "";
+            $("#glossaryEn").value = "";
+            $("#glossaryFr").focus();
+        }
+    });
+    $("#keepForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (await addKeepTerms($("#keepInput").value)) {
+            $("#keepInput").value = "";
+        }
+    });
+    $("#clearGlossary").addEventListener("click", () => save({ glossary: [], keepTerms: [] }));
     $("#clearDict").addEventListener("click", () => save({ dictionary: [] }));
     $("#dictExport").addEventListener("click", () => {
         const blob = new Blob([[...settings.dictionary].sort().join("\n") + "\n"], { type: "text/plain" });

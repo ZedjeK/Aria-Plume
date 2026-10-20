@@ -28,6 +28,8 @@ export const DEFAULTS = {
     colors: DEFAULT_COLORS,
     ignored: [],
     dictionary: [],
+    glossary: [],
+    keepTerms: [],
 };
 
 export const MAX_DICTIONARY = 5000;
@@ -37,6 +39,16 @@ export const DICTIONARY_WORD = /^[\p{L}\p{N}][\p{L}\p{N}'’._-]{0,59}$/u;
 // « Elegoo, systemd ; VLAN » → ["Elegoo", "systemd", "VLAN"] (mots valides seulement).
 export function splitWords(text) {
     return [...new Set(String(text).split(/[\s,;]+/u).map((w) => w.trim()).filter((w) => DICTIONARY_WORD.test(w)))];
+}
+
+export const MAX_GLOSSARY = 500;
+// Un terme du glossaire : un à quatre mots (lettres, chiffres, apostrophe, point, tiret), 60 caractères au plus.
+export const GLOSSARY_TERM = /^[\p{L}\p{N}][\p{L}\p{N}'’._-]*(?: [\p{L}\p{N}'’._-]+){0,3}$/u;
+
+// Nettoie un terme saisi : espaces multiples réduits, 60 caractères au plus. Renvoie "" s'il n'est pas valide.
+export function cleanTerm(text) {
+    const term = String(text ?? "").trim().replace(/\s+/gu, " ");
+    return term.length <= 60 && GLOSSARY_TERM.test(term) ? term : "";
 }
 
 export const DEBOUNCE_RANGE = { min: 200, max: 2000, step: 100 };
@@ -80,6 +92,23 @@ export function sanitize(input) {
     }
     if (Array.isArray(input.dictionary)) {
         result.dictionary = [...new Set(input.dictionary.filter(isString).map((w) => w.trim()).filter((w) => DICTIONARY_WORD.test(w)))].slice(-MAX_DICTIONARY);
+    }
+    if (Array.isArray(input.glossary)) {
+        const seen = new Set();
+        result.glossary = [];
+        for (const entry of input.glossary) {
+            const fr = cleanTerm(entry?.fr);
+            const en = cleanTerm(entry?.en);
+            const key = `${fr.toLowerCase()}|${en.toLowerCase()}`;
+            if (fr && en && !seen.has(key)) {
+                seen.add(key);
+                result.glossary.push({ fr, en });
+            }
+        }
+        result.glossary = result.glossary.slice(-MAX_GLOSSARY);
+    }
+    if (Array.isArray(input.keepTerms)) {
+        result.keepTerms = [...new Set(input.keepTerms.map(cleanTerm).filter(Boolean))].slice(-MAX_GLOSSARY);
     }
     if (Array.isArray(input.ignored)) {
         result.ignored = input.ignored

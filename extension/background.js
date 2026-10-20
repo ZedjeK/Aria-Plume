@@ -261,7 +261,9 @@ async function resolvePair(msg) {
 async function translate(msg) {
     const offscreenCreated = await ensureOffscreen();
     const { from, to, detection } = await resolvePair(msg);
-    const common = { cmd: "translate", from, to, html: !!msg.html, priority: msg.priority ?? 0, jobId: msg.jobId ?? null };
+    const { glossary, keepTerms } = await chrome.storage.local.get({ glossary: [], keepTerms: [] });
+    const glossaryData = glossary.length || keepTerms.length ? { glossary, keepTerms } : null;
+    const common = { cmd: "translate", from, to, html: !!msg.html, priority: msg.priority ?? 0, jobId: msg.jobId ?? null, glossary: glossaryData };
     // Texte brut sur plusieurs lignes : chaque ligne est traduite à part, les sauts de ligne restent en place.
     const lines = msg.html ? [msg.text] : msg.text.split("\n");
     if (lines.length > 1) {
@@ -273,6 +275,7 @@ async function translate(msg) {
             engineMs: Math.max(...results.map((r) => r.engineMs ?? 0)),
             pairCold: results.some((r) => r.pairCold),
             loadMs: Math.max(...results.map((r) => r.loadMs ?? 0)),
+            glossaryHits: results.reduce((sum, r) => sum + (r.glossaryHits ?? 0), 0),
             from,
             to,
             detection,

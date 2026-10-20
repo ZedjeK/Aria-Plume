@@ -66,6 +66,30 @@
         </section>
 
         <section>
+            <h2>Glossaire de traduction <span class="count" id="glossaryCount"></span></h2>
+            <p class="hint">Impose la traduction d'un terme, dans les deux sens : avec « serveur ↔ server », « Le serveur est tombé » donne « The server… » et non « The waiter… ». Le pluriel simple suit (serveurs → servers). S'applique à la traduction de sélection, de page et à la traduction rapide.</p>
+            <form class="add pair" id="glossaryForm">
+                <input type="text" id="glossaryFr" placeholder="Français : serveur" autocomplete="off" spellcheck="false" aria-label="Terme français">
+                <span class="arrow" aria-hidden="true">↔</span>
+                <input type="text" id="glossaryEn" placeholder="Anglais : server" autocomplete="off" spellcheck="false" aria-label="Terme anglais">
+                <button type="submit" class="primary">Ajouter</button>
+            </form>
+            <ul class="list" id="glossary"></ul>
+
+            <h3>Ne jamais traduire <span class="count" id="keepCount"></span></h3>
+            <p class="hint">Ces termes restent tels quels dans la traduction (« logs », « VLAN », « switch »…).</p>
+            <form class="add" id="keepForm">
+                <input type="text" id="keepInput" placeholder="Un ou plusieurs termes, séparés par des virgules : logs, VLAN, switch" autocomplete="off" spellcheck="false">
+                <button type="submit" class="primary">Ajouter</button>
+            </form>
+            <ul class="list words" id="keepTerms"></ul>
+            <div class="buttons">
+                <button id="clearGlossary" class="danger">Tout effacer</button>
+            </div>
+            <p class="status" id="glossaryStatus" aria-live="polite"></p>
+        </section>
+
+        <section>
             <h2>Mots ignorés <span class="count" id="ignoredCount"></span></h2>
             <p class="hint">Ce que tu as ignoré avec le bouton « Ignorer ». Supprime une ligne pour que la faute soit de nouveau signalée.</p>
             <ul class="list" id="ignored"></ul>

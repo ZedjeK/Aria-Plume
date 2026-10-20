@@ -344,3 +344,26 @@ button:hover, .button:hover, select:hover {
 .list.words li:last-child {
     border-bottom: 1px solid var(--line);
 }
+
+.add.pair {
+    align-items: center;
+}
+
+.add .arrow {
+    color: var(--cyan);
+    font-family: var(--mono);
+}
+
+.list .pair-fr, .list .pair-en {
+    font-family: var(--mono);
+    color: var(--magenta);
+}
+
+.list .pair-en {
+    flex: 1;
+    color: var(--cyan);
+}
+
+.list .pair-sep {
+    color: var(--muted);
+}
