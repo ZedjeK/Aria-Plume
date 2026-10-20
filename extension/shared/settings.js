@@ -27,7 +27,17 @@ export const DEFAULTS = {
     hideNativeSpellcheck: false,
     colors: DEFAULT_COLORS,
     ignored: [],
+    dictionary: [],
 };
+
+export const MAX_DICTIONARY = 5000;
+// Un mot du dictionnaire : lettres, chiffres, apostrophe, point, tiret, 60 caractères au plus.
+export const DICTIONARY_WORD = /^[\p{L}\p{N}][\p{L}\p{N}'’._-]{0,59}$/u;
+
+// « Elegoo, systemd ; VLAN » → ["Elegoo", "systemd", "VLAN"] (mots valides seulement).
+export function splitWords(text) {
+    return [...new Set(String(text).split(/[\s,;]+/u).map((w) => w.trim()).filter((w) => DICTIONARY_WORD.test(w)))];
+}
 
 export const DEBOUNCE_RANGE = { min: 200, max: 2000, step: 100 };
 const COLOR = /^#[0-9a-f]{6}$/i;
@@ -67,6 +77,9 @@ export function sanitize(input) {
                 result.colors[kind] = input.colors[kind].toLowerCase();
             }
         }
+    }
+    if (Array.isArray(input.dictionary)) {
+        result.dictionary = [...new Set(input.dictionary.filter(isString).map((w) => w.trim()).filter((w) => DICTIONARY_WORD.test(w)))].slice(-MAX_DICTIONARY);
     }
     if (Array.isArray(input.ignored)) {
         result.ignored = input.ignored

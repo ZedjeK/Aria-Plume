@@ -1,6 +1,6 @@
 // Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, sanitize, loadSettings } from "../shared/settings.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, sanitize, splitWords, loadSettings } from "../shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
@@ -53,6 +53,8 @@ function render() {
         el("span", { textContent: "style", style: `text-decoration-color: ${settings.colors.style}` }),
     );
 
+    renderDictionary();
+
     $("#ignoredCount").textContent = settings.ignored.length;
     $("#ignored").replaceChildren(...settings.ignored.map((entry, index) => {
         const remove = el("button", { textContent: "×", title: "Signaler de nouveau" });
@@ -71,7 +73,66 @@ function render() {
     }));
 }
 
+function renderDictionary() {
+    const filter = $("#dictFilter").value.trim().toLowerCase();
+    const words = [...settings.dictionary].sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+    const shown = filter ? words.filter((w) => w.toLowerCase().includes(filter)) : words;
+    $("#dictCount").textContent = settings.dictionary.length;
+    $("#dictionary").className = "list words";
+    $("#dictionary").replaceChildren(...shown.map((word) => {
+        const remove = el("button", { textContent: "×", title: "Retirer du dictionnaire" });
+        remove.setAttribute("aria-label", `Retirer « ${word} » du dictionnaire`);
+        remove.addEventListener("click", () => save({ dictionary: settings.dictionary.filter((w) => w !== word) }));
+        return el("li", {}, el("span", { className: "word", textContent: word }), remove);
+    }));
+    $("#clearDict").disabled = settings.dictionary.length === 0;
+    $("#dictExport").disabled = settings.dictionary.length === 0;
+}
+
+function setDictStatus(text, kind) {
+    const status = $("#dictStatus");
+    status.textContent = text;
+    status.className = `status ${kind}`;
+}
+
+async function addWords(text) {
+    const words = splitWords(text);
+    const fresh = words.filter((w) => !settings.dictionary.includes(w));
+    if (words.length === 0) {
+        setDictStatus("Aucun mot valide (lettres, chiffres, apostrophe, point ou tiret, 60 caractères au plus).", "ko");
+        return;
+    }
+    await save({ dictionary: [...settings.dictionary, ...fresh].slice(-MAX_DICTIONARY) });
+    setDictStatus(fresh.length ? `${fresh.length} mot${fresh.length > 1 ? "s" : ""} ajouté${fresh.length > 1 ? "s" : ""}.` : "Déjà dans le dictionnaire.", "ok");
+}
+
 function build() {
+    $("#dictForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await addWords($("#dictInput").value);
+        $("#dictInput").value = "";
+    });
+    $("#dictFilter").addEventListener("input", renderDictionary);
+    $("#clearDict").addEventListener("click", () => save({ dictionary: [] }));
+    $("#dictExport").addEventListener("click", () => {
+        const blob = new Blob([[...settings.dictionary].sort().join("\n") + "\n"], { type: "text/plain" });
+        const link = el("a", { href: URL.createObjectURL(blob), download: "aria-odl-dictionnaire.txt" });
+        link.click();
+        URL.revokeObjectURL(link.href);
+    });
+    $("#dictImport").addEventListener("change", async (event) => {
+        const [file] = event.target.files;
+        event.target.value = "";
+        if (!file) {
+            return;
+        }
+        if (file.size > 2_000_000) {
+            setDictStatus("Fichier trop gros.", "ko");
+            return;
+        }
+        await addWords(await file.text());
+    });
+
     const range = $("#debounceMs");
     Object.assign(range, { min: DEBOUNCE_RANGE.min, max: DEBOUNCE_RANGE.max, step: DEBOUNCE_RANGE.step });
     range.addEventListener("input", () => {

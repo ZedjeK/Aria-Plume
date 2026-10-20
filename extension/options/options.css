@@ -300,3 +300,47 @@ button:hover, .button:hover, select:hover {
 .status.ko {
     color: var(--ko);
 }
+
+.add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.add input, .filter {
+    flex: 1;
+    font: 14px var(--mono);
+    color: var(--text);
+    background: #0f1220;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+.filter {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.add input:focus, .filter:focus {
+    outline: none;
+    border-color: var(--cyan);
+}
+
+.list.words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+}
+
+.list.words li {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 4px 1px 10px;
+    gap: 4px;
+}
+
+.list.words li:last-child {
+    border-bottom: 1px solid var(--line);
+}

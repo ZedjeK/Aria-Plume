@@ -179,6 +179,57 @@ async function detectLanguage(text) {
     return { lang: "fr", supported: false, reliable: false, source: "langue non reconnue", raw: languages };
 }
 
+// Distance d'édition avec transposition (« sytemd » → « systemd » : une seule faute de frappe).
+function editDistance(a, b, limit) {
+    if (Math.abs(a.length - b.length) > limit) {
+        return limit + 1;
+    }
+    const rows = [Array.from({ length: b.length + 1 }, (_, j) => j)];
+    for (let i = 1; i <= a.length; i++) {
+        rows[i] = [i];
+        let best = i;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            let value = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                value = Math.min(value, rows[i - 2][j - 2] + 1);
+            }
+            rows[i][j] = value;
+            best = Math.min(best, value);
+        }
+        if (best > limit) {
+            return limit + 1;
+        }
+    }
+    return rows[a.length][b.length];
+}
+
+// Fautes d'orthographe proches d'un mot du dictionnaire personnel : ce mot passe en tête des suggestions.
+function suggestFromDictionary(matches, text, dictionary) {
+    if (!Array.isArray(matches) || !Array.isArray(dictionary) || dictionary.length === 0) {
+        return;
+    }
+    for (const match of matches) {
+        if (match.kind !== "orthographe") {
+            continue;
+        }
+        const word = text.slice(match.start, match.end).trim();
+        if (word.length < 3) {
+            continue;
+        }
+        const limit = word.length <= 5 ? 1 : 2;
+        const close = dictionary
+            .map((entry) => ({ entry, d: editDistance(word.toLowerCase(), entry.toLowerCase(), limit) }))
+            .filter((x) => x.d <= limit && x.d > 0)
+            .sort((x, y) => x.d - y.d)
+            .slice(0, 3)
+            .map((x) => x.entry);
+        if (close.length > 0) {
+            match.suggestions = [...new Set([...close, ...match.suggestions])].slice(0, 6);
+        }
+    }
+}
+
 async function toOffscreen(payload) {
     const response = await chrome.runtime.sendMessage({ target: "offscreen", ...payload });
     if (!response) {
@@ -249,8 +300,9 @@ async function handle(msg) {
                 lang = detection.lang;
             }
             const offscreenCreated = await ensureOffscreen();
-            const { englishDialect } = await chrome.storage.local.get({ englishDialect: "american" });
+            const { englishDialect, dictionary } = await chrome.storage.local.get({ englishDialect: "american", dictionary: [] });
             const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: englishDialect });
+            suggestFromDictionary(result.matches, msg.text, dictionary);
             return { ...result, lang, detection, offscreenCreated };
         }
         case "detect":

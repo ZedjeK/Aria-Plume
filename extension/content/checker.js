@@ -41,6 +41,7 @@
         hideNativeSpellcheck: false,
         colors: DEFAULT_COLORS,
         ignored: [],
+        dictionary: [],
     };
     const MAX_IGNORED = 2000;
     const COLOR = /^#[0-9a-f]{6}$/i;
@@ -55,7 +56,45 @@
     const ignored = new Set();
     const ignoreKey = (word, rule) => `${word}|${rule}`;
     const isIgnored = (word, rule) => ignored.has(ignoreKey(word, rule));
-    const isHidden = (match, word) => isIgnored(word, match.rule) || prefs.disabledKinds.has(match.kind);
+    // Dictionnaire personnel : un mot écrit en minuscules vaut pour toutes les casses
+    // (« systemd », « Systemd »…) ; un mot avec des majuscules (« Elegoo ») garde les siennes,
+    // ou passe tout en capitales.
+    const dictionary = { lower: new Set(), exact: new Set() };
+    function loadDictionary(words) {
+        dictionary.lower.clear();
+        dictionary.exact.clear();
+        for (const word of Array.isArray(words) ? words : []) {
+            if (typeof word === "string" && word.trim() !== "") {
+                const w = word.trim();
+                (w === w.toLowerCase() ? dictionary.lower : dictionary.exact).add(w);
+            }
+        }
+    }
+    function inDictionary(word) {
+        const w = word.trim();
+        if (dictionary.lower.has(w.toLowerCase()) || dictionary.exact.has(w)) {
+            return true;
+        }
+        return [...dictionary.exact].some((entry) => entry.toUpperCase() === w);
+    }
+    async function addToDictionary(word) {
+        const w = word.trim();
+        (w === w.toLowerCase() ? dictionary.lower : dictionary.exact).add(w);
+        try {
+            const { dictionary: list } = await chrome.storage.local.get({ dictionary: [] });
+            if (!list.includes(w)) {
+                list.push(w);
+                await chrome.storage.local.set({ dictionary: list.slice(-5000) });
+            }
+        } catch {
+            // extension rechargée : le mot reste accepté sur cette page
+        }
+    }
+    const canAddToDictionary = (match, word) => match.kind === "orthographe" && /^[\p{L}\p{N}][\p{L}\p{N}'’._-]{0,59}$/u.test(word.trim());
+
+    const isHidden = (match, word) => isIgnored(word, match.rule)
+        || prefs.disabledKinds.has(match.kind)
+        || (match.kind === "orthographe" && inDictionary(word));
 
     async function addIgnored(word, rule, kind) {
         ignored.add(ignoreKey(word, rule));
@@ -939,6 +978,16 @@
                 session.render();
                 panel.refresh();
             });
+            if (canAddToDictionary(match, item.word)) {
+                const learn = el("button", { className: "ignore", textContent: "Ajouter au dictionnaire" });
+                learn.addEventListener("click", () => {
+                    addToDictionary(item.word);
+                    this.close();
+                    session.render();
+                    panel.refresh();
+                });
+                actions.append(learn);
+            }
             actions.append(ignore);
             this.box.replaceChildren(
                 el("div", { className: "kind", textContent: `${match.kind} · ${match.detail ?? match.rule}` }),
@@ -1166,6 +1215,15 @@
                 this.render();
                 live.session?.render();
             });
+            if (canAddToDictionary(match, match.word)) {
+                const learn = el("button", { className: "ignore", textContent: "Ajouter au dictionnaire" });
+                learn.addEventListener("click", () => {
+                    addToDictionary(match.word);
+                    this.render();
+                    live.session?.render();
+                });
+                actions.append(learn);
+            }
             actions.append(ignore);
             return el("div", { className: `item ${match.kind}` },
                 el("div", { className: "kind", textContent: `${match.kind} · ${match.detail ?? match.rule}` }),
@@ -1846,6 +1904,7 @@
                 ignored.add(ignoreKey(entry.word, entry.rule));
             }
         }
+        loadDictionary(settings.dictionary);
         applyColors(settings.colors);
         live.session?.updateSpellcheck();
         live.session?.render();

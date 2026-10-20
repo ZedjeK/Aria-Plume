@@ -49,6 +49,23 @@
         </section>
 
         <section>
+            <h2>Dictionnaire personnel <span class="count" id="dictCount"></span></h2>
+            <p class="hint">Les mots que tu ajoutes ne sont plus soulignés, en français comme en anglais, et sont proposés quand tu les écris avec une faute de frappe. Un mot en minuscules vaut pour toutes les casses (« systemd ») ; un mot avec des majuscules garde les siennes (« Elegoo »).</p>
+            <form class="add" id="dictForm">
+                <input type="text" id="dictInput" placeholder="Un ou plusieurs mots : systemd, Elegoo, VLAN…" autocomplete="off" spellcheck="false">
+                <button type="submit" class="primary">Ajouter</button>
+            </form>
+            <input type="search" id="dictFilter" class="filter" placeholder="Filtrer la liste…" autocomplete="off" spellcheck="false">
+            <ul class="list" id="dictionary"></ul>
+            <div class="buttons">
+                <label class="button">Importer une liste (.txt)<input type="file" id="dictImport" accept=".txt,text/plain" hidden></label>
+                <button id="dictExport">Exporter la liste (.txt)</button>
+                <button id="clearDict" class="danger">Tout effacer</button>
+            </div>
+            <p class="status" id="dictStatus" aria-live="polite"></p>
+        </section>
+
+        <section>
             <h2>Mots ignorés <span class="count" id="ignoredCount"></span></h2>
             <p class="hint">Ce que tu as ignoré avec le bouton « Ignorer ». Supprime une ligne pour que la faute soit de nouveau signalée.</p>
             <ul class="list" id="ignored"></ul>
