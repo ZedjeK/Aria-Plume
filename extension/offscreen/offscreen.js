@@ -126,7 +126,7 @@ async function handle(msg) {
             }
             const cold = !checkers[msg.lang];
             const client = await getChecker(msg.lang);
-            const result = await client.call("check", { text: msg.text });
+            const result = await client.call("check", { text: msg.text, dialect: msg.dialect });
             return { ok: true, matches: result.matches, engineMs: result.ms, loadMs: cold ? loadTimes[msg.lang] : 0, cold };
         }
         case "translate": {

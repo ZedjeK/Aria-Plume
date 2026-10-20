@@ -249,7 +249,8 @@ async function handle(msg) {
                 lang = detection.lang;
             }
             const offscreenCreated = await ensureOffscreen();
-            const result = await toOffscreen({ cmd: "check", lang, text: msg.text });
+            const { englishDialect } = await chrome.storage.local.get({ englishDialect: "american" });
+            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: englishDialect });
             return { ...result, lang, detection, offscreenCreated };
         }
         case "detect":

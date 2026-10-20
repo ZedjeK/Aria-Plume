@@ -17,6 +17,14 @@ const KIND_MAP = {
 };
 
 let linter = null;
+let currentDialect = "american";
+const DIALECT_VALUES = {
+    american: Dialect.American,
+    british: Dialect.British,
+    canadian: Dialect.Canadian,
+    australian: Dialect.Australian,
+    indian: Dialect.Indian,
+};
 
 async function init() {
     const start = performance.now();
@@ -40,7 +48,16 @@ function codePointToUtf16(text) {
     return (index) => map[index] ?? position;
 }
 
-async function check(text) {
+// Variante d'anglais choisie dans les réglages (orthographe américaine, britannique…).
+async function useDialect(dialect) {
+    if (dialect && dialect !== currentDialect && dialect in DIALECT_VALUES) {
+        await linter.setDialect(DIALECT_VALUES[dialect]);
+        currentDialect = dialect;
+    }
+}
+
+async function check(text, dialect) {
+    await useDialect(dialect);
     const start = performance.now();
     const toUtf16 = codePointToUtf16(text);
     const lints = await linter.lint(text, { language: "plaintext" });
@@ -83,7 +100,7 @@ self.onmessage = async (event) => {
         if (cmd === "init") {
             result = await init();
         } else if (cmd === "check") {
-            result = await check(payload.text);
+            result = await check(payload.text, payload.dialect);
         } else {
             throw new Error(`Commande inconnue : ${cmd}`);
         }

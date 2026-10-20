@@ -30,14 +30,45 @@
     const SENSITIVE_AUTOCOMPLETE = /(cc-|one-time-code|password)/i;
     const KINDS = ["orthographe", "grammaire", "style", "typographie"];
     const CONTEXT_CHARS = 24;
-    const DEBOUNCE_MS = 500;
     const MAX_LIVE_CHARS = 50000;
-    const DEFAULTS = { liveEnabled: true, disabledHosts: [] };
+    // Copie de shared/settings.js (ce script n'est pas un module) : à garder alignée.
+    const DEFAULT_COLORS = { orthographe: "#e5484d", grammaire: "#f59e0b", style: "#0ea5e9" };
+    const DEFAULTS = {
+        liveEnabled: true,
+        disabledHosts: [],
+        debounceMs: 500,
+        disabledKinds: [],
+        hideNativeSpellcheck: false,
+        colors: DEFAULT_COLORS,
+        ignored: [],
+    };
+    const MAX_IGNORED = 2000;
+    const COLOR = /^#[0-9a-f]{6}$/i;
+    const prefs = {
+        debounceMs: DEFAULTS.debounceMs,
+        disabledKinds: new Set(),
+        hideNativeSpellcheck: false,
+    };
     const HIGHLIGHTS_SUPPORTED = typeof Highlight === "function" && !!globalThis.CSS?.highlights;
 
+    // Mots ignorés : gardés dans les réglages, donc valables partout et après redémarrage.
     const ignored = new Set();
     const ignoreKey = (word, rule) => `${word}|${rule}`;
     const isIgnored = (word, rule) => ignored.has(ignoreKey(word, rule));
+    const isHidden = (match, word) => isIgnored(word, match.rule) || prefs.disabledKinds.has(match.kind);
+
+    async function addIgnored(word, rule, kind) {
+        ignored.add(ignoreKey(word, rule));
+        try {
+            const { ignored: list } = await chrome.storage.local.get({ ignored: [] });
+            if (!list.some((entry) => entry.word === word && entry.rule === rule)) {
+                list.push({ word, rule, kind });
+                await chrome.storage.local.set({ ignored: list.slice(-MAX_IGNORED) });
+            }
+        } catch {
+            // extension rechargée : l'« Ignorer » reste valable pour cette page
+        }
+    }
 
     const cleanups = [];
     function listen(target, type, handler, options) {
@@ -385,6 +416,41 @@
         .single mark { text-underline-offset: 1px; text-decoration-thickness: 1px; }
     `);
 
+    // Couleurs choisies dans les réglages : une feuille pour les calques des champs,
+    // une autre adoptée par la page pour les zones éditables (non bloquée par sa CSP).
+    const MIRROR_COLOR_SHEET = sheet("");
+    const PAGE_COLOR_SHEET = sheet("");
+
+    function applyColors(colors) {
+        const c = { ...DEFAULT_COLORS };
+        for (const kind of Object.keys(DEFAULT_COLORS)) {
+            if (COLOR.test(colors?.[kind] ?? "")) {
+                c[kind] = colors[kind];
+            }
+        }
+        MIRROR_COLOR_SHEET.replaceSync(`
+            mark { text-decoration-color: ${c.orthographe}; }
+            mark.grammaire { text-decoration-color: ${c.grammaire}; }
+            mark.style, mark.typographie { text-decoration-color: ${c.style}; }
+        `);
+        PAGE_COLOR_SHEET.replaceSync(`
+            ::highlight(aria-odl-orthographe) { text-decoration-color: ${c.orthographe}; }
+            ::highlight(aria-odl-grammaire) { text-decoration-color: ${c.grammaire}; }
+            ::highlight(aria-odl-style), ::highlight(aria-odl-typographie) { text-decoration-color: ${c.style}; }
+        `);
+        const custom = Object.keys(DEFAULT_COLORS).some((kind) => c[kind] !== DEFAULT_COLORS[kind]);
+        try {
+            const adopted = document.adoptedStyleSheets;
+            if (custom && !adopted.includes(PAGE_COLOR_SHEET)) {
+                document.adoptedStyleSheets = [...adopted, PAGE_COLOR_SHEET];
+            } else if (!custom && adopted.includes(PAGE_COLOR_SHEET)) {
+                document.adoptedStyleSheets = adopted.filter((s) => s !== PAGE_COLOR_SHEET);
+            }
+        } catch {
+            // document sans feuilles adoptables : couleurs par défaut de highlight.css
+        }
+    }
+
     function createShadowHost(tag, sheets) {
         const host = document.createElement(tag);
         const root = host.attachShadow({ mode: "closed" });
@@ -490,7 +556,7 @@
             this.active = false;
             this.frame = 0;
             this.lastGeometry = "";
-            ({ host: this.host, root: this.root } = createShadowHost("aria-odl-overlay", [MIRROR_SHEET]));
+            ({ host: this.host, root: this.root } = createShadowHost("aria-odl-overlay", [MIRROR_SHEET, MIRROR_COLOR_SHEET]));
             this.mirror = el("div", { className: this.isInput ? "mirror single hidden" : "mirror hidden" });
             this.root.append(this.mirror);
             this.onMove = () => this.layout();
@@ -637,9 +703,34 @@
                 this.schedule();
             };
             this.el.addEventListener("input", this.onInput);
+            this.savedSpellcheck = undefined;
+            this.updateSpellcheck();
         }
 
-        schedule(delay = DEBOUNCE_MS) {
+        // Option « masquer le correcteur du navigateur » : on coupe le soulignement natif
+        // du champ suivi, et on remet la valeur d'origine en le quittant.
+        updateSpellcheck() {
+            if (prefs.hideNativeSpellcheck && this.savedSpellcheck === undefined) {
+                this.savedSpellcheck = this.el.getAttribute("spellcheck");
+                this.el.setAttribute("spellcheck", "false");
+            } else if (!prefs.hideNativeSpellcheck && this.savedSpellcheck !== undefined) {
+                this.restoreSpellcheck();
+            }
+        }
+
+        restoreSpellcheck() {
+            if (this.savedSpellcheck === undefined) {
+                return;
+            }
+            if (this.savedSpellcheck === null) {
+                this.el.removeAttribute("spellcheck");
+            } else {
+                this.el.setAttribute("spellcheck", this.savedSpellcheck);
+            }
+            this.savedSpellcheck = undefined;
+        }
+
+        schedule(delay = prefs.debounceMs) {
             clearTimeout(this.timer);
             this.timer = setTimeout(() => this.check(), delay);
         }
@@ -680,7 +771,7 @@
         }
 
         visibleItems() {
-            return this.items.filter((item) => !isIgnored(item.word, item.match.rule));
+            return this.items.filter((item) => !isHidden(item.match, item.word));
         }
 
         render() {
@@ -745,6 +836,7 @@
             this.disposed = true;
             clearTimeout(this.timer);
             this.el.removeEventListener("input", this.onInput);
+            this.restoreSpellcheck();
             this.painter.dispose();
         }
     }
@@ -842,7 +934,7 @@
             const actions = el("div", { className: "actions" }, ...suggestionButtons(match, (suggestion) => session.apply(item, suggestion)));
             const ignore = el("button", { className: "ignore", textContent: "Ignorer" });
             ignore.addEventListener("click", () => {
-                ignored.add(ignoreKey(item.word, match.rule));
+                addIgnored(item.word, match.rule, match.kind);
                 this.close();
                 session.render();
                 panel.refresh();
@@ -1046,7 +1138,7 @@
         render() {
             const state = this.state;
             const { full } = state.checked;
-            const visible = state.matches.filter((m) => !isIgnored(m.word, m.rule));
+            const visible = state.matches.filter((m) => !isHidden(m, m.word));
             const scopeLabel = state.scope.whole ? "" : " · sélection";
             if (visible.length === 0) {
                 this.info.textContent = `${state.lang}${scopeLabel}`;
@@ -1070,7 +1162,7 @@
             }
             const ignore = el("button", { className: "ignore", textContent: "Ignorer" });
             ignore.addEventListener("click", () => {
-                ignored.add(ignoreKey(match.word, match.rule));
+                addIgnored(match.word, match.rule, match.kind);
                 this.render();
                 live.session?.render();
             });
@@ -1745,6 +1837,20 @@
         } catch {
             return;
         }
+        prefs.debounceMs = Number.isFinite(settings.debounceMs) ? Math.min(2000, Math.max(200, settings.debounceMs)) : DEFAULTS.debounceMs;
+        prefs.disabledKinds = new Set(Array.isArray(settings.disabledKinds) ? settings.disabledKinds : []);
+        prefs.hideNativeSpellcheck = settings.hideNativeSpellcheck === true;
+        ignored.clear();
+        for (const entry of Array.isArray(settings.ignored) ? settings.ignored : []) {
+            if (entry && typeof entry.word === "string" && typeof entry.rule === "string") {
+                ignored.add(ignoreKey(entry.word, entry.rule));
+            }
+        }
+        applyColors(settings.colors);
+        live.session?.updateSpellcheck();
+        live.session?.render();
+        panel.refresh();
+
         const enabled = settings.liveEnabled && !settings.disabledHosts.includes(siteHost());
         if (enabled === live.enabled) {
             return;

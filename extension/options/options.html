@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aria ODL — réglages</title>
+    <link rel="stylesheet" href="options.css">
+    <script type="module" src="options.js"></script>
+</head>
+<body>
+    <header>
+        <h1><img src="../icons/icon-48.png" width="36" height="36" alt="">Aria ODL <span class="tag">réglages</span></h1>
+        <span id="saved" class="saved" aria-live="polite"></span>
+    </header>
+
+    <main>
+        <section>
+            <h2>Correction en direct</h2>
+            <label class="row">
+                <span><strong>Activer la correction en direct</strong><small>Souligne les fautes pendant que tu écris.</small></span>
+                <input type="checkbox" id="liveEnabled" class="toggle">
+            </label>
+            <label class="row">
+                <span><strong>Délai avant analyse</strong><small>Temps d'attente après ta dernière frappe.</small></span>
+                <span class="range"><input type="range" id="debounceMs"><output id="debounceValue"></output></span>
+            </label>
+            <label class="row">
+                <span><strong>Masquer le correcteur du navigateur</strong><small>Retire le soulignement rouge d'Opera dans le champ où tu écris, pour ne garder que celui d'Aria. Rétabli quand tu quittes le champ.</small></span>
+                <input type="checkbox" id="hideNativeSpellcheck" class="toggle">
+            </label>
+        </section>
+
+        <section>
+            <h2>Ce qui est signalé</h2>
+            <p class="hint">Décoche une catégorie pour ne plus la voir soulignée, ni dans le panneau.</p>
+            <div class="kinds" id="kinds"></div>
+            <h3>Couleurs des vagues</h3>
+            <div class="colors" id="colors"></div>
+            <p class="preview" id="preview"></p>
+            <button id="resetColors">Couleurs d'origine</button>
+        </section>
+
+        <section>
+            <h2>Anglais</h2>
+            <label class="row">
+                <span><strong>Variante</strong><small>Orthographe de référence pour le correcteur anglais (color / colour…).</small></span>
+                <select id="englishDialect"></select>
+            </label>
+        </section>
+
+        <section>
+            <h2>Mots ignorés <span class="count" id="ignoredCount"></span></h2>
+            <p class="hint">Ce que tu as ignoré avec le bouton « Ignorer ». Supprime une ligne pour que la faute soit de nouveau signalée.</p>
+            <ul class="list" id="ignored"></ul>
+            <button id="clearIgnored" class="danger">Tout effacer</button>
+        </section>
+
+        <section>
+            <h2>Sites désactivés <span class="count" id="hostsCount"></span></h2>
+            <p class="hint">Sites où la correction en direct est coupée (interrupteur « Actif sur ce site » de la popup).</p>
+            <ul class="list" id="hosts"></ul>
+        </section>
+
+        <section>
+            <h2>Sauvegarde</h2>
+            <p class="hint">Exporte tes réglages dans un fichier pour les retrouver sur un autre PC. Le fichier reste chez toi : rien n'est envoyé.</p>
+            <div class="buttons">
+                <button id="export" class="primary">Exporter</button>
+                <label class="button primary">Importer<input type="file" id="import" accept="application/json,.json" hidden></label>
+            </div>
+            <p class="status" id="ioStatus" aria-live="polite"></p>
+        </section>
+    </main>
+</body>
+</html>

@@ -97,6 +97,11 @@ $("#translate-page").addEventListener("click", async () => {
     done();
 });
 
+$("#options").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+    done();
+});
+
 $("#bench").addEventListener("click", async () => {
     await chrome.tabs.create({ url: chrome.runtime.getURL("test/test.html"), ...(tab ? { windowId: tab.windowId } : {}) });
     done();
