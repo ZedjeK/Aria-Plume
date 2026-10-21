@@ -424,6 +424,11 @@
         button.ignore { color: #8b91a8; font-size: 12px; }
         button.close { border: none; background: none; font-size: 18px; line-height: 1; padding: 0 4px; color: #8b91a8; }
         .none, .ro { color: #8b91a8; font-style: italic; font-size: 13px; }
+        .fixall { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; border-bottom: 1px solid #262c40; margin-bottom: 2px; }
+        .fixall small { color: #8b91a8; font-size: 12px; }
+        button.primary { color: #12162a; background: #3ee6ff; border-color: #3ee6ff; font-weight: 600; }
+        button.primary:hover, button.primary:focus-visible { background: #7af0ff; }
+        .done { color: #4ade80; font: 12px Consolas, "Cascadia Code", monospace; padding: 6px 0 2px; }
     `);
 
     const MIRROR_SHEET = sheet(`
@@ -1198,11 +1203,86 @@
             if (visible.length === 0) {
                 this.info.textContent = `${state.lang}${scopeLabel}`;
                 this.message("Aucune faute détectée ✨", "ok");
+                if (state.fixed) {
+                    this.body.prepend(this.doneLine());
+                }
                 return;
             }
             this.info.textContent = `${state.lang} · ${visible.length} à corriger${scopeLabel}`;
-            this.body.replaceChildren(...visible.map((match) => this.renderItem(match, full)));
+            const top = [];
+            if (state.fixed) {
+                top.push(this.doneLine());
+            }
+            const fixable = this.fixable(visible);
+            if (state.target.editable && fixable.length > 0) {
+                const button = el("button", { className: "primary", textContent: `Tout corriger (${fixable.length})` });
+                button.title = "Applique la première suggestion de chaque faute d'orthographe et de grammaire";
+                button.addEventListener("click", () => this.applyAll());
+                top.push(el("div", { className: "fixall" }, button, el("small", { textContent: "orthographe et grammaire" })));
+            }
+            this.body.replaceChildren(...top, ...visible.map((match) => this.renderItem(match, full)));
             this.place();
+        },
+
+        doneLine() {
+            const { count, undoSteps } = this.state.fixed;
+            const undo = undoSteps > 1 ? `Ctrl+Z × ${undoSteps} pour annuler` : "Ctrl+Z pour annuler";
+            return el("div", { className: "done", textContent: `✓ ${count} correction${count > 1 ? "s" : ""} appliquée${count > 1 ? "s" : ""} · ${undo}` });
+        },
+
+        // « Tout corriger » : orthographe et grammaire avec au moins une suggestion,
+        // sans chevauchement (on garde la première faute d'un passage qui se recoupe).
+        fixable(visible) {
+            const list = visible
+                .filter((m) => (m.kind === "orthographe" || m.kind === "grammaire") && m.suggestions.length > 0)
+                .sort((a, b) => a.start - b.start || b.end - a.end);
+            const kept = [];
+            for (const match of list) {
+                if (!kept.length || match.start >= kept.at(-1).end) {
+                    kept.push(match);
+                }
+            }
+            return kept;
+        },
+
+        applyAll() {
+            const state = this.state;
+            if (state.target.getText() !== state.checked.full) {
+                this.analyze();  // le texte a changé depuis l'analyse
+                return;
+            }
+            const fixes = this.fixable(state.matches.filter((m) => !isHidden(m, m.word)));
+            if (fixes.length === 0) {
+                return;
+            }
+            const full = state.checked.full;
+            const delta = fixes.reduce((sum, m) => sum + m.suggestions[0].length - (m.end - m.start), 0);
+            let undoSteps = 1;
+            if (state.target instanceof FieldTarget) {
+                // Champ de texte : une seule insertion du passage corrigé, donc un seul Ctrl+Z.
+                const from = fixes[0].start;
+                const to = fixes.at(-1).end;
+                let fixed = "";
+                let cursor = from;
+                for (const match of fixes) {
+                    fixed += full.slice(cursor, match.start) + match.suggestions[0];
+                    cursor = match.end;
+                }
+                fixed += full.slice(cursor, to);
+                state.target.replace(from, to, fixed);
+            } else {
+                // Zone éditable : une correction à la fois, de la fin vers le début (les positions
+                // avant restent justes), pour ne pas écraser la mise en forme entre deux fautes.
+                for (const match of [...fixes].reverse()) {
+                    state.target.replace(match.start, match.end, match.suggestions[0]);
+                }
+                undoSteps = fixes.length;
+            }
+            if (!state.scope.whole) {
+                state.scope.end += delta;
+            }
+            state.fixed = { count: fixes.length, undoSteps };
+            this.analyze();
         },
 
         renderItem(match, full) {
@@ -1249,6 +1329,7 @@
             if (!state.scope.whole) {
                 state.scope.end += suggestion.length - (match.end - match.start);
             }
+            state.fixed = null;
             this.analyze();
         },
 
