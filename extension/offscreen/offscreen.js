@@ -158,6 +158,10 @@ async function handle(msg) {
                 pairCold,
             };
         }
+        case "conjugate": {
+            const client = await getChecker("fr");
+            return { ok: true, ...(await client.call("conjugate", { verb: msg.verb, options: msg.options ?? {} })) };
+        }
         case "synonyms": {
             if (msg.lang === "en") {
                 return { ok: true, ...(await englishSynonyms(msg.word)) };

@@ -43,7 +43,12 @@
         <button id="bench">Banc d'essai</button>
     </div>
 
-    <section class="quick" aria-label="Traduction rapide">
+    <div class="tabs" role="tablist" aria-label="Outils">
+        <button role="tab" id="tab-quick" aria-controls="panel-quick" aria-selected="true">Traduction</button>
+        <button role="tab" id="tab-conj" aria-controls="panel-conj" aria-selected="false">Conjugaison</button>
+    </div>
+
+    <section class="quick" id="panel-quick" role="tabpanel" aria-labelledby="tab-quick">
         <div class="quick-head">
             <strong>Traduction</strong>
             <span id="qt-status" class="qt-status"></span>
@@ -65,6 +70,22 @@
             <textarea id="qt-b" rows="4" spellcheck="false" placeholder="… ou écris ici : l'autre bulle se traduit."></textarea>
         </div>
         </div>
+    </section>
+
+    <section class="conj" id="panel-conj" role="tabpanel" aria-labelledby="tab-conj" hidden>
+        <form class="conj-form" id="conj-form">
+            <input type="text" id="conj-verb" placeholder="Un verbe : marcher, se lever, ou même « marchait »" autocomplete="off" spellcheck="false" aria-label="Verbe à conjuguer">
+            <button type="submit" class="primary">Conjuguer</button>
+        </form>
+        <div class="conj-options" id="conj-options">
+            <label><input type="checkbox" data-option="pronominal"> Pronominal</label>
+            <label><input type="checkbox" data-option="negative"> Négation</label>
+            <label><input type="checkbox" data-option="interrogative"> Interrogatif</label>
+            <label><input type="checkbox" data-option="compound"> Temps composés</label>
+            <label><input type="checkbox" data-option="feminine"> Féminin</label>
+        </div>
+        <div class="conj-info" id="conj-info" aria-live="polite"></div>
+        <div class="conj-results" id="conj-results"></div>
     </section>
     <p class="hint">Clic droit sur un mot souligné pour le corriger · Alt+Maj+V : panneau complet · Alt+Maj+L : traduire la sélection</p>
 </body>

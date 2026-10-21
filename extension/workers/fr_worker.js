@@ -533,6 +533,80 @@ function synonyms(word) {
     return { word: clean, lemma: lemmas.join(", ") || clean, inflected, groups: groups.slice(0, MAX_SYNONYM_GROUPS) };
 }
 
+// --- Conjugueur ---
+// Module de conjugaison de Grammalecte (classe Verb). On accepte aussi une forme conjuguée
+// (« marchait » → « marcher ») et un verbe pronominal (« se lever », « s'asseoir »).
+function findInfinitive(input) {
+    let word = input.trim().replace(/’/g, "'").replace(/\s+/g, " ");
+    let pronominal = false;
+    const pro = /^(?:se |s')(.+)$/iu.exec(word);
+    if (pro) {
+        word = pro[1];
+        pronominal = true;
+    }
+    const candidates = [word, word.toLowerCase()];
+    for (const candidate of candidates) {
+        if (conj.isVerb(candidate)) {
+            return { infinitive: candidate, pronominal, fromForm: false };
+        }
+    }
+    const lemmas = [];
+    for (const candidate of candidates) {
+        for (const morph of spellChecker.getMorph(candidate)) {
+            const lemma = morph.slice(1, morph.indexOf("/"));
+            if (/:V/.test(morph) && conj.isVerb(lemma) && !lemmas.includes(lemma)) {
+                lemmas.push(lemma);
+            }
+        }
+    }
+    return lemmas.length ? { infinitive: lemmas[0], others: lemmas.slice(1), pronominal, fromForm: true } : null;
+}
+
+function conjugate(input, options = {}) {
+    if (!String(input ?? "").trim()) {
+        throw new Error("Aucun verbe à conjuguer.");
+    }
+    const found = findInfinitive(String(input).slice(0, 60));
+    if (!found) {
+        // Proposer des verbes proches (« conjuger » → « conjuguer »).
+        const word = String(input).trim().toLowerCase();
+        const suggestions = spellSuggestions(word).filter((w) => conj.isVerb(w)).slice(0, 5);
+        return { found: false, input: String(input).trim(), suggestions };
+    }
+    const verb = new Verb(found.infinitive);
+    // Pronominal : impossible (-1), possible (0), obligatoire (1), cas particuliers (2).
+    const pronominal = verb.nPronominable === 1 || (verb.nPronominable !== -1 && (options.pronominal || found.pronominal));
+    const negative = !!options.negative;
+    const compound = !!options.compound;
+    const interrogative = !!options.interrogative;
+    const feminine = !!options.feminine;
+    const t = verb.createConjTable(pronominal, negative, compound, interrogative, feminine);
+    const persons = (prefix, count = 6) => Array.from({ length: count }, (_, i) => t[`${prefix}${i + 1}`] ?? "");
+    const tense = (title, prefix, count) => (t[title] ? { name: t[title], forms: persons(prefix, count) } : null);
+    const moods = [
+        { name: "Indicatif", tenses: [tense("t_ipre", "ipre"), tense("t_iimp", "iimp"), tense("t_ipsi", "ipsi"), tense("t_ifut", "ifut")] },
+        { name: "Subjonctif", tenses: [tense("t_spre", "spre"), tense("t_simp", "simp")] },
+        { name: "Conditionnel", tenses: [tense("t_conda", "conda"), tense("t_condb", "condb")] },
+        { name: "Impératif", tenses: [tense("t_impe", "impe", 3)] },
+    ].map((mood) => ({ ...mood, tenses: mood.tenses.filter((x) => x && x.forms.some(Boolean)) })).filter((mood) => mood.tenses.length);
+    return {
+        found: true,
+        input: String(input).trim(),
+        infinitive: found.infinitive,
+        others: found.others ?? [],
+        fromForm: found.fromForm,
+        info: verb.sInfo,
+        auxiliary: verb.sVerbAux,
+        pronominable: verb.nPronominable,
+        incomplete: verb.bUncomplete,
+        options: { pronominal, negative, compound, interrogative, feminine },
+        infinitiveForm: t.infi,
+        presentParticiple: t.ppre,
+        pastParticiples: [t.ppas1, t.ppas2, t.ppas3, t.ppas4].filter(Boolean),
+        moods,
+    };
+}
+
 // --- Homophones ---
 // Nos règles (fr_homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
 // phrase est réanalysée avec la correction : les fautes que Grammalecte signalait
@@ -608,6 +682,8 @@ self.onmessage = (event) => {
             result = init();
         } else if (cmd === "check") {
             result = check(payload.text);
+        } else if (cmd === "conjugate") {
+            result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {
             result = synonyms(payload.word);
         } else {

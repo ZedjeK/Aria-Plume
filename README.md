@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.11 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.12 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -24,6 +24,7 @@ ODL = **O**util **D**e **L**angage.
 | **Accords complets** | Quand un accord touche plusieurs mots, une seule vague couvre le passage et propose la phrase entièrement corrigée (« Les enfant sont prêt » → « Les enfants sont prêts ») | Grammalecte, relancé jusqu'à ce que le passage soit sans faute |
 | **Homophones** | Ce que Grammalecte laisse passer : « **Sa** marche pas » → *Ça*, « le serveur **et** tombé » → *est*, « il **à** fini » → *a*, « **ces** pas grave » → *C'est*, « il **ses** trompé » → *s'est*, « ils **on** fini » → *ont*. Règles prudentes : dans le doute, rien n'est souligné | Règles d'Aria sur la morphologie de Grammalecte |
 | **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria ODL*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
+| **Conjugueur** | Onglet *Conjugaison* de la popup et de la fenêtre séparée : tous les temps d'un verbe, avec négation, forme interrogative, temps composés, forme pronominale et féminin. Accepte un verbe conjugué (« marchait » → *marcher*) et propose les verbes proches d'une faute (« conjuger » → *conjuguer*) | Module de conjugaison de Grammalecte |
 | **Panneau complet** | Toutes les fautes du champ actif ou de la sélection, avec leur explication | Grammalecte, Harper |
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
 | **Traduction de page** | Toute la page, au fil du défilement, liens et mise en forme conservés, bascule original ↔ traduction | Bergamot + modèles Mozilla |
@@ -55,7 +56,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 3. **Trouver un synonyme** : clic droit sur un mot → *Aria ODL* → *Synonymes avec Aria ODL*, puis clic sur le synonyme choisi.
 4. **Traduire un passage** : sélectionne-le, clic droit → *Aria ODL* → *Traduire avec Aria ODL* (ou Alt+Maj+L).
 5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria ODL*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
-6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, traduction rapide, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
+6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, traduction rapide, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
 
 ## Sécurité
 
@@ -109,7 +110,7 @@ extension/
 ├── content/
 │   ├── checker.js              # script de page : vagues, infobulles, panneau, traduction
 │   └── highlight.css           # couleurs des vagues dans les zones éditables
-├── popup/                      # interrupteurs, traduction rapide, fenêtre séparée
+├── popup/                      # interrupteurs, traduction rapide, conjugueur, fenêtre séparée
 ├── options/                    # page de réglages
 ├── shared/                     # réglages par défaut et contrôle des valeurs importées
 ├── test/                       # banc d'essai

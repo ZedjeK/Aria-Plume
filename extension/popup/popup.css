@@ -245,6 +245,183 @@ button.icon {
     line-height: 1;
 }
 
+/* Onglets Traduction / Conjugaison */
+.tabs {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.tabs button {
+    flex: none;
+    padding: 4px 12px;
+    border-radius: 999px;
+    color: var(--muted);
+}
+
+.tabs button[aria-selected="true"] {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(62, 230, 255, 0.2);
+}
+
+.tabs + .quick {
+    margin-top: 8px;
+    padding-top: 0;
+    border-top: none;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* Conjugueur */
+body.conj-mode:not(.window) .settings,
+body.conj-mode:not(.window) .hint {
+    display: none;
+}
+
+.conj {
+    margin-top: 8px;
+}
+
+.conj-form {
+    display: flex;
+    gap: 8px;
+}
+
+.conj-form input {
+    flex: 1;
+    min-width: 0;
+    font: 14px system-ui, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    outline: none;
+}
+
+.conj-form input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(62, 230, 255, 0.2);
+}
+
+.conj-form button {
+    flex: none;
+}
+
+.conj-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.conj-options label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.conj-options label:has(input:checked) {
+    border-color: var(--cyan);
+    color: var(--cyan);
+}
+
+.conj-options label:has(input:disabled) {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.conj-options input {
+    accent-color: var(--cyan);
+    margin: 0;
+}
+
+.conj-info {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.conj-info strong {
+    color: var(--magenta);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.conj-info .ko {
+    color: #ff6b6b;
+}
+
+.conj-info button {
+    flex: none;
+    margin: 4px 4px 0 0;
+    padding: 1px 8px;
+    color: var(--cyan);
+}
+
+.conj-results {
+    max-height: 290px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.conj-results h3 {
+    margin: 8px 0 6px;
+    font: 600 11px Consolas, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--magenta);
+}
+
+.conj-results h3:first-child {
+    margin-top: 0;
+}
+
+.conj-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 6px;
+}
+
+.tense {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 9px;
+}
+
+.tense h4 {
+    margin: 0 0 3px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cyan);
+}
+
+.tense ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tense li {
+    line-height: 1.5;
+}
+
+.tense li:empty {
+    display: none;
+}
+
 /* Fenêtre séparée : tout suit la taille de la fenêtre quand tu étires ses bords. */
 body.window {
     width: auto;
@@ -283,6 +460,19 @@ body.window .bubble textarea {
 
 body.window .hint {
     margin-top: 8px;
+}
+
+body.window .conj {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.window .conj-results {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
 }
 
 /* Fenêtre large : réglages côte à côte, bulles côte à côte. */

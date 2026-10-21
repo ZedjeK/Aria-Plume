@@ -1,5 +1,5 @@
-// Aria ODL — popup : réglages de la correction en direct (stockés localement)
-// et traduction rapide dans les deux sens entre deux bulles.
+// Aria ODL — popup : réglages de la correction en direct (stockés localement),
+// traduction rapide dans les deux sens entre deux bulles, et conjugueur.
 // La même page sert aussi de fenêtre séparée (popup.html?mode=window).
 
 const DEFAULTS = { liveEnabled: true, disabledHosts: [] };
@@ -326,6 +326,174 @@ $("#qt-swap").addEventListener("click", () => {
     bubbles.a.focus();
 });
 
+// --- Conjugueur ---
+// Module de conjugaison de Grammalecte, dans le document offscreen. Le verbe, les options
+// et l'onglet ouvert sont gardés dans le stockage de session.
+
+const CONJ_DELAY_MS = 350;
+const conjInput = $("#conj-verb");
+const optionBoxes = [...document.querySelectorAll("#conj-options input")];
+let conjSeq = 0;
+let conjTimer = null;
+// Choix de l'utilisateur pour « Pronominal ». La case peut aussi refléter le verbe
+// (« se lever », verbe toujours pronominal) sans que ce choix passe au verbe suivant.
+let pronominalChoice = false;
+
+const el = (tag, props = {}, ...children) => {
+    const node = document.createElement(tag);
+    Object.assign(node, props);
+    node.append(...children);
+    return node;
+};
+
+function conjOptions() {
+    const options = Object.fromEntries(optionBoxes.map((box) => [box.dataset.option, box.checked]));
+    options.pronominal = pronominalChoice;
+    return options;
+}
+
+function rememberConj() {
+    chrome.storage.session?.set({ conjVerb: conjInput.value, conjOptions: conjOptions() }).catch(() => {});
+}
+
+function renderConj(result) {
+    const info = $("#conj-info");
+    const results = $("#conj-results");
+    if (!result.found) {
+        info.replaceChildren(el("span", { className: "ko", textContent: `« ${result.input} » : verbe inconnu.` }));
+        if (result.suggestions.length) {
+            info.append(" Tu voulais dire : ", ...result.suggestions.map((verb) => {
+                const button = el("button", { type: "button", textContent: verb });
+                button.addEventListener("click", () => {
+                    conjInput.value = verb;
+                    runConj();
+                });
+                return button;
+            }));
+        }
+        results.replaceChildren();
+        return;
+    }
+    const pronominal = optionBoxes.find((box) => box.dataset.option === "pronominal");
+    // Pronominal impossible (-1) ou obligatoire (1) : la case suit le verbe.
+    pronominal.disabled = result.pronominable === -1 || result.pronominable === 1;
+    pronominal.checked = result.options.pronominal;
+    const line = [result.info, `auxiliaire ${result.auxiliary}`];
+    if (result.incomplete) {
+        line.push("conjugaison incomplète");
+    }
+    info.replaceChildren(
+        el("strong", { textContent: result.infinitiveForm }),
+        result.fromForm ? ` ← « ${result.input} »` : "",
+        el("div", { textContent: line.join(" · ") }),
+        el("div", { textContent: `Participe présent : ${result.presentParticiple} · participes passés : ${result.pastParticiples.join(", ")}` }),
+    );
+    if (result.others.length) {
+        info.append(el("div", { textContent: `Autre${result.others.length > 1 ? "s" : ""} verbe${result.others.length > 1 ? "s" : ""} possible${result.others.length > 1 ? "s" : ""} : ` }, ...result.others.map((verb) => {
+            const button = el("button", { type: "button", textContent: verb });
+            button.addEventListener("click", () => {
+                conjInput.value = verb;
+                runConj();
+            });
+            return button;
+        })));
+    }
+    results.replaceChildren(...result.moods.flatMap((mood) => [
+        el("h3", { textContent: mood.name }),
+        el("div", { className: "conj-grid" }, ...mood.tenses.map((tense) => el("div", { className: "tense" },
+            el("h4", { textContent: tense.name }),
+            el("ol", {}, ...tense.forms.map((form) => el("li", { textContent: form }))),
+        ))),
+    ]));
+    results.scrollTop = 0;
+    fitConjResults();
+}
+
+// Popup : Chrome la limite à 600 px de haut. La liste des temps défile dans la place qui reste.
+function fitConjResults() {
+    if (isWindow) {
+        return;
+    }
+    const results = $("#conj-results");
+    results.style.maxHeight = `${Math.max(140, 588 - results.getBoundingClientRect().top - 12)}px`;
+}
+
+async function runConj() {
+    clearTimeout(conjTimer);
+    rememberConj();
+    const verb = conjInput.value.trim();
+    const seq = ++conjSeq;
+    if (!verb) {
+        $("#conj-info").replaceChildren();
+        $("#conj-results").replaceChildren();
+        return;
+    }
+    $("#conj-info").textContent = "Conjugaison…";
+    let response;
+    try {
+        response = await chrome.runtime.sendMessage({ target: "sw", cmd: "conjugate", verb, options: conjOptions() });
+    } catch (error) {
+        response = { ok: false, error: error.message };
+    }
+    if (seq !== conjSeq) {
+        return;
+    }
+    if (!response?.ok) {
+        $("#conj-info").replaceChildren(el("span", { className: "ko", textContent: response?.error ?? "Pas de réponse de l'extension." }));
+        return;
+    }
+    renderConj(response);
+}
+
+$("#conj-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    runConj();
+});
+conjInput.addEventListener("input", () => {
+    clearTimeout(conjTimer);
+    conjTimer = setTimeout(runConj, CONJ_DELAY_MS);
+});
+for (const box of optionBoxes) {
+    box.addEventListener("change", () => {
+        if (box.dataset.option === "pronominal") {
+            pronominalChoice = box.checked;
+        }
+        runConj();
+    });
+}
+
+// --- Onglets ---
+const TABS = { quick: { tab: $("#tab-quick"), panel: $("#panel-quick") }, conj: { tab: $("#tab-conj"), panel: $("#panel-conj") } };
+
+function showTab(name, focus = true) {
+    for (const [key, { tab: button, panel }] of Object.entries(TABS)) {
+        const active = key === name;
+        button.setAttribute("aria-selected", String(active));
+        button.tabIndex = active ? 0 : -1;
+        panel.hidden = !active;
+    }
+    // Popup : la place manque, les interrupteurs et l'aide s'effacent le temps de conjuguer.
+    document.body.classList.toggle("conj-mode", name === "conj");
+    if (name === "conj") {
+        fitConjResults();
+    }
+    chrome.storage.session?.set({ activeTab: name }).catch(() => {});
+    if (focus) {
+        (name === "conj" ? conjInput : bubbles.a).focus();
+    }
+}
+
+for (const [name, { tab: button }] of Object.entries(TABS)) {
+    button.addEventListener("click", () => showTab(name));
+    button.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+            const next = name === "quick" ? "conj" : "quick";
+            showTab(next, false);
+            TABS[next].tab.focus();
+        }
+    });
+}
+
 try {
     const saved = await chrome.storage.session.get({ quickA: "", quickB: "", quickLabels: null });
     bubbles.a.value = saved.quickA;
@@ -336,4 +504,20 @@ try {
 } catch {
     // stockage de session indisponible : bulles vides
 }
-bubbles.a.focus();
+
+let activeTab = "quick";
+try {
+    const saved = await chrome.storage.session.get({ conjVerb: "", conjOptions: {}, activeTab: "quick" });
+    conjInput.value = saved.conjVerb;
+    for (const box of optionBoxes) {
+        box.checked = !!saved.conjOptions[box.dataset.option];
+    }
+    pronominalChoice = !!saved.conjOptions.pronominal;
+    activeTab = saved.activeTab === "conj" ? "conj" : "quick";
+} catch {
+    // stockage de session indisponible
+}
+showTab(activeTab);
+if (conjInput.value.trim()) {
+    runConj();
+}

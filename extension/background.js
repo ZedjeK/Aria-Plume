@@ -357,6 +357,9 @@ async function handle(msg) {
             return translate(msg);
         case "synonyms":
             return synonyms(msg);
+        case "conjugate":
+            await ensureOffscreen();
+            return toOffscreen({ cmd: "conjugate", verb: String(msg.verb ?? "").slice(0, 60), options: msg.options ?? {} });
         case "translate-cancel":
             if (chrome.offscreen && await hasOffscreen()) {
                 await toOffscreen({ cmd: "translate-cancel", jobId: msg.jobId });
