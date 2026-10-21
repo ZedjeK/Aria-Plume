@@ -940,7 +940,9 @@
         }
     }, true);
 
+    let lastContextPoint = null;
     listen(document, "contextmenu", (event) => {
+        lastContextPoint = { x: event.clientX, y: event.clientY, time: Date.now() };
         const item = live.session?.itemAt(event.clientX, event.clientY);
         if (!item) {
             bubble.close();
@@ -1018,6 +1020,9 @@
         if (!bubble.isInPath(event)) {
             bubble.close();
         }
+        if (!synonymBubble.isInPath(event)) {
+            synonymBubble.close();
+        }
     }, true);
     listen(window, "scroll", () => bubble.close(), { capture: true, passive: true });
     listen(window, "keydown", (event) => {
@@ -1025,6 +1030,7 @@
             bubble.close();
             panel.close();
             translateBubble.close();
+            synonymBubble.close();
         }
     }, true);
 
@@ -1278,6 +1284,15 @@
         .bar .status.ko { color: #ff6b6b; font-family: system-ui, "Segoe UI", sans-serif; }
     `);
 
+    const SYN_SHEET = sheet(`
+        .syn { width: min(400px, calc(100vw - 16px)); }
+        .syn .pair { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .syn-body { display: flex; flex-direction: column; gap: 10px; }
+        .syn-group .actions { gap: 5px; }
+        .syn-note { color: #8b91a8; font-size: 12px; }
+        button.more { color: #3ee6ff; border-color: transparent; background: transparent; }
+    `);
+
     const pairLabel = (from, to) => `${from.toUpperCase()} → ${to.toUpperCase()}`;
 
     function pageLangHint() {
@@ -1471,6 +1486,281 @@
             this.host?.remove();
             this.host = null;
             this.state = null;
+        },
+    };
+
+    // --- Synonymes ---
+    // Clic droit sur un mot (ou sur une sélection d'un à trois mots) → « Synonymes avec Aria ODL ».
+    // Dans un champ, un clic sur un synonyme remplace le mot (Ctrl+Z annule) ; ailleurs, il le copie.
+
+    const WORD_CHAR = /[\p{L}\p{N}'’-]/u;
+    const MAX_SHOWN_SYNONYMS = 24;
+
+    // Étend [start, end) aux limites du mot qui l'entoure.
+    function wordBounds(text, start, end) {
+        let from = start;
+        let to = end;
+        while (from > 0 && WORD_CHAR.test(text[from - 1])) {
+            from--;
+        }
+        while (to < text.length && WORD_CHAR.test(text[to])) {
+            to++;
+        }
+        // Pas d'apostrophe ni de tiret au bord : « l'écran » → « écran », « (mot) » → « mot ».
+        while (from < to && /['’-]/.test(text[from])) {
+            from++;
+        }
+        while (to > from && /['’-]/.test(text[to - 1])) {
+            to--;
+        }
+        const elision = /^(?:[ldjmnstc]|qu|jusqu|lorsqu|puisqu)['’]/iu.exec(text.slice(from, to));
+        if (elision && to - from > elision[0].length) {
+            from += elision[0].length;
+        }
+        return [from, to];
+    }
+
+    // Sélection utilisable : un à trois mots, 60 caractères au plus. Renvoie [début, fin] sans les espaces.
+    function trimmedSelection(text, start, end) {
+        const raw = text.slice(start, end);
+        const lead = raw.length - raw.trimStart().length;
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed.length > 60 || trimmed.split(/\s+/u).length > 3) {
+            return null;
+        }
+        return [start + lead, start + lead + trimmed.length];
+    }
+
+    const contextAround = (text, start, end) => text.slice(Math.max(0, start - 200), Math.min(text.length, end + 200));
+
+    function pointRect(ctx) {
+        if (lastContextPoint && Date.now() - lastContextPoint.time < 10000) {
+            const { x, y } = lastContextPoint;
+            return () => ({ left: x, right: x, top: y - 10, bottom: y + 10 });
+        }
+        return null;
+    }
+
+    function findSynonymSource() {
+        const ctx = deepActive();
+        const { el: element, doc } = ctx;
+        if (element?.tagName === "TEXTAREA" || (element?.tagName === "INPUT" && PANEL_INPUT_TYPES.has(element.type))) {
+            if (isSensitive(element)) {
+                return null;
+            }
+            const value = element.value;
+            let bounds = element.selectionStart !== element.selectionEnd
+                ? trimmedSelection(value, element.selectionStart, element.selectionEnd)
+                : wordBounds(value, element.selectionStart, element.selectionEnd);
+            if (!bounds || bounds[0] === bounds[1]) {
+                return null;
+            }
+            const target = new FieldTarget(element, ctx);
+            const [start, end] = bounds;
+            return { kind: "field", target, start, end, text: value.slice(start, end), context: contextAround(value, start, end), rect: pointRect(ctx) ?? (() => target.rect()) };
+        }
+        const selection = doc.getSelection();
+        if (!selection?.rangeCount) {
+            return null;
+        }
+        let range = selection.getRangeAt(0).cloneRange();
+        // Zone éditable ou texte de page : c'est la sélection qui compte, pas l'élément actif
+        // (une zone éditable peut garder le focus pendant qu'on sélectionne ailleurs).
+        const anchor = range.commonAncestorContainer;
+        const anchorElement = anchor.nodeType === 3 ? anchor.parentElement : anchor;
+        const editable = !!anchorElement?.isContentEditable;
+        if (range.collapsed) {
+            // Curseur posé dans un mot (zone éditable) : on prend le mot entier.
+            const node = range.startContainer;
+            if (!editable || node.nodeType !== 3) {
+                return null;
+            }
+            const [from, to] = wordBounds(node.data, range.startOffset, range.startOffset);
+            if (from === to) {
+                return null;
+            }
+            range = doc.createRange();
+            range.setStart(node, from);
+            range.setEnd(node, to);
+        } else if (range.startContainer === range.endContainer && range.startContainer.nodeType === 3) {
+            const bounds = trimmedSelection(range.startContainer.data, range.startOffset, range.endOffset);
+            if (!bounds) {
+                return null;
+            }
+            range.setStart(range.startContainer, bounds[0]);
+            range.setEnd(range.startContainer, bounds[1]);
+        } else if (!trimmedSelection(range.toString(), 0, range.toString().length)) {
+            return null;
+        }
+        const text = range.toString().trim();
+        const container = range.commonAncestorContainer;
+        const context = (container.nodeType === 3 ? container.parentElement : container)?.textContent ?? text;
+        const fixedRange = range;
+        return {
+            kind: editable ? "editable" : "page",
+            target: editable ? { host: editingHost(anchorElement), ctx } : null,
+            range: fixedRange,
+            text,
+            context: context.slice(0, 600),
+            rect: () => shift(fixedRange.getBoundingClientRect(), ctx),
+        };
+    }
+
+    // « Rapide » → « Agile » : la majuscule du mot d'origine passe au synonyme.
+    function keepCapital(original, replacement) {
+        if (original.length > 1 && original === original.toUpperCase() && /\p{Lu}/u.test(original)) {
+            return replacement.toUpperCase();
+        }
+        return /^\p{Lu}/u.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
+    }
+
+    const POS_NAMES = { nom: "Nom", verbe: "Verbe", adjectif: "Adjectif", adverbe: "Adverbe" };
+
+    const synonymBubble = {
+        host: null,
+        root: null,
+        box: null,
+        source: null,
+        seq: 0,
+
+        ensure() {
+            if (this.host?.isConnected) {
+                this.host.hidden = false;
+                return;
+            }
+            const { host, root } = createShadowHost("aria-odl-synonyms", [UI_SHEET, TR_SHEET, SYN_SHEET]);
+            this.host = host;
+            this.root = root;
+            this.box = el("div", { className: "box tr syn" });
+            this.box.setAttribute("role", "dialog");
+            this.box.setAttribute("aria-label", "Aria ODL — synonymes");
+            // Garde le focus et la sélection dans la page pendant qu'on clique dans la bulle.
+            this.box.addEventListener("mousedown", (event) => event.preventDefault());
+            root.append(this.box);
+        },
+
+        async open() {
+            const source = findSynonymSource();
+            this.ensure();
+            this.source = source;
+            const seq = ++this.seq;
+            if (!source) {
+                this.render("", el("div", { className: "tr-status", textContent: "Fais un clic droit sur un mot dans un champ, ou sélectionne un à trois mots, puis relance." }));
+                placeBox(this.box, pointRect(null)?.() ?? { left: innerWidth - 440, right: innerWidth - 16, top: 16, bottom: 16 });
+                return;
+            }
+            this.render(`« ${source.text} »`, el("div", { className: "tr-status", textContent: "Recherche…" }));
+            placeBox(this.box, source.rect());
+            let response;
+            try {
+                response = await chrome.runtime.sendMessage({ target: "sw", cmd: "synonyms", word: source.text, context: source.context, hint: pageLangHint() });
+            } catch (error) {
+                response = { ok: false, error: error.message };
+            }
+            if (seq !== this.seq || this.source !== source) {
+                return;
+            }
+            if (!response?.ok) {
+                this.render(`« ${source.text} »`, el("div", { className: "tr-status ko", textContent: response?.error ?? "Pas de réponse de l'extension." }));
+            } else {
+                this.render(`« ${source.text} » · ${response.lang.toUpperCase()}`, this.results(response));
+            }
+            placeBox(this.box, source.rect());
+        },
+
+        results(response) {
+            const body = el("div", { className: "syn-body" });
+            if (!response.groups.length) {
+                body.append(el("div", { className: "tr-status", textContent: `Aucun synonyme trouvé pour « ${response.word} ».` }));
+                return body;
+            }
+            if (response.lemma && response.lemma.toLowerCase() !== response.word.toLowerCase()) {
+                const note = response.base
+                    ? `Synonymes de « ${response.lemma} », en forme de base.`
+                    : `Synonymes de « ${response.lemma} », accordés comme « ${response.word} ».`;
+                body.append(el("div", { className: "syn-note", textContent: note }));
+            }
+            for (const group of response.groups) {
+                const list = el("div", { className: "actions" });
+                const buttons = group.words.map((word) => {
+                    const button = el("button", { className: "sugg", textContent: word });
+                    button.addEventListener("click", () => this.pick(word, button));
+                    return button;
+                });
+                list.append(...buttons.slice(0, MAX_SHOWN_SYNONYMS));
+                if (buttons.length > MAX_SHOWN_SYNONYMS) {
+                    const more = el("button", { className: "more", textContent: `+${buttons.length - MAX_SHOWN_SYNONYMS}` });
+                    more.title = "Voir tous les synonymes";
+                    more.addEventListener("click", () => {
+                        more.replaceWith(...buttons.slice(MAX_SHOWN_SYNONYMS));
+                        placeBox(this.box, this.source.rect());
+                    });
+                    list.append(more);
+                }
+                const label = group.pos.split(", ").map((p) => POS_NAMES[p] ?? p).join(" · ");
+                body.append(el("div", { className: "syn-group" }, label ? el("div", { className: "kind", textContent: label }) : "", list));
+            }
+            if (this.source.kind === "page") {
+                body.append(el("div", { className: "syn-note", textContent: "Clic sur un synonyme : copié dans le presse-papiers." }));
+            }
+            return body;
+        },
+
+        render(label, content) {
+            const close = el("button", { className: "close", title: "Fermer (Échap)", textContent: "×" });
+            close.setAttribute("aria-label", "Fermer");
+            close.addEventListener("click", () => this.close());
+            const head = el("div", { className: "head" },
+                el("span", { className: "brand", textContent: "Synonymes" }),
+                el("span", { className: "pair", textContent: label }),
+                close);
+            this.box.replaceChildren(head, el("div", { className: "tr-body" }, content));
+        },
+
+        async pick(word, button) {
+            const source = this.source;
+            const replacement = keepCapital(source.text, word);
+            if (source.kind === "page") {
+                const done = await copyText(replacement, this.root);
+                button.textContent = done ? "Copié ✓" : "Copie impossible";
+                return;
+            }
+            if (source.kind === "field") {
+                if (source.target.el.value.slice(source.start, source.end) !== source.text) {
+                    this.render(`« ${source.text} »`, el("div", { className: "tr-status ko", textContent: "Le texte a changé : relance la recherche." }));
+                    return;
+                }
+                source.target.replace(source.start, source.end, replacement);
+            } else {
+                const { doc } = source.target.ctx;
+                source.target.host.focus();
+                const selection = doc.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(source.range);
+                if (!doc.execCommand("insertText", false, replacement)) {
+                    source.range.deleteContents();
+                    source.range.insertNode(doc.createTextNode(replacement));
+                }
+            }
+            this.close();
+        },
+
+        isInPath(event) {
+            return !!this.host && !this.host.hidden && event.composedPath().includes(this.host);
+        },
+
+        close() {
+            if (this.host) {
+                this.host.hidden = true;
+            }
+            this.source = null;
+            this.seq++;
+        },
+
+        dispose() {
+            this.host?.remove();
+            this.host = null;
+            this.source = null;
         },
     };
 
@@ -1942,6 +2232,8 @@
             translateBubble.open();
         } else if (msg.cmd === "translate-page") {
             pageTranslation.start();
+        } else if (msg.cmd === "synonyms") {
+            synonymBubble.open();
         }
         sendResponse({ ok: true });
         return false;
@@ -1963,6 +2255,7 @@
         bubble.dispose();
         panel.dispose();
         translateBubble.dispose();
+        synonymBubble.dispose();
         pageTranslation.stop();
     }
 

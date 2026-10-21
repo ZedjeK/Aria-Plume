@@ -48,6 +48,29 @@ l'empreinte SHA-256 d'origine après décompression)
   en→fr model enfr/model.enfr.intgemm.alphas.bin.gz      SHA-256 (décompressé) 6322e296d4fecfe395a8d5723da4ec37ecbe6d7613bb1dfcf4b28e2a47498b68
 
 
+== Thésaurus français de Grammalecte 2.3.0 ==
+
+Synonymes français (fichiers thesaurus1_data.json et thesaurus2_data.json).
+Source : extension officielle grammalecte-fr 2.3.0 (même xpi que plus haut),
+copiés sans modification
+Licence : celle de l'extension Grammalecte, GPL-3.0
+Dossier : extension/engines/grammalecte/fr/
+  thesaurus1_data.json  SHA-256 034664df57a0c84fb5750fe5eeba7d5e3a2230662e5577260010e2694c466a9d
+  thesaurus2_data.json  SHA-256 4ff339ec76d0d9806198c2c56345717d48b168b1165ddd5ebe47cc8ed22ff46d
+
+
+== WordNet 3.1 (Princeton University) ==
+
+Synonymes anglais.
+Source : paquet npm wordnet-db 3.1.14 (intégrité npm
+sha512-zVyFsvE+mq9MCmwXUWHIcpfbrHHClZWZiVOzKSxNJruIcFn2RbY55zkhiAMMxM8zCVSmtNiViq8FsAZSFpMYag==)
+Licence : licence WordNet (texte complet plus bas)
+Fichier : extension/data/thesaurus-en.json.gz, construit à partir des fichiers
+data.* et index.* de WordNet par tools/build-thesaurus-en.mjs (le résultat est
+reproductible : même entrée, même fichier).
+  thesaurus-en.json.gz  SHA-256 3b733f0f95f4efc3638b8266e820c292481a66bebac1c2b92d93c86867760d4c
+Le texte de la licence accompagne aussi le fichier : extension/data/LICENSE-WordNet.txt
+
 ==============================================================================
 GNU GENERAL PUBLIC LICENSE, version 3
 ==============================================================================
@@ -742,3 +765,40 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+
+==============================================================================
+LICENCE WORDNET
+==============================================================================
+
+WordNet Release 3.0
+
+This software and database is being provided to you, the LICENSEE, by  
+Princeton University under the following license.  By obtaining, using  
+and/or copying this software and database, you agree that you have  
+read, understood, and will comply with these terms and conditions.:  
+  
+Permission to use, copy, modify and distribute this software and  
+database and its documentation for any purpose and without fee or  
+royalty is hereby granted, provided that you agree to comply with  
+the following copyright notice and statements, including the disclaimer,  
+and that the same appear on ALL copies of the software, database and  
+documentation, including modifications that you make for internal  
+use or for distribution.  
+  
+WordNet 3.0 Copyright 2006 by Princeton University.  All rights reserved.  
+  
+THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON  
+UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR  
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON  
+UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT-  
+ABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE  
+OF THE LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT  
+INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR  
+OTHER RIGHTS.  
+  
+The name of Princeton University or Princeton may not be used in  
+advertising or publicity pertaining to distribution of the software  
+and/or database.  Title to copyright in this software, database and  
+any associated documentation shall at all times remain with  
+Princeton University and LICENSEE agrees to preserve same.

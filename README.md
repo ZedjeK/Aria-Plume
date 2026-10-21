@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.10 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.11 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -23,6 +23,7 @@ ODL = **O**util **D**e **L**angage.
 | **Correction en direct** | Souligne les fautes pendant que tu écris, dans n'importe quel champ (Gmail, Discord, claude.ai…). Clic droit sur un mot souligné : l'infobulle propose la correction | Grammalecte (français), Harper (anglais) |
 | **Accords complets** | Quand un accord touche plusieurs mots, une seule vague couvre le passage et propose la phrase entièrement corrigée (« Les enfant sont prêt » → « Les enfants sont prêts ») | Grammalecte, relancé jusqu'à ce que le passage soit sans faute |
 | **Homophones** | Ce que Grammalecte laisse passer : « **Sa** marche pas » → *Ça*, « le serveur **et** tombé » → *est*, « il **à** fini » → *a*, « **ces** pas grave » → *C'est*, « il **ses** trompé » → *s'est*, « ils **on** fini » → *ont*. Règles prudentes : dans le doute, rien n'est souligné | Règles d'Aria sur la morphologie de Grammalecte |
+| **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria ODL*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
 | **Panneau complet** | Toutes les fautes du champ actif ou de la sélection, avec leur explication | Grammalecte, Harper |
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
 | **Traduction de page** | Toute la page, au fil du défilement, liens et mise en forme conservés, bascule original ↔ traduction | Bergamot + modèles Mozilla |
@@ -51,9 +52,10 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 
 1. **Écris** dans n'importe quel champ : les fautes se soulignent 500 ms après ta dernière frappe. Rouge pour l'orthographe, orange pour la grammaire, bleu pour le style et la typographie.
 2. **Clic droit sur un mot souligné** : l'infobulle explique la faute et propose la correction. « Ajouter au dictionnaire » apprend un mot (`systemd`, `Elegoo`…) une fois pour toutes. Ailleurs, le menu habituel du navigateur reste là.
-3. **Traduire un passage** : sélectionne-le, clic droit → *Aria ODL* → *Traduire avec Aria ODL* (ou Alt+Maj+L).
-4. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria ODL*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
-5. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, traduction rapide, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
+3. **Trouver un synonyme** : clic droit sur un mot → *Aria ODL* → *Synonymes avec Aria ODL*, puis clic sur le synonyme choisi.
+4. **Traduire un passage** : sélectionne-le, clic droit → *Aria ODL* → *Traduire avec Aria ODL* (ou Alt+Maj+L).
+5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria ODL*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
+6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, traduction rapide, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
 
 ## Sécurité
 
@@ -78,6 +80,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 - Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
 - La traduction de page ne traite pas le contenu des iframes, et traduit toute la page dans le même sens.
 - Les applications de bureau (Discord, Gmail…) et Google Docs, qui dessine son texte sur un canvas, sont hors de portée d'une extension.
+- Les thésaurus mélangent les sens d'un mot : pour « rapide », « agile » côtoie « bref » ou « alarme », et « serveur » n'a pas de sens informatique en français. En anglais, seules les formes régulières retrouvent leur base (« servers », « running », pas « broke »).
 - Projet personnel, sans audit de sécurité indépendant.
 
 ## Provenance des composants embarqués
@@ -86,9 +89,10 @@ Les fichiers des moteurs sont copiés sans modification depuis leur source offic
 
 | Composant | Source | Vérification |
 | --- | --- | --- |
-| Grammalecte 2.3.0 | Extension officielle `grammalecte_fr-2.3.0.xpi`, addons.mozilla.org | SHA-256 de l'xpi : `443030004dbf62ecd5fc42f7b96872b96c9e3765f1cba4704a2a4170bb945256`. Seuls les fichiers du moteur et le dictionnaire `fr-allvars.json` sont repris |
+| Grammalecte 2.3.0 | Extension officielle `grammalecte_fr-2.3.0.xpi`, addons.mozilla.org | SHA-256 de l'xpi : `443030004dbf62ecd5fc42f7b96872b96c9e3765f1cba4704a2a4170bb945256`. Seuls les fichiers du moteur, le dictionnaire `fr-allvars.json` et le thésaurus (`thesaurus1_data.json`, `thesaurus2_data.json`) sont repris |
 | harper.js 2.10.0 | Paquet npm `harper.js` | Intégrité npm : `sha512-s6BDuqtRbX8M/5exH1G5M7VzAuv6l0TagbRxMY37OsrT/1kWFjWmqHydWrkYFqTUW+fFhu4Hj2yUxvChp862Pg==`. SHA-256 de `harper_wasm_slim_bg.wasm` : `8d354f62d697194235959cb6fa58699b195c058de36d59e914f4078410e9e0a1` |
 | Bergamot Translator 0.4.9 | Paquet npm `@browsermt/bergamot-translator` | Intégrité npm : `sha512-bNuuCwM/JnsIYQCKXcYKFT4Qc5vLMoB8Nbvz8ReIgs7xzebK8Sa+R8iEK8mLvNBe/WaZ6zrPaUQilLsRT/ea8Q==`. SHA-256 de `bergamot-translator-worker.wasm` : `95a2b58dd6773bf1b3f345d71f9149928b9f75f4ec9c9064c0b3e42c298671b2` |
+| WordNet 3.1 | Paquet npm `wordnet-db` 3.1.14 | Intégrité npm : `sha512-zVyFsvE+mq9MCmwXUWHIcpfbrHHClZWZiVOzKSxNJruIcFn2RbY55zkhiAMMxM8zCVSmtNiViq8FsAZSFpMYag==`. Converti en `extension/data/thesaurus-en.json.gz` par `tools/build-thesaurus-en.mjs` (même entrée, même fichier) |
 | Modèles Mozilla fr→en et en→fr 2.0 | Mozilla Remote Settings, collection `translations-models` | Empreintes SHA-256 publiées par Mozilla, recopiées dans `extension/models/registry.json` et contrôlées par l'extension après décompression |
 
 ## Structure
@@ -110,14 +114,17 @@ extension/
 ├── shared/                     # réglages par défaut et contrôle des valeurs importées
 ├── test/                       # banc d'essai
 ├── icons/                      # logo (SVG) et icônes de l'extension
-├── engines/                    # Grammalecte, Harper, Bergamot (tiers, non modifiés)
+├── data/                       # thésaurus anglais tiré de WordNet et sa licence
+├── engines/                    # Grammalecte (et son thésaurus), Harper, Bergamot (tiers, non modifiés)
 └── models/                     # modèles de traduction Mozilla (gzip) et leurs empreintes
+tools/
+└── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
 └── homophones/                 # corpus de phrases justes et fautives : node tests/homophones/run.js
 ```
 
 ## Licence
 
-Code d'Aria ODL sous licence [MIT](LICENSE). Les composants tiers gardent leur propre licence : Grammalecte sous GPL-3.0, Harper sous Apache-2.0, Bergamot et les modèles Mozilla sous MPL-2.0. Comme l'extension embarque Grammalecte, l'extension prise comme un tout est diffusée selon les termes de la GPL-3.0. Détails et textes complets : [LICENCES-TIERS.txt](LICENCES-TIERS.txt).
+Code d'Aria ODL sous licence [MIT](LICENSE). Les composants tiers gardent leur propre licence : Grammalecte sous GPL-3.0, Harper sous Apache-2.0, Bergamot et les modèles Mozilla sous MPL-2.0, WordNet sous la licence de Princeton. Comme l'extension embarque Grammalecte, l'extension prise comme un tout est diffusée selon les termes de la GPL-3.0. Détails et textes complets : [LICENCES-TIERS.txt](LICENCES-TIERS.txt).
 
-Aria ODL n'est ni affilié ni approuvé par les projets Grammalecte, Harper, Bergamot ou Mozilla.
+Aria ODL n'est ni affilié ni approuvé par les projets Grammalecte, Harper, Bergamot, Mozilla ou WordNet.

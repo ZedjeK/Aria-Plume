@@ -8,6 +8,7 @@ const CONTENT_SCRIPT = "content/checker.js";
 const MENUS = [
     { id: "aria-odl-check", title: "Vérifier avec Aria ODL", contexts: ["editable", "selection"], cmd: "open-panel" },
     { id: "aria-odl-translate", title: "Traduire avec Aria ODL", contexts: ["editable", "selection"], cmd: "translate-selection" },
+    { id: "aria-odl-synonyms", title: "Synonymes avec Aria ODL", contexts: ["editable", "selection"], cmd: "synonyms" },
     { id: "aria-odl-translate-page", title: "Traduire la page avec Aria ODL", contexts: ["page"], cmd: "translate-page" },
 ];
 const COMMANDS = { "check-text": "open-panel", "translate-text": "translate-selection" };
@@ -101,6 +102,12 @@ async function hasOffscreen() {
 async function ensureOffscreen() {
     if (!chrome.offscreen) {
         throw new Error("API chrome.offscreen indisponible dans ce navigateur");
+    }
+    // Document en cours de création (appel simultané) : il existe déjà pour getContexts,
+    // mais ne reçoit pas encore les messages. On attend la fin de la création.
+    if (creating) {
+        await creating;
+        return false;
     }
     if (await hasOffscreen()) {
         return false;
@@ -231,7 +238,17 @@ function suggestFromDictionary(matches, text, dictionary) {
 }
 
 async function toOffscreen(payload) {
-    const response = await chrome.runtime.sendMessage({ target: "offscreen", ...payload });
+    let response;
+    try {
+        response = await chrome.runtime.sendMessage({ target: "offscreen", ...payload });
+    } catch (error) {
+        // Document tout juste chargé dont l'écouteur n'est pas encore en place : un seul nouvel essai.
+        if (!/Receiving end does not exist/.test(String(error?.message))) {
+            throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        response = await chrome.runtime.sendMessage({ target: "offscreen", ...payload });
+    }
     if (!response) {
         throw new Error("Aucune réponse du document offscreen");
     }
@@ -286,6 +303,32 @@ async function translate(msg) {
     return { ...result, from, to, detection, offscreenCreated };
 }
 
+// Synonymes : la langue vient de la phrase autour du mot (un mot seul se reconnaît mal).
+// Si le thésaurus de cette langue ne connaît pas le mot, on essaie l'autre.
+async function synonyms(msg) {
+    await ensureOffscreen();
+    const word = String(msg.word ?? "").trim().slice(0, 80);
+    if (!word) {
+        throw new Error("Aucun mot à chercher.");
+    }
+    let lang = null;
+    const detection = await detectLanguage(msg.context || word);
+    if (detection.supported) {
+        lang = detection.lang;
+    } else if (["fr", "en"].includes(msg.hint)) {
+        lang = msg.hint;
+    } else {
+        lang = "fr";
+    }
+    const first = await toOffscreen({ cmd: "synonyms", lang, word });
+    if (first.groups?.length) {
+        return { ...first, lang };
+    }
+    const other = lang === "fr" ? "en" : "fr";
+    const second = await toOffscreen({ cmd: "synonyms", lang: other, word });
+    return second.groups?.length ? { ...second, lang: other } : { ...first, lang };
+}
+
 async function handle(msg) {
     switch (msg.cmd) {
         case "env":
@@ -312,6 +355,8 @@ async function handle(msg) {
             return detectLanguage(msg.text);
         case "translate":
             return translate(msg);
+        case "synonyms":
+            return synonyms(msg);
         case "translate-cancel":
             if (chrome.offscreen && await hasOffscreen()) {
                 await toOffscreen({ cmd: "translate-cancel", jobId: msg.jobId });

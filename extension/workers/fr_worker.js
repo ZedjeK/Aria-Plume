@@ -397,6 +397,142 @@ function groupLinkedErrors(line, errors) {
     return result.sort((a, b) => a.start - b.start);
 }
 
+// --- Synonymes ---
+// Thésaurus fourni avec Grammalecte, chargé au premier usage (environ 6 Mo).
+// Il ne connaît que les formes de base (« marcher », « serveur ») : pour « marchait » ou
+// « serveurs », on cherche le lemme et on accorde chaque synonyme comme le mot d'origine.
+let thesaurus = null;
+const MAX_SYNONYM_GROUPS = 8;
+
+function loadThesaurus() {
+    if (!thesaurus) {
+        thesaurus = new Map();
+        for (const file of ["fr/thesaurus1_data.json", "fr/thesaurus2_data.json"]) {
+            for (const [word, groups] of Object.entries(JSON.parse(helpers.loadFile(BASE + file)))) {
+                thesaurus.set(word, groups);
+            }
+        }
+    }
+    return thesaurus;
+}
+
+// « (Adjectif Nom) » → « adjectif, nom » ; les étiquettes inconnues (« (?) ») sont laissées vides.
+function posLabel(raw) {
+    const words = String(raw).replace(/[()]/g, "").toLowerCase().split(/\s+/)
+        .map((w) => ({ adj: "adjectif", interj: "interjection", preposition: "préposition" }[w] ?? w))
+        .filter((w) => /^(nom|verbe|adjectif|adverbe|pronom|préposition|conjonction|interjection|déterminant|determinant)$/.test(w));
+    return [...new Set(words.map((w) => w.replace("determinant", "déterminant")))].join(", ");
+}
+
+const firstOf = (list) => (list ? list.split("|")[0] : "");
+
+// Met le synonyme (forme de base) à la même forme que le mot d'origine, d'après ses étiquettes.
+function inflect(synonym, tags) {
+    if (/:Y/.test(tags) || (!/:V/.test(tags) && /:[me]:[si]/.test(tags) && !/:[fp]/.test(tags.replace(/:[me]:[si]/, "")))) {
+        return synonym;  // infinitif, ou masculin singulier : rien à changer
+    }
+    if (/\s/.test(synonym)) {
+        return null;  // locution : on ne sait pas l'accorder proprement
+    }
+    let form = "";
+    if (/:V/.test(tags)) {
+        if (!conj.isVerb(synonym)) {
+            return null;
+        }
+        if (/:Q/.test(tags)) {
+            const [, gender = "m", number = "s"] = /:([mfe]):([spi])/.exec(tags) ?? [];
+            form = conj.getConj(synonym, ":Q", `:${gender === "f" ? "f" : "m"}:${number === "p" ? "p" : "s"}`);
+        } else {
+            const tense = /:(Ip|Iq|Is|If|K|Sp|Sq|E)/.exec(tags)?.[1];
+            const persons = tags.match(/:[123][sp]/g) ?? [];
+            const who = persons.includes(":3s") ? ":3s" : persons[0];
+            form = tense && who ? conj.getConj(synonym, `:${tense}`, who) : "";
+        }
+    } else if (/:[NA]/.test(tags)) {
+        const feminine = /:f/.test(tags);
+        const plural = /:p/.test(tags);
+        const synonymMorph = spellChecker.getMorph(synonym);
+        if (/:A/.test(tags)) {
+            const adjective = synonymMorph.filter((m) => /:A/.test(m) && !/:V/.test(m));
+            if (adjective.length === 0) {
+                return null;  // « bien » (adverbe) ne s'accorde pas comme « belles »
+            }
+            if (adjective.some((m) => /:e:i/.test(m))) {
+                form = synonym;  // adjectif invariable (« bien », « super »)
+            } else if (feminine) {
+                form = firstOf(plural ? suggFemPlur(synonym) : suggFemSing(synonym));
+            } else {
+                form = plural ? firstOf(suggMasPlur(synonym)) || (/[sx]$/.test(synonym) ? synonym : "") : synonym;
+            }
+        } else if (!synonymMorph.some((m) => /:N/.test(m))) {
+            return null;
+        } else {
+            form = plural ? firstOf(suggPlur(synonym, true)) : synonym;
+        }
+    }
+    return form && spellChecker.isValid(form) ? form : null;
+}
+
+// Groupes d'une entrée du thésaurus, sans le mot lui-même et sans les groupes en double.
+function addGroups(groups, label, words, word) {
+    const lower = word.toLowerCase();
+    const list = [...new Set(words.map((w) => w.replace(/\s+/gu, " ").trim()))].filter((w) => w && w.toLowerCase() !== lower);
+    // Un groupe déjà contenu dans un autre (le thésaurus répète parfois une liste) est sauté.
+    if (list.length && !groups.some((g) => list.every((w) => g.words.includes(w)))) {
+        groups.push({ pos: label, words: list });
+        return true;
+    }
+    return false;
+}
+
+function synonyms(word) {
+    const data = loadThesaurus();
+    // « l'écran » → « écran » ; « qu'importe » → « importe ».
+    const clean = word.trim().replace(/’/g, "'").replace(/^(?:[ldjmnstc]|qu|jusqu|lorsqu|puisqu)'(?=\p{L})/iu, "");
+    const lookup = (w) => data.get(w) ?? data.get(w.toLowerCase());
+    const groups = [];
+    const lemmas = [];
+    // 1. L'entrée du mot tel quel (« grande », « rapide »).
+    const exact = lookup(clean);
+    if (exact) {
+        for (const [pos, words] of exact) {
+            addGroups(groups, posLabel(pos), words, clean);
+        }
+        if (groups.length) {
+            lemmas.push(clean);
+        }
+    }
+    // 2. Les lemmes (« grande » → « grand », « marchait » → « marcher »), synonymes accordés comme le mot.
+    let inflected = false;
+    const morphs = [...new Set([...spellChecker.getMorph(clean), ...spellChecker.getMorph(clean.toLowerCase())])];
+    for (const morph of morphs) {
+        const lemma = morph.slice(1, morph.indexOf("/"));
+        const tags = morph.slice(morph.indexOf("/") + 1);
+        if (!lemma || lemma.toLowerCase() === clean.toLowerCase()) {
+            continue;
+        }
+        const entry = lookup(lemma);
+        if (!entry) {
+            continue;
+        }
+        const category = /:V/.test(tags) ? "verbe" : /:N/.test(tags) ? "nom" : /:A/.test(tags) ? "adjectif" : /:W/.test(tags) ? "adverbe" : null;
+        for (const [pos, list] of entry) {
+            const label = posLabel(pos);
+            if (category && label && !label.includes(category) && !(category === "nom" && label.includes("adjectif")) && !(category === "adjectif" && label.includes("nom"))) {
+                continue;
+            }
+            const words = list.map((syn) => inflect(syn, tags)).filter(Boolean);
+            if (addGroups(groups, label, words, clean)) {
+                inflected = true;
+                if (!lemmas.includes(lemma)) {
+                    lemmas.push(lemma);
+                }
+            }
+        }
+    }
+    return { word: clean, lemma: lemmas.join(", ") || clean, inflected, groups: groups.slice(0, MAX_SYNONYM_GROUPS) };
+}
+
 // --- Homophones ---
 // Nos règles (fr_homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
 // phrase est réanalysée avec la correction : les fautes que Grammalecte signalait
@@ -472,6 +608,8 @@ self.onmessage = (event) => {
             result = init();
         } else if (cmd === "check") {
             result = check(payload.text);
+        } else if (cmd === "synonyms") {
+            result = synonyms(payload.word);
         } else {
             throw new Error(`Commande inconnue : ${cmd}`);
         }

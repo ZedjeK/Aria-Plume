@@ -5,6 +5,7 @@
 //   - traduction : Bergamot (son propre worker, WebAssembly) + modèles Mozilla compressés en gzip
 
 import { prepareGlossary } from "./glossary.js";
+import { englishSynonyms } from "./thesaurus-en.js";
 
 class WorkerClient {
     constructor(url, options) {
@@ -156,6 +157,13 @@ async function handle(msg) {
                 cold,
                 pairCold,
             };
+        }
+        case "synonyms": {
+            if (msg.lang === "en") {
+                return { ok: true, ...(await englishSynonyms(msg.word)) };
+            }
+            const client = await getChecker("fr");
+            return { ok: true, ...(await client.call("synonyms", { word: msg.word })) };
         }
         case "translate-cancel": {
             // Abandonne les blocs encore en file d'attente d'une traduction de page arrêtée.
