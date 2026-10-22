@@ -141,8 +141,125 @@ function spellSuggestions(word) {
     return result;
 }
 
+// --- Formes fautives courantes (barbarismes) ---
+// « chevals » → chevaux, « faisez » → faites, « disez » → dites : des fautes qui ne sont pas
+// des fautes de frappe. On reconstruit la forme juste avec les règles du pluriel et le module
+// de conjugaison de Grammalecte, et on la propose en premier.
+
+const PERSON_ENDINGS = [
+    [/iez$/, [":2p"]], [/ez$/, [":2p"]], [/ions$/, [":1p"]], [/ons$/, [":1p"]],
+    [/aient$/, [":3p"]], [/ront$/, [":3p"], [":If"]], [/ent$/, [":3p"]],
+    [/ait$/, [":3s"]], [/ais$/, [":1s", ":2s"]], [/rai$/, [":1s"], [":If"]], [/ras$/, [":2s"], [":If"]],
+];
+const TENSES = [":Ip", ":If", ":Iq", ":K", ":Sp", ":Is"];  // du plus courant au plus rare
+let verbsByPrefix = null;
+
+function verbsStartingWith(prefix) {
+    if (!verbsByPrefix) {
+        verbsByPrefix = new Map();
+        for (const verb of Object.keys(conj._dVerb)) {
+            const key = verb.slice(0, 2);
+            if (!verbsByPrefix.has(key)) {
+                verbsByPrefix.set(key, []);
+            }
+            verbsByPrefix.get(key).push(verb);
+        }
+    }
+    return verbsByPrefix.get(prefix.slice(0, 2))?.filter((v) => v.startsWith(prefix)) ?? [];
+}
+
+// Distance de Damerau-Levenshtein (transpositions comptées 1), arrêtée au-delà de max.
+function damerau(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) {
+        return max + 1;
+    }
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) {
+        d[0][j] = j;
+    }
+    for (let i = 1; i <= a.length; i++) {
+        let rowMin = Infinity;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+            }
+            rowMin = Math.min(rowMin, d[i][j]);
+        }
+        if (rowMin > max) {
+            return max + 1;
+        }
+    }
+    return d[a.length][b.length];
+}
+
+function barbarismSuggestions(word) {
+    const lower = word.toLowerCase();
+    const found = [];
+    let confident = false;  // forme reconstruite sûre : les suggestions approchantes sont inutiles
+    // Pluriel irrégulier : « chevals » → chevaux, « travails » → travaux, « bijous » → bijoux.
+    if (/[sx]$/.test(lower) && lower.length > 3) {
+        const base = lower.slice(0, -1);
+        if (spellChecker.getMorph(base).some((m) => /:[NA]/.test(m) && /:[si]/.test(m))) {
+            for (const plural of (suggPlur(base, true) || "").split("|")) {
+                if (plural && plural !== lower && spellChecker.isValid(plural)) {
+                    found.push(plural);
+                    confident = true;
+                }
+            }
+        }
+    }
+    // Conjugaison : on retrouve la personne d'après la terminaison, puis les verbes qui
+    // commencent comme le mot. Le cas typique est un vrai radical du verbe avec une
+    // terminaison régulière (« fais » + « ez », « voy » + « ent », « envoie » + « rai ») :
+    // ces verbes passent en premier, puis la forme la plus proche.
+    const ending = PERSON_ENDINGS.find(([re]) => re.test(lower));
+    if (ending && lower.length >= 5 && editCandidatesBudget > 0) {
+        let verbs = verbsStartingWith(lower.slice(0, 2));
+        if (verbs.length > 400) {
+            verbs = verbsStartingWith(lower.slice(0, 3));
+        }
+        const scored = [];
+        for (const verb of verbs) {
+            const stems = new Set([
+                (conj.getConj(verb, ":Ip", ":1p") || "").replace(/ons$/, ""),
+                (conj.getConj(verb, ":Ip", ":3s") || "").replace(/[etd]$/, ""),
+                conj.getConj(verb, ":Ip", ":3s") || "",
+                verb.replace(/(er|ir|re|oir)$/, ""),
+            ].filter((stem) => stem.length >= 2));
+            const stemMatch = [...stems].some((stem) => lower.startsWith(stem) && /^(ez|iez|ons|ions|ent|aient|ais|ait|rai|ras|ra|rons|rez|ront|erai|eras|era|erons|erez|eront)$/.test(lower.slice(stem.length)));
+            TENSES.forEach((tense, rank) => {
+                if (ending[2] && !ending[2].includes(tense)) {
+                    return;  // « -rai », « -ras » : futur seulement
+                }
+                for (const who of ending[1]) {
+                    const form = conj.getConj(verb, tense, who);
+                    if (!form || form === lower) {
+                        continue;
+                    }
+                    const distance = damerau(lower, form, 3);
+                    if (distance === 1 || (distance <= 3 && stemMatch)) {
+                        scored.push({ form, distance, rank, stemMatch });
+                    }
+                }
+            });
+        }
+        scored.sort((x, y) => Number(y.stemMatch) - Number(x.stemMatch) || x.rank - y.rank || x.distance - y.distance);
+        // Si la meilleure forme vient d'un vrai radical, on ne garde que celles-là.
+        const best = scored[0]?.stemMatch ? scored.filter((x) => x.stemMatch) : scored;
+        found.push(...best.slice(0, 2).map((x) => x.form));
+        confident ||= scored[0]?.stemMatch === true;
+    }
+    return { list: [...new Set(found)].map((c) => matchCase(word, c)), confident };
+}
+
 function computeSpellSuggestions(word) {
-    const suggestions = [];
+    const barbarism = barbarismSuggestions(word);
+    if (barbarism.confident) {
+        return barbarism.list;  // « faisez » → faites, sans « baisez » ni « taisez »
+    }
+    const suggestions = barbarism.list;
     if (word.length <= 25 && editCandidatesBudget > 0) {
         editCandidatesBudget--;
         suggestions.push(...editCandidates(word).map((c) => matchCase(word, c)));
@@ -617,7 +734,18 @@ function conjugate(input, options = {}) {
 const sameFix = (error, fix) => error.suggestions.some((sugg) => sugg.toLowerCase().replace("’", "'") === fix.toLowerCase().replace("’", "'"));
 
 function addHomophones(line, grammar) {
-    const found = homophones.find(line).filter((h) => !grammar.some((e) => e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0])));
+    const all = homophones.find(line);
+    // Grammalecte a déjà vu la faute et propose notre correction, mais pas en premier
+    // (« Il et parti » → ait, est, hait) : on la remonte en tête.
+    for (const h of all) {
+        for (const e of grammar) {
+            if (e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0]) && !sameFix({ suggestions: e.suggestions.slice(0, 1) }, h.suggestions[0])) {
+                const fix = e.suggestions.find((sugg) => sameFix({ suggestions: [sugg] }, h.suggestions[0]));
+                e.suggestions = [fix, ...e.suggestions.filter((sugg) => sugg !== fix)];
+            }
+        }
+    }
+    const found = all.filter((h) => !grammar.some((e) => e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0])));
     if (found.length === 0) {
         return { grammar, extra: [] };
     }

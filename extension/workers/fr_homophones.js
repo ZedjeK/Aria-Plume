@@ -1,4 +1,5 @@
-// Aria ODL — homophones que Grammalecte laisse passer (sa/ça, et/est, à/a, ces/ses/c'est/s'est, on/ont).
+// Aria ODL — homophones que Grammalecte laisse passer ou corrige mal (sa/ça, et/est, à/a,
+// ces/ses/c'est/s'est, on/ont, quel/qu'elle, ni/n'y).
 //
 // Règles volontairement prudentes : elles ne se déclenchent que quand le contexte ne
 // laisse aucun doute, d'après la morphologie du dictionnaire de Grammalecte
@@ -36,7 +37,13 @@ const Homophones = (() => {
         cest: "Ici, il faut « c'est » (= cela est), pas un déterminant.",
         sest: "Ici, il faut « s'est » : le verbe pronominal (il s'est trompé).",
         ont: "Avec un sujet pluriel, il faut le verbe avoir : « ont ».",
+        quelle: "« quel » se place devant un nom (quel jour). Ici, il faut « qu'elle » (que + elle), sujet du verbe.",
+        ny: "« ni » relie deux négations (ni l'un ni l'autre). Ici, il faut « n'y » (ne + y).",
     };
+    const QUEL = new Set(["quel", "quelle", "quels", "quelles"]);
+    const OBJECT_PRONOUNS = new Set(["me", "m'", "te", "t'", "se", "s'", "le", "la", "les", "l'", "lui", "leur", "y", "en", "ne", "n'", "nous", "vous"]);
+    const ETRE = new Set(["est", "était", "sera", "serait", "soit", "fut", "sont", "étaient", "seront", "seraient", "soient"]);
+    const SUBJECTS = new Set(["je", "j'", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ça", "cela"]);
 
     function tokenize(line) {
         const tokens = [];
@@ -268,6 +275,42 @@ const Homophones = (() => {
             return AFTER_ONT.has(next.lower) || (isParticiple(next) && !has(next, /:V[^/]*:(Ip|Iq|Is|If|K)/));
         }
 
+        // « Je pense quel viendra » → qu'elle ; « Je sais quel temps il fait » reste juste.
+        function ruleQuel(tokens, i) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (!prev || prev.punct || endOrPunct(next) || clauseStart(tokens, i)) {
+                return false;
+            }
+            if (!has(prev, /:V[^/]*:(Ip|Iq|If|K)/) && prev.lower !== "parce") {
+                return false;
+            }
+            if (OBJECT_PRONOUNS.has(next.lower)) {
+                return true;
+            }
+            if (ETRE.has(next.lower)) {
+                const after = tokens[i + 2];
+                return !!after && !after.punct && (isParticiple(after) || has(after, /:A/)) && !has(after, /:D/);
+            }
+            return has(next, /:V[^/]*:(Ip|Iq|If|K|Sp)/) && !has(next, /:[NA]/);
+        }
+
+        // « Il ni a plus rien » → n'y ; « ni lui ni elle » reste juste.
+        function ruleNi(tokens, i) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (!prev || !SUBJECTS.has(prev.lower) || endOrPunct(next)) {
+                return false;
+            }
+            for (let k = i - 1; k >= 0 && !tokens[k].punct; k--) {
+                if (tokens[k].lower === "ni") {
+                    return false;  // énumération « ni il ni… »
+                }
+            }
+            // Après un pronom sujet, un mot qui peut être un verbe conjugué en est un (« a », « pense »).
+            return has(next, /:V[^/]*:(Ip|Iq|If|K|Sp)/);
+        }
+
         const keepCase = (original, replacement) => (/^\p{Lu}/u.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement);
 
         function find(line) {
@@ -318,6 +361,20 @@ const Homophones = (() => {
                     case "on":
                         if (ruleOnt(tokens, i)) {
                             push(token, token.end, "ont", MESSAGES.ont, "on_ont");
+                        }
+                        break;
+                    case "quel":
+                    case "quelle":
+                    case "quels":
+                    case "quelles":
+                        if (ruleQuel(tokens, i)) {
+                            const plural = /s$/.test(token.lower) || has(tokens[i + 1], /:3p/);
+                            push(token, token.end, plural ? "qu'elles" : "qu'elle", MESSAGES.quelle, "quel_quelle");
+                        }
+                        break;
+                    case "ni":
+                        if (ruleNi(tokens, i)) {
+                            push(token, token.end, "n'y", MESSAGES.ny, "ni_ny");
                         }
                         break;
                     default:

@@ -1,5 +1,5 @@
-// Corpus des règles d'homophones : [phrase, mot fautif attendu (null si la phrase est juste), correction attendue].
-// Lancer : node tests/homophones/run.js
+// Corpus des règles d'Aria (homophones, formes fautives) : [phrase, mot fautif attendu (null si la phrase
+// est juste), correction attendue]. Lancer : node tests/francais/run.js
 export const corpus = [
   // sa / ça
   ["Sa marche pas.", "Sa", "Ça"],
@@ -187,4 +187,31 @@ export const corpus = [
   ["La sauvegarde et terminée.", "et", "est"],
   ["Sa dépend.", "Sa", "Ça"],
   ["Il c'est trompé de câble.", "c'est", "s'est"],
+  // formes fautives (barbarismes) : la bonne forme doit arriver en premier
+  ["Vous faisez une erreur.", "faisez", "faites"],
+  ["Vous disez n'importe quoi.", "disez", "dites"],
+  ["Vous refaisez tout.", "refaisez", "refaites"],
+  ["Ils voyent tout.", "voyent", "voient"],
+  ["J'envoierai le mail demain.", "envoierai", "enverrai"],
+  ["Des chevals courent dans le pré.", "chevals", "chevaux"],
+  ["Il a des cheveus blancs.", "cheveus", "cheveux"],
+  ["Des bijous en or.", "bijous", "bijoux"],
+  ["Vous contredisez tout.", null],
+  ["Des festivals de musique.", null],
+  ["Les chacals hurlent.", null],
+  // quel / qu'elle, ni / n'y
+  ["Je pense quel viendra demain.", "quel", "qu'elle"],
+  ["Je crois quelle m'a oublié.", "quelle", "qu'elle"],
+  ["Il dit quelles sont venues.", "quelles", "qu'elles"],
+  ["Il ni a plus rien à faire.", "ni", "n'y"],
+  ["On ni comprend rien.", "ni", "n'y"],
+  ["Je sais quel temps il fait.", null],
+  ["Dis-moi quelle est ta config.", null],
+  ["Quelle heure est-il ?", null],
+  ["Je me demande quel serveur répond.", null],
+  ["Je sais quelle est la question.", null],
+  ["Il ne veut ni thé ni café.", null],
+  // apostrophe droite
+  ["L'homme et l'animal sont là.", null],
+  ["C'est l'été, aujourd'hui il fait beau.", null],
 ];
