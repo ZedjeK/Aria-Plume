@@ -39,6 +39,8 @@ function init() {
         throw new Error("Dictionnaire principal de Grammalecte non chargé");
     }
     homophones = Homophones.create((word) => spellChecker.getMorph(word));
+    // Apostrophe droite ' acceptée : pas de « l'homme » → « l’homme ».
+    gc_engine.setOption("apos", false);
     return { ms: performance.now() - start };
 }
 
@@ -653,8 +655,11 @@ function check(text) {
             }));
             const { grammar: independent, extra } = addHomophones(line, grammar);
             const grouped = groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start));
+            // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
+            const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
+            const withApostrophe = (list) => list.map((sugg) => sugg.replace(/['’]/g, apostrophe));
             for (const match of [...grouped, ...extra]) {
-                matches.push({ ...match, start: offset + match.start, end: offset + match.end });
+                matches.push({ ...match, suggestions: withApostrophe(match.suggestions), start: offset + match.start, end: offset + match.end });
             }
             for (const err of spellChecker.parseParagraph(line)) {
                 matches.push({
@@ -663,7 +668,7 @@ function check(text) {
                     kind: "orthographe",
                     detail: "spelling",
                     message: "Mot absent du dictionnaire.",
-                    suggestions: spellSuggestions(err.sValue),
+                    suggestions: withApostrophe(spellSuggestions(err.sValue)),
                     rule: "spelling",
                 });
             }
