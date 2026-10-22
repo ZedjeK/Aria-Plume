@@ -1,5 +1,6 @@
-// Aria ODL — homophones que Grammalecte laisse passer ou corrige mal (sa/ça, et/est, à/a,
-// ces/ses/c'est/s'est, on/ont, quel/qu'elle, ni/n'y).
+// Aria ODL — règles que Grammalecte laisse passer ou corrige mal : homophones (sa/ça, et/est,
+// à/a, ces/ses/c'est/s'est, on/ont, quel/qu'elle, ni/n'y, prêt/près, vas-y), participe passé
+// des verbes pronominaux, concordance après « si », « tout » devant un adjectif féminin.
 //
 // Règles volontairement prudentes : elles ne se déclenchent que quand le contexte ne
 // laisse aucun doute, d'après la morphologie du dictionnaire de Grammalecte
@@ -39,7 +40,27 @@ const Homophones = (() => {
         ont: "Avec un sujet pluriel, il faut le verbe avoir : « ont ».",
         quelle: "« quel » se place devant un nom (quel jour). Ici, il faut « qu'elle » (que + elle), sujet du verbe.",
         ny: "« ni » relie deux négations (ni l'un ni l'autre). Ici, il faut « n'y » (ne + y).",
+        accord: "Verbe pronominal : le participe passé s'accorde avec le sujet quand le pronom est complément d'objet direct (elles se sont lavées).",
+        invariable: "Avec ce verbe, le pronom est complément indirect (parler à quelqu'un) : le participe passé reste invariable (elles se sont parlé).",
+        concordance: "Après « si » suivi de l'imparfait ou du plus-que-parfait, l'autre verbe se met au conditionnel, pas au futur (si j'avais su, je serais venu).",
+        tout: "« tout » (= tout à fait) s'accorde devant un adjectif féminin qui commence par une consonne (elle est toute contente, elle est tout émue).",
+        pres: "« prêt » = disposé à (prêt à partir). Pour la proximité, c'est « près de » (près de la gare).",
+        vasy: "Impératif de « aller » devant « y » : on écrit « vas-y », avec un trait d'union.",
     };
+    const VOWEL_START = /^[aeiouyhàâäéèêëîïôöùûüœæ]/;
+    const BE_FORMS = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fus", "fut", "fûmes", "fûtes", "furent", "fût"]);
+    const REFLEXIVES = new Set(["se", "s'", "me", "m'", "te", "t'", "nous", "vous"]);
+    const NEGATIONS = new Set(["pas", "jamais", "plus", "point", "guère"]);
+    // Verbes dont le pronom est complément indirect (se parler = parler à soi / l'un à l'autre) :
+    // le participe reste invariable (« elles se sont parlé », « ils se sont succédé »).
+    const INDIRECT_PRONOMINAL = new Set(["parler", "téléphoner", "écrire", "succéder", "plaire", "déplaire", "complaire", "rire", "sourire", "nuire", "mentir", "ressembler", "suffire", "convenir", "survivre", "demander", "répondre"]);
+    // « nous » et « vous » sont laissés de côté : ils peuvent désigner une seule personne
+    // (vous de politesse : « vous vous êtes retourné »).
+    const SUBJECT_AGREEMENT = { il: "m:s", elle: "f:s", ils: "m:p", elles: "f:p" };
+    // Verbes souvent suivis d'un complément direct qui n'est pas le pronom (« se sont dit : … »,
+    // « s'est fait mal », « se sont rendu compte ») : on ne propose pas d'accord.
+    const OFTEN_INDIRECT = new Set(["dire", "donner", "faire", "laisser", "rendre", "permettre", "promettre", "offrir", "accorder", "envoyer", "acheter", "procurer", "poser", "fixer", "imposer", "partager", "échanger", "jurer", "rappeler", "imaginer", "figurer", "attribuer", "réserver", "souhaiter"]);
+    const SI_WORDS = new Set(["si", "s'"]);
     const QUEL = new Set(["quel", "quelle", "quels", "quelles"]);
     const OBJECT_PRONOUNS = new Set(["me", "m'", "te", "t'", "se", "s'", "le", "la", "les", "l'", "lui", "leur", "y", "en", "ne", "n'", "nous", "vous"]);
     const ETRE = new Set(["est", "était", "sera", "serait", "soit", "fut", "sont", "étaient", "seront", "seraient", "soient"]);
@@ -311,23 +332,214 @@ const Homophones = (() => {
             return has(next, /:V[^/]*:(Ip|Iq|If|K|Sp)/);
         }
 
+        const hasConj = typeof conj !== "undefined";
+        const participleEntry = (token) => morph(token).find((m) => /:Q/.test(m));
+        const lemmaOf = (entry) => entry.slice(1, entry.indexOf("/"));
+
+        // Genre et nombre attendus du sujet d'un verbe pronominal : « elles », « les filles ».
+        function subjectAgreement(tokens, k) {
+            const subject = tokens[k];
+            if (!subject || subject.punct) {
+                return null;
+            }
+            if (SUBJECT_AGREEMENT[subject.lower]) {
+                return SUBJECT_AGREEMENT[subject.lower];
+            }
+            // Le groupe nominal doit ouvrir la proposition : dans « le bruit que Manuel avait découvert
+            // une source s'était répandu », « une source » n'est pas le sujet de « s'était répandu ».
+            const start = simpleNounPhrase(tokens, k + 1, null);
+            if (start < 0 || !clauseStart(tokens, start) || ["que", "qu'"].includes(tokens[start - 1]?.lower)) {
+                return null;
+            }
+            const det = tokens[start].lower;
+            const nounMorph = morph(subject).filter((m) => /:N/.test(m));
+            const gender = nounMorph.every((m) => /:f/.test(m)) ? "f" : nounMorph.every((m) => /:m/.test(m)) ? "m" : null;
+            const number = DET_PLUR.has(det) ? "p" : DET_SING.has(det) ? "s" : null;
+            return gender && number ? `${gender}:${number}` : null;
+        }
+
+        // Participe passé des verbes pronominaux : « Elles se sont lavé » → lavées.
+        function rulePronominalParticiple(tokens, i, push, vetoes) {
+            const entry = participleEntry(tokens[i]);
+            if (!entry || !hasConj) {
+                return;
+            }
+            let k = i - 1;
+            while (k >= 0 && NEGATIONS.has(tokens[k].lower)) {
+                k--;
+            }
+            if (k < 1 || !BE_FORMS.has(tokens[k].lower) || !REFLEXIVES.has(tokens[k - 1].lower)) {
+                return;
+            }
+            let s = k - 2;
+            if (s >= 0 && ["ne", "n'"].includes(tokens[s].lower)) {
+                s--;
+            }
+            const agreement = subjectAgreement(tokens, s);
+            if (!agreement) {
+                return;
+            }
+            const lemma = lemmaOf(entry);
+            const vtyp = conj.getVtyp(lemma) || "";
+            const [gender, number] = agreement.split(":");
+            const formTags = /:([mfe]):([spi])/.exec(entry) ?? [];
+            if (INDIRECT_PRONOMINAL.has(lemma)) {
+                // Sujet personnel au pluriel : réciproque (« elles se sont parlé »).
+                if (["ils", "elles", "nous", "vous"].includes(tokens[s].lower)) {
+                    vetoes.push({ start: tokens[i].start, end: tokens[i].end });
+                    const invariable = conj.getConj(lemma, ":Q", ":m:s");
+                    if (invariable && invariable !== tokens[i].lower) {
+                        push(tokens[i], tokens[i].end, invariable, MESSAGES.invariable, "ppas_invariable", "accord");
+                    }
+                }
+                return;
+            }
+            if ((vtyp[5] !== "p" && vtyp[3] !== "t") || OFTEN_INDIRECT.has(lemma)) {
+                return;
+            }
+            if (s > 0 && ["que", "qu'"].includes(tokens[s - 1].lower)) {
+                return;  // « la prise qu'il s'était faite » : accord avec « que », placé avant
+            }
+            // Un complément après le participe (« lavé les mains », « fait avoir », « rendu compte ») :
+            // le pronom n'est peut-être pas complément direct. On ne dit rien.
+            const next = tokens[i + 1];
+            const quiet = !next || (next.punct && !/[:«"“]/.test(next.text)) || PREPOSITIONS.has(next.lower) || (isAdverb(next) && !has(next, /:[ND]/))
+                || (["tout", "toute", "tous", "toutes"].includes(next.lower) && /^seul/.test(tokens[i + 2]?.lower ?? ""));
+            if (!quiet) {
+                return;
+            }
+            const wantPlural = number === "p";
+            const isPlural = formTags[2] === "p";
+            const isFeminine = formTags[1] === "f";
+            if (isPlural === wantPlural && (gender === "?" || isFeminine === (gender === "f"))) {
+                return;
+            }
+            const genders = gender === "?" ? ["m", "f"] : [gender];
+            const forms = genders.map((g) => conj.getConj(lemma, ":Q", `:${g}:${number}`) || conj.getConj(lemma, ":Q", ":m:s")).filter(Boolean);
+            if (forms.length && !forms.includes(tokens[i].lower)) {
+                push(tokens[i], tokens[i].end, forms, MESSAGES.accord, "ppas_pronominal", "accord");
+            }
+        }
+
+        const personOf = (entry) => /:([123][sp])/.exec(entry)?.[1];
+        const futureEntry = (token) => morph(token).find((m) => /:V[^/]*:If/.test(m) && !/:K/.test(m));
+        const isImperfect = (token) => has(token, /:V[^/]*:Iq/);
+
+        // « Si j'avais su, je serai venu » → serais ; « Je viendrai si j'avais le temps » → viendrais.
+        function ruleConcordance(tokens, push) {
+            for (let i = 0; i < tokens.length; i++) {
+                if (!SI_WORDS.has(tokens[i].lower) || (tokens[i].lower === "s'" && !["il", "ils"].includes(tokens[i + 1]?.lower))) {
+                    continue;
+                }
+                if (i > 0 && !clauseStart(tokens, i) && !["même", "et", "mais"].includes(tokens[i - 1].lower)) {
+                    // « si » au milieu d'une proposition : peut-être « je me demande si… ».
+                    if (!tokens.slice(0, i).some((t) => futureEntry(t))) {
+                        continue;
+                    }
+                }
+                // L'imparfait doit suivre de près (« si j'avais », « si tu venais »).
+                let end = i + 1;
+                while (end < tokens.length && !(tokens[end].punct && tokens[end].text !== "'")) {
+                    end++;
+                }
+                const clause = tokens.slice(i + 1, Math.min(end, i + 6));
+                if (!clause.some(isImperfect) || clause.some((t) => futureEntry(t))) {
+                    continue;
+                }
+                // Proposition principale : après la virgule, ou avant « si ».
+                const sentenceEnd = tokens.findIndex((t, k) => k > end && /[.!?…;]/.test(t.text));
+                const before = !(clauseStart(tokens, i) && tokens[end]?.text === ",");
+                const candidates = before
+                    ? tokens.slice(0, i).reverse().slice(0, 8)
+                    : tokens.slice(end + 1, sentenceEnd < 0 ? tokens.length : sentenceEnd);
+                const verb = candidates.find((t) => futureEntry(t));
+                if (!verb) {
+                    continue;
+                }
+                // Principale avant « si » : seulement le futur antérieur (« je serai venu si j'avais su »).
+                // « Je te dirai si ça marchait » est une question indirecte, juste.
+                if (before) {
+                    const after = tokens[tokens.indexOf(verb) + 1];
+                    if (!["être", "avoir"].includes(lemmaOf(futureEntry(verb))) || !after || !isParticiple(after)) {
+                        continue;
+                    }
+                }
+                const entry = futureEntry(verb);
+                const lemma = lemmaOf(entry);
+                const person = personOf(entry);
+                const conditional = hasConj && person ? conj.getConj(lemma, ":K", `:${person}`) : null;
+                if (conditional && conditional !== verb.lower) {
+                    push(verb, verb.end, conditional, MESSAGES.concordance, "si_conditionnel", "concordance");
+                }
+            }
+        }
+
+        // « tout fières » → toutes fières ; « tout émue » reste juste (voyelle).
+        function ruleTout(tokens, i, push) {
+            const next = tokens[i + 1];
+            if (endOrPunct(next) || VOWEL_START.test(next.lower)) {
+                return;
+            }
+            const forms = morph(next).filter((m) => /:[AQ]/.test(m));
+            if (!forms.length || !forms.every((m) => /:f:[sp]/.test(m))) {
+                return;
+            }
+            if (i > 0 && (DET_SING.has(tokens[i - 1].lower) || DET_PLUR.has(tokens[i - 1].lower) || ["du", "rien"].includes(tokens[i - 1].lower))) {
+                return;  // « le tout petit », « pas du tout claire »
+            }
+            const plural = forms.every((m) => /:f:p/.test(m));
+            push(tokens[i], tokens[i].end, plural ? "toutes" : "toute", MESSAGES.tout, "tout_adverbe", "accord");
+        }
+
+        function grammarRules(tokens, push, vetoes) {
+            tokens.forEach((token, i) => {
+                if (token.punct) {
+                    return;
+                }
+                rulePronominalParticiple(tokens, i, push, vetoes);
+                if (token.lower === "tout") {
+                    ruleTout(tokens, i, push);
+                }
+                // « prêt de la gare » → près de ; « prêt à partir », « prêt de partir » restent.
+                const before = tokens[i - 1];
+                const nounUse = before && (DET_SING.has(before.lower) || DET_PLUR.has(before.lower) || isPureAdjective(before));
+                if (/^prête?s?$/.test(token.lower) && !nounUse && ["de", "d'", "du", "des"].includes(tokens[i + 1]?.lower)) {
+                    // Après « de » : un déterminant, « chez » ou un nom propre (« prêt de la gare »,
+                    // « prêt de chez toi », « prêt de Paris ») ; pas « prêt de partir » ni « prêt de cœur ».
+                    const after = tokens[i + 1].lower === "du" || tokens[i + 1].lower === "des" ? tokens[i + 1] : tokens[i + 2];
+                    const place = after && (["du", "des", "chez"].includes(after.lower) || DET_SING.has(after.lower) || DET_PLUR.has(after.lower) || (/^\p{Lu}/u.test(after.text) && has(after, /:M/)));
+                    if (place) {
+                        push(token, token.end, "près", MESSAGES.pres, "pret_pres", "homophone");
+                    }
+                }
+                // « Va s'y » → Vas-y.
+                if (["va", "vas"].includes(token.lower) && clauseStart(tokens, i) && tokens[i + 1]?.lower === "s'" && tokens[i + 2]?.lower === "y" && endOrPunct(tokens[i + 3])) {
+                    push(token, tokens[i + 2].end, "vas-y", MESSAGES.vasy, "vas_y", "conjugaison");
+                }
+            });
+            ruleConcordance(tokens, push);
+        }
+
         const keepCase = (original, replacement) => (/^\p{Lu}/u.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement);
 
         function find(line) {
             const tokens = tokenize(line);
             const apostrophe = line.includes("’") ? "’" : "'";
             const results = [];
-            const push = (token, end, fix, message, rule) => {
+            const push = (token, end, fix, message, rule, detail = "homophone") => {
                 results.push({
                     start: token.start,
                     end,
                     kind: "grammaire",
-                    detail: "homophone",
+                    detail,
                     message,
-                    suggestions: [keepCase(token.text, fix.replace("'", apostrophe))],
+                    suggestions: [fix].flat().map((f) => keepCase(token.text, f.replace("'", apostrophe))),
                     rule: `aria_homophone_${rule}`,
                 });
             };
+            // Passages jugés justes par une règle d'Aria : les fautes de Grammalecte qui s'y
+            // trouvent sont retirées (« elles se sont écrit » n'est pas à accorder).
+            results.vetoes = [];
             tokens.forEach((token, i) => {
                 switch (token.lower) {
                     case "sa":
@@ -381,6 +593,7 @@ const Homophones = (() => {
                         break;
                 }
             });
+            grammarRules(tokens, push, results.vetoes);
             return results;
         }
 

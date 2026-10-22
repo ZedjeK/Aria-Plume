@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.14 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.15 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -25,6 +25,7 @@ ODL = **O**util **D**e **L**angage.
 | **Homophones** | Ce que Grammalecte laisse passer ou corrige mal : « **Sa** marche pas » → *Ça*, « le serveur **et** tombé » → *est*, « il **à** fini » → *a*, « **ces** pas grave » → *C'est*, « il **ses** trompé » → *s'est*, « ils **on** fini » → *ont*, « je pense **quel** viendra » → *qu'elle*, « il **ni** a plus rien » → *n'y*. Règles prudentes : dans le doute, rien n'est souligné | Règles d'Aria sur la morphologie de Grammalecte |
 | **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria ODL*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
 | **Conjugueur** | Onglet *Conjugaison* de la popup et de la fenêtre séparée : tous les temps d'un verbe, avec négation, forme interrogative, temps composés, forme pronominale et féminin. Accepte un verbe conjugué (« marchait » → *marcher*) et propose les verbes proches d'une faute (« conjuger » → *conjuguer*) | Module de conjugaison de Grammalecte |
+| **Grammaire en plus** | Ce que Grammalecte ne voit pas : participe passé des verbes pronominaux (« elles se sont lavé » → *lavées*, mais « elles se sont parlé » reste invariable), concordance après « si » (« si j'avais su, je **serai** venu » → *serais*), *tout* devant un adjectif féminin (« **tout** contente » → *toute*), *prêt*/*près* (« **prêt** de la gare » → *près*), « va s'y » → *vas-y* | Règles d'Aria sur la morphologie et la conjugaison de Grammalecte |
 | **Formes fautives** | Les fautes qui ne sont pas des fautes de frappe reçoivent la bonne forme en premier : « faisez » → *faites*, « disez » → *dites*, « envoierai » → *enverrai*, « chevals » → *chevaux* | Règles du pluriel et module de conjugaison de Grammalecte |
 | **Panneau complet** | Toutes les fautes du champ actif ou de la sélection, avec leur explication. **Tout corriger** applique d'un clic la première suggestion de chaque faute d'orthographe et de grammaire (un seul Ctrl+Z l'annule dans un champ de texte, un Ctrl+Z par correction dans une zone éditable) | Grammalecte, Harper |
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
@@ -77,6 +78,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 ### Limites à connaître
 
 - Les règles d'homophones sont prudentes et laissent passer les cas ambigus (« **Sa** plante encore », où « plante » peut être un nom) et les mots inconnus du dictionnaire.
+- Les règles de grammaire d'Aria restent prudentes : « elle s'est **coupée** le doigt » (*coupé*, à cause du complément « le doigt ») n'est pas encore repéré, et avec *nous* ou *vous* (qui peuvent désigner une seule personne), l'accord du participe pronominal est laissé à Grammalecte.
 - Les homophones couverts par Aria sont sa/ça, et/est, a/à, ces/ses/c'est/s'est, on/ont, quel/qu'elle et ni/n'y ; son/sont, ou/où ou ce/se restent à la charge de Grammalecte.
 - La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Le glossaire corrige les termes que tu y mets ; relis le reste du jargon technique.
 - Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
@@ -106,7 +108,7 @@ extension/
 ├── offscreen/                  # document caché qui héberge les moteurs, glossaire de traduction
 ├── workers/
 │   ├── fr_worker.js            # Grammalecte : suggestions améliorées, accords complets
-│   ├── fr_homophones.js        # règles d'homophones (sa/ça, et/est, a/à, c'est/s'est, on/ont, qu'elle, n'y)
+│   ├── fr_homophones.js        # règles d'Aria : homophones, participes pronominaux, concordance, tout, prêt/près
 │   └── en_worker.js            # Harper
 ├── content/
 │   ├── checker.js              # script de page : vagues, infobulles, panneau, traduction

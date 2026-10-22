@@ -210,6 +210,12 @@ function barbarismSuggestions(word) {
             }
         }
     }
+    // Participe passé accordé alors qu'il est invariable : « succédés » → succédé, « plus » → plu.
+    const participle = /^(.+[éiu])(e|s|es)$/.exec(lower);
+    if (participle && spellChecker.getMorph(participle[1]).some((m) => /:Q/.test(m))) {
+        found.push(participle[1]);
+        confident = true;
+    }
     // Conjugaison : on retrouve la personne d'après la terminaison, puis les verbes qui
     // commencent comme le mot. Le cas typique est un vrai radical du verbe avec une
     // terminaison régulière (« fais » + « ez », « voy » + « ent », « envoie » + « rai ») :
@@ -745,6 +751,10 @@ function addHomophones(line, grammar) {
             }
         }
     }
+    // Accords de participe que nos règles jugent justes (« elles se sont parlé ») : on retire
+    // la faute signalée par Grammalecte.
+    const vetoes = all.vetoes ?? [];
+    grammar = grammar.filter((e) => !(/ppas/.test(e.rule) && vetoes.some((v) => e.start < v.end && e.end > v.start)));
     const found = all.filter((h) => !grammar.some((e) => e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0])));
     if (found.length === 0) {
         return { grammar, extra: [] };
