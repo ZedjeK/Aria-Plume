@@ -26,6 +26,8 @@ export const DEFAULTS = {
     disabledKinds: [],
     hideNativeSpellcheck: false,
     formalFrench: false,
+    repetitions: true,
+    repetitionDistance: 30,
     colors: DEFAULT_COLORS,
     ignored: [],
     dictionary: [],
@@ -53,6 +55,7 @@ export function cleanTerm(text) {
 }
 
 export const DEBOUNCE_RANGE = { min: 200, max: 2000, step: 100 };
+export const REPETITION_RANGE = { min: 10, max: 60, step: 5 };
 const COLOR = /^#[0-9a-f]{6}$/i;
 const MAX_LIST = 2000;
 
@@ -73,6 +76,12 @@ export function sanitize(input) {
     }
     if (typeof input.formalFrench === "boolean") {
         result.formalFrench = input.formalFrench;
+    }
+    if (typeof input.repetitions === "boolean") {
+        result.repetitions = input.repetitions;
+    }
+    if (Number.isFinite(input.repetitionDistance)) {
+        result.repetitionDistance = Math.min(REPETITION_RANGE.max, Math.max(REPETITION_RANGE.min, Math.round(input.repetitionDistance)));
     }
     if (Array.isArray(input.disabledHosts)) {
         result.disabledHosts = [...new Set(input.disabledHosts.filter(isString).map((h) => h.trim().toLowerCase()).filter(Boolean))].slice(0, MAX_LIST);

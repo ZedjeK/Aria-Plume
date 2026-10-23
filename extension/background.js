@@ -346,9 +346,13 @@ async function handle(msg) {
                 lang = detection.lang;
             }
             const offscreenCreated = await ensureOffscreen();
-            const { englishDialect, dictionary, formalFrench } = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: false });
-            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: englishDialect, formal: formalFrench === true });
-            suggestFromDictionary(result.matches, msg.text, dictionary);
+            const settings = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: false, repetitions: true, repetitionDistance: 30 });
+            const distance = settings.repetitions === true ? Math.min(60, Math.max(10, Number(settings.repetitionDistance) || 30)) : 0;
+            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: settings.englishDialect, formal: settings.formalFrench === true, repetitions: distance });
+            // Les mots du dictionnaire personnel (Elegoo, systemd…) ne comptent pas comme répétitions.
+            const known = new Set(settings.dictionary.map((w) => w.toLowerCase()));
+            result.matches = result.matches.filter((m) => m.rule !== "aria_repetition" || !known.has(msg.text.slice(m.start, m.end).toLowerCase()));
+            suggestFromDictionary(result.matches, msg.text, settings.dictionary);
             return { ...result, lang, detection, offscreenCreated };
         }
         case "detect":

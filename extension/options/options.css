@@ -367,3 +367,7 @@ button:hover, .button:hover, select:hover {
 .list .pair-sep {
     color: var(--muted);
 }
+
+.row.disabled {
+    opacity: 0.45;
+}

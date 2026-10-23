@@ -35,6 +35,14 @@
             <p class="hint">Décoche une catégorie pour ne plus la voir soulignée, ni dans le panneau.</p>
             <div class="kinds" id="kinds"></div>
             <label class="row">
+                <span><strong>Signaler les répétitions</strong><small>Vague bleue sous un mot revenu trop vite (« le serveur… le serveur »), avec des synonymes dans l'infobulle. Les sigles, les noms propres, les petits mots et ceux de ton dictionnaire ne comptent pas.</small></span>
+                <input type="checkbox" id="repetitions" class="toggle">
+            </label>
+            <label class="row" id="repetitionRow">
+                <span><strong>Distance des répétitions</strong><small>Une répétition est signalée si les deux mots sont séparés par moins de mots que ça.</small></span>
+                <span class="range"><input type="range" id="repetitionDistance"><output id="repetitionValue"></output></span>
+            </label>
+            <label class="row">
                 <span><strong>Français écrit soigné</strong><small>Signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral : le « ne » oublié (« j'ai pas le temps »), « pas vu personne », « se rappeler de », « pallier à », « aller au coiffeur ». Pratique pour un mail pro, moins sur Discord.</small></span>
                 <input type="checkbox" id="formalFrench" class="toggle">
             </label>

@@ -1,5 +1,6 @@
 // Corpus des règles d'Aria (homophones, formes fautives) : [phrase, mot fautif attendu (null si la phrase
-// est juste), correction attendue, { formal: true } pour le réglage « Français écrit soigné »].
+// est juste), correction attendue, { formal: true } pour le réglage « Français écrit soigné »,
+// { repetitions: 30 } pour les répétitions].
 // Lancer : node tests/francais/run.js
 export const corpus = [
   // sa / ça
@@ -346,4 +347,12 @@ export const corpus = [
   ["Ce n'est pas rien.", null, null, { formal: true }],
   ["Je n'ai pas vu une seule personne.", null, null, { formal: true }],
   ["Je ne pense pas qu'il viendra.", null, null, { formal: true }],
+  // répétitions (distance 30)
+  ["Il faut vérifier les sauvegardes. Il faut aussi vérifier les journaux du pare-feu.", "vérifier#2", "", { repetitions: 30 }],
+  ["C'est vraiment super, vraiment génial.", "vraiment#2", "", { repetitions: 30 }],
+  ["Je te confirme que la migration est prévue samedi. La migration commencera tôt.", "migration#2", "", { repetitions: 30 }],
+  ["La migration commencera à huit heures et durera deux heures.", null, null, { repetitions: 30 }],
+  ["Ma Captur roule bien. La Captur est hybride, et la Captur consomme peu.", null, null, { repetitions: 30 }],
+  ["J'ai configuré le VLAN 10, puis le VLAN 20 et le VLAN 30 sur le switch.", null, null, { repetitions: 30 }],
+  ["Salut Julie, merci pour ton message. Je suis d'accord avec ta proposition pour le planning de la migration. On pourrait commencer par les postes de la comptabilité, puis enchaîner avec le service commercial la semaine suivante.", null, null, { repetitions: 30 }],
 ];

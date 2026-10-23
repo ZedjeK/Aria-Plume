@@ -732,6 +732,103 @@ function conjugate(input, options = {}) {
     };
 }
 
+// --- Répétitions ---
+// Même mot plein (nom, adjectif, verbe, adverbe en -ment) revenu à moins de « distance » mots,
+// comparé par lemme (« serveur » / « serveurs », « redémarre » / « redémarré »). On souligne
+// la répétition, pas la première occurrence, et on propose des synonymes accordés.
+const REPEAT_WORD = /[\p{L}]+(?:[-'’][\p{L}]+)*/gu;
+// Verbes trop courants pour qu'une répétition gêne (« il faut… il faut… »).
+const COMMON_VERBS = new Set(["être", "avoir", "faire", "aller", "pouvoir", "devoir", "vouloir", "falloir", "savoir", "dire", "mettre", "prendre", "venir", "voir", "donner", "passer"]);
+const MAX_REPEAT_SYNONYMS = 4;  // le thésaurus mêle les sens : les premiers sont les plus sûrs
+// Unités et mesures : « huit heures… deux heures » n'est pas une maladresse.
+const REPEAT_UNITS = new Set(["heure", "minute", "seconde", "jour", "semaine", "mois", "année", "fois", "euro", "dollar", "mètre", "kilomètre", "gramme", "kilo", "litre", "pourcent", "octet", "mégaoctet", "gigaoctet", "page", "ligne"]);
+const NUMBER_WORD = /^(\d+([.,]\d+)?|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante|cent|cents|mille|plusieurs|quelques)$/i;
+
+function contentLemma(word, sentenceStart) {
+    if (word.length < 4 || (word === word.toUpperCase() && /\p{Lu}/u.test(word))) {
+        return null;  // mots courts, sigles (VLAN, DNS)
+    }
+    if (/^\p{Lu}/u.test(word) && !sentenceStart) {
+        return null;  // nom propre (Captur, Elegoo)
+    }
+    const morphs = spellChecker.getMorph(word).concat(sentenceStart ? spellChecker.getMorph(word.toLowerCase()) : []);
+    if (morphs.length === 0 || morphs.some((m) => /:[MG]/.test(m) && !/:[NAV]/.test(m))) {
+        return null;  // inconnu, nom propre, mot grammatical
+    }
+    // Un mot dont une lecture est grammaticale (« son », « bien ») est laissé de côté.
+    if (morphs.some((m) => /:G/.test(m))) {
+        return null;
+    }
+    const lemmas = new Set();
+    for (const m of morphs) {
+        const lemma = m.slice(1, m.indexOf("/"));
+        if (/:V/.test(m)) {
+            if (COMMON_VERBS.has(lemma)) {
+                return null;
+            }
+            lemmas.add(lemma);
+        } else if (/:[NA]/.test(m) || (/:W/.test(m) && /ment$/.test(lemma))) {
+            lemmas.add(lemma.toLowerCase());
+        }
+    }
+    if (lemmas.size === 0) {
+        return null;
+    }
+    const lemma = [...lemmas].sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+    return lemma.length >= 4 ? lemma : null;
+}
+
+function repetitionSynonyms(word) {
+    try {
+        const result = synonyms(word);
+        return [...new Set(result.groups.flatMap((g) => g.words))].filter((w) => !/\s/.test(w)).slice(0, MAX_REPEAT_SYNONYMS);
+    } catch {
+        return [];
+    }
+}
+
+function findRepetitions(text, distance, taken) {
+    const words = [];
+    let previousEnd = 0;
+    for (const match of text.matchAll(REPEAT_WORD)) {
+        const between = text.slice(previousEnd, match.index);
+        const sentenceStart = words.length === 0 || /[.!?…\n]\s*$/.test(between);
+        words.push({ text: match[0], start: match.index, end: match.index + match[0].length, sentenceStart });
+        previousEnd = match.index + match[0].length;
+    }
+    const lastSeen = new Map();  // lemme → indice du mot
+    const results = [];
+    words.forEach((word, index) => {
+        // « l'écran » : on regarde le mot après l'élision.
+        const elided = /^(?:[ldjmnstc]|qu|jusqu|lorsqu|puisqu)['’](.+)$/iu.exec(word.text);
+        const surface = elided ? elided[1] : word.text;
+        const start = elided ? word.end - surface.length : word.start;
+        const lemma = contentLemma(surface, word.sentenceStart);
+        if (!lemma || REPEAT_UNITS.has(lemma)) {
+            return;
+        }
+        const before = lastSeen.get(lemma);
+        lastSeen.set(lemma, index);
+        if (before === undefined || index - before > distance) {
+            return;
+        }
+        if (taken.some((m) => start < m.end && word.end > m.start)) {
+            return;  // déjà soulignée pour une autre faute
+        }
+        const gap = index - before;
+        results.push({
+            start,
+            end: word.end,
+            kind: "style",
+            detail: "répétition",
+            message: `«\u00a0${words[before].text.replace(/^(?:[ldjmnstc]|qu|jusqu|lorsqu|puisqu)['’]/iu, "")}\u00a0» est déjà employé ${gap} mot${gap > 1 ? "s" : ""} plus tôt. Un synonyme ?`,
+            suggestions: repetitionSynonyms(surface),
+            rule: "aria_repetition",
+        });
+    });
+    return results;
+}
+
 // --- Homophones ---
 // Nos règles (fr_homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
 // phrase est réanalysée avec la correction : les fautes que Grammalecte signalait
@@ -799,7 +896,7 @@ function followCase(original, suggestion) {
     return suggestion;
 }
 
-function check(text, formal = false) {
+function check(text, formal = false, repetitionDistance = 0) {
     setFormal(formal);
     const start = performance.now();
     const matches = [];
@@ -838,6 +935,9 @@ function check(text, formal = false) {
         }
         offset += line.length + 1;
     }
+    if (repetitionDistance > 0) {
+        matches.push(...findRepetitions(text, repetitionDistance, matches));
+    }
     matches.sort((a, b) => a.start - b.start);
     return { matches, ms: performance.now() - start };
 }
@@ -849,7 +949,7 @@ self.onmessage = (event) => {
         if (cmd === "init") {
             result = init();
         } else if (cmd === "check") {
-            result = check(payload.text, !!payload.formal);
+            result = check(payload.text, !!payload.formal, Number(payload.repetitions) || 0);
         } else if (cmd === "conjugate") {
             result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {

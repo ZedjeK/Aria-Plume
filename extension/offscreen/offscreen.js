@@ -6,6 +6,7 @@
 
 import { prepareGlossary } from "./glossary.js";
 import { englishSynonyms } from "./thesaurus-en.js";
+import { findEnglishRepetitions } from "./repetitions-en.js";
 
 class WorkerClient {
     constructor(url, options) {
@@ -129,7 +130,13 @@ async function handle(msg) {
             }
             const cold = !checkers[msg.lang];
             const client = await getChecker(msg.lang);
-            const result = await client.call("check", { text: msg.text, dialect: msg.dialect, formal: !!msg.formal });
+            const repetitions = Number(msg.repetitions) || 0;
+            const result = await client.call("check", { text: msg.text, dialect: msg.dialect, formal: !!msg.formal, repetitions });
+            // Le worker français trouve lui-même les répétitions (il a les lemmes) ; pour l'anglais, c'est ici.
+            if (msg.lang === "en" && repetitions > 0) {
+                result.matches.push(...await findEnglishRepetitions(msg.text, repetitions, result.matches));
+                result.matches.sort((a, b) => a.start - b.start);
+            }
             return { ok: true, matches: result.matches, engineMs: result.ms, loadMs: cold ? loadTimes[msg.lang] : 0, cold };
         }
         case "translate": {

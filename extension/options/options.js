@@ -1,6 +1,6 @@
 // Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
@@ -35,6 +35,11 @@ function render() {
     $("#liveEnabled").checked = settings.liveEnabled;
     $("#hideNativeSpellcheck").checked = settings.hideNativeSpellcheck;
     $("#formalFrench").checked = settings.formalFrench;
+    $("#repetitions").checked = settings.repetitions;
+    $("#repetitionDistance").value = settings.repetitionDistance;
+    $("#repetitionDistance").disabled = !settings.repetitions;
+    $("#repetitionRow").classList.toggle("disabled", !settings.repetitions);
+    $("#repetitionValue").textContent = `${settings.repetitionDistance} mots`;
     $("#debounceMs").value = settings.debounceMs;
     $("#debounceValue").textContent = `${settings.debounceMs} ms`;
     $("#englishDialect").value = settings.englishDialect;
@@ -217,6 +222,13 @@ function build() {
     $("#liveEnabled").addEventListener("change", (e) => save({ liveEnabled: e.target.checked }));
     $("#hideNativeSpellcheck").addEventListener("change", (e) => save({ hideNativeSpellcheck: e.target.checked }));
     $("#formalFrench").addEventListener("change", (e) => save({ formalFrench: e.target.checked }));
+    $("#repetitions").addEventListener("change", (e) => save({ repetitions: e.target.checked }));
+    const distance = $("#repetitionDistance");
+    Object.assign(distance, { min: REPETITION_RANGE.min, max: REPETITION_RANGE.max, step: REPETITION_RANGE.step });
+    distance.addEventListener("input", () => {
+        $("#repetitionValue").textContent = `${distance.value} mots`;
+    });
+    distance.addEventListener("change", () => save({ repetitionDistance: Number(distance.value) }));
 
     const dialect = $("#englishDialect");
     for (const [value, label] of Object.entries(DIALECTS)) {
