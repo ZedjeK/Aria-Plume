@@ -1,4 +1,4 @@
-// Aria ODL — banc d'essai de l'étape 2
+// Aria Plume — banc d'essai de l'étape 2
 
 const FR_SAMPLE = "Les enfant mange des pomme. Je pense que il viendras demain. Le serveur et tombé en panne hier soir.";
 const EN_SAMPLE = "The server are down since yesterday and their is no backup. I has checked the the logs.";
@@ -145,14 +145,14 @@ async function runDiagnostic() {
 
     const envRows = await collectEnv();
     reportText = [
-        "Aria ODL — rapport de diagnostic (étape 2)",
+        "Aria Plume — rapport de diagnostic (étape 2)",
         `Date : ${new Date().toLocaleString("fr-FR")}`,
         "",
         ...envRows.map(([key, value]) => `${key} : ${value}`),
         "",
         ...lines,
         "",
-        "RAM : à relever dans le gestionnaire de tâches du navigateur (Maj+Échap), ligne « Aria ODL ».",
+        "RAM : à relever dans le gestionnaire de tâches du navigateur (Maj+Échap), ligne « Aria Plume ».",
     ].join("\n");
     status.textContent = "Terminé.";
     status.className = "status ok";

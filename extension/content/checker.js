@@ -1,4 +1,4 @@
-// Aria ODL — script de page, présent sur tous les sites et dans tous les cadres.
+// Aria Plume — script de page, présent sur tous les sites et dans tous les cadres.
 //   - Correction en direct : soulignement des fautes 500 ms après la frappe, dans le champ actif.
 //       · zones éditables (Gmail, Discord, claude.ai…) : API CSS Custom Highlight, sans toucher au HTML
 //       · textarea / input : calque miroir posé par-dessus le champ
@@ -1124,11 +1124,11 @@
             close.addEventListener("click", () => this.close());
             this.body = el("div", { className: "body" });
             this.box = el("div", { className: "box panel" },
-                el("div", { className: "head" }, el("span", { className: "brand", textContent: "Aria ODL" }), this.info, close),
+                el("div", { className: "head" }, el("span", { className: "brand", textContent: "Aria Plume" }), this.info, close),
                 this.body,
             );
             this.box.setAttribute("role", "dialog");
-            this.box.setAttribute("aria-label", "Aria ODL — corrections");
+            this.box.setAttribute("aria-label", "Aria Plume — corrections");
             this.box.addEventListener("mousedown", (event) => event.preventDefault());
             root.append(this.box);
             listen(window, "scroll", () => this.schedulePlace(), { capture: true, passive: true });
@@ -1467,7 +1467,7 @@
             this.root = root;
             this.box = el("div", { className: "box tr" });
             this.box.setAttribute("role", "dialog");
-            this.box.setAttribute("aria-label", "Aria ODL — traduction");
+            this.box.setAttribute("aria-label", "Aria Plume — traduction");
             // Garde le focus et la sélection dans la page pendant qu'on clique dans l'infobulle.
             this.box.addEventListener("mousedown", (event) => {
                 if (!event.composedPath().some((node) => node.classList?.contains("tr-text"))) {
@@ -1518,7 +1518,7 @@
             const close = el("button", { className: "close", title: "Fermer (Échap)", textContent: "×" });
             close.setAttribute("aria-label", "Fermer");
             close.addEventListener("click", () => this.close());
-            const head = el("div", { className: "head" }, el("span", { className: "brand", textContent: "Aria ODL" }), el("span", { className: "pair", textContent: label }));
+            const head = el("div", { className: "head" }, el("span", { className: "brand", textContent: "Aria Plume" }), el("span", { className: "pair", textContent: label }));
             if (state) {
                 const swap = el("button", { className: "swap", title: "Inverser le sens", textContent: "⇄" });
                 swap.addEventListener("click", () => this.translate(state.to, state.from));
@@ -1589,7 +1589,7 @@
     };
 
     // --- Synonymes ---
-    // Clic droit sur un mot (ou sur une sélection d'un à trois mots) → « Synonymes avec Aria ODL ».
+    // Clic droit sur un mot (ou sur une sélection d'un à trois mots) → « Synonymes avec Aria Plume ».
     // Dans un champ, un clic sur un synonyme remplace le mot (Ctrl+Z annule) ; ailleurs, il le copie.
 
     const WORD_CHAR = /[\p{L}\p{N}'’-]/u;
@@ -1732,7 +1732,7 @@
             this.root = root;
             this.box = el("div", { className: "box tr syn" });
             this.box.setAttribute("role", "dialog");
-            this.box.setAttribute("aria-label", "Aria ODL — synonymes");
+            this.box.setAttribute("aria-label", "Aria Plume — synonymes");
             // Garde le focus et la sélection dans la page pendant qu'on clique dans la bulle.
             this.box.addEventListener("mousedown", (event) => event.preventDefault());
             root.append(this.box);
@@ -1986,7 +1986,7 @@
                 this.host = host;
                 this.box = el("div", { className: "box review" });
                 this.box.setAttribute("role", "alertdialog");
-                this.box.setAttribute("aria-label", "Aria ODL — relecture avant envoi");
+                this.box.setAttribute("aria-label", "Aria Plume — relecture avant envoi");
                 this.box.addEventListener("mousedown", (event) => event.preventDefault());
                 root.append(this.box);
             }
@@ -2255,7 +2255,7 @@
                 const close = el("button", { className: "close", title: "Arrêter et revenir à l'original", textContent: "×" });
                 close.setAttribute("aria-label", "Arrêter la traduction");
                 close.addEventListener("click", () => pageTranslation.stop());
-                this.box = el("div", { className: "box bar" }, el("span", { className: "brand", textContent: "Aria ODL" }), this.status, this.toggle, close);
+                this.box = el("div", { className: "box bar" }, el("span", { className: "brand", textContent: "Aria Plume" }), this.status, this.toggle, close);
                 this.box.setAttribute("role", "status");
                 root.append(this.box);
             }

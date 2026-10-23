@@ -1,4 +1,4 @@
-// Aria ODL — worker français (Grammalecte 2.3, fichiers d'origine non modifiés)
+// Aria Plume — worker français (Grammalecte 2.3, fichiers d'origine non modifiés)
 "use strict";
 
 const BASE = new URL("../engines/grammalecte/", self.location).href;

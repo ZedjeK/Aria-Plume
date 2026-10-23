@@ -1,4 +1,4 @@
-// Aria ODL — réglages partagés (popup, page de réglages, service worker).
+// Aria Plume — réglages partagés (popup, page de réglages, service worker).
 // Le script de page n'est pas un module : il garde sa propre copie de DEFAULTS,
 // à tenir alignée avec celle-ci.
 

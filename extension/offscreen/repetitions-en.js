@@ -1,4 +1,4 @@
-// Aria ODL — répétitions en anglais : même mot plein revenu à moins de « distance » mots.
+// Aria Plume — répétitions en anglais : même mot plein revenu à moins de « distance » mots.
 // Pas de lemmes ici (Harper n'en fournit pas) : on compare le mot sans sa marque du pluriel
 // ou de la 3e personne (« server » / « servers »), et on propose les synonymes de WordNet.
 import { englishSynonyms } from "./thesaurus-en.js";

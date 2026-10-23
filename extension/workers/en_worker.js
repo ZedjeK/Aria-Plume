@@ -1,4 +1,4 @@
-// Aria ODL — worker anglais (Harper 2.10, binaire WebAssembly « slim », fichiers d'origine non modifiés)
+// Aria Plume — worker anglais (Harper 2.10, binaire WebAssembly « slim », fichiers d'origine non modifiés)
 import { LocalLinter, Dialect, SuggestionKind } from "../engines/harper/index.js";
 import { slimBinary } from "../engines/harper/slimBinary.js";
 

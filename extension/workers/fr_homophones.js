@@ -1,4 +1,4 @@
-// Aria ODL — règles que Grammalecte laisse passer ou corrige mal : homophones (sa/ça, et/est,
+// Aria Plume — règles que Grammalecte laisse passer ou corrige mal : homophones (sa/ça, et/est,
 // à/a, ces/ses/c'est/s'est, on/ont, quel/qu'elle, ni/n'y, prêt/près, vas-y), participe passé
 // des verbes pronominaux, concordance après « si », « tout » devant un adjectif féminin.
 //

@@ -1,4 +1,4 @@
-// Aria ODL — document offscreen
+// Aria Plume — document offscreen
 // Héberge les trois moteurs, chargés à la demande :
 //   - fr : Grammalecte (worker classique)
 //   - en : Harper (worker module, WebAssembly)

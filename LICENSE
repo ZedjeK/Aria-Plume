@@ -22,7 +22,7 @@ SOFTWARE.
 
 ---
 
-Cette licence couvre le code propre à Aria ODL : manifeste, service worker,
+Cette licence couvre le code propre à Aria Plume : manifeste, service worker,
 document offscreen, workers, script de page, popup, banc d'essai et logo.
 
 Le dossier extension/engines/ et le dossier extension/models/ contiennent des

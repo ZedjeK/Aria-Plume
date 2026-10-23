@@ -1,4 +1,4 @@
-// Aria ODL — popup : réglages de la correction en direct (stockés localement),
+// Aria Plume — popup : réglages de la correction en direct (stockés localement),
 // traduction rapide dans les deux sens entre deux bulles, et conjugueur.
 // La même page sert aussi de fenêtre séparée (popup.html?mode=window).
 

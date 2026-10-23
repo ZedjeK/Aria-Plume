@@ -1,4 +1,4 @@
-/* Aria ODL — vagues des zones éditables (API CSS Custom Highlight).
+/* Aria Plume — vagues des zones éditables (API CSS Custom Highlight).
    Feuille déclarée dans le manifeste : appliquée comme style d'extension, non bloquée par la CSP des pages. */
 ::highlight(aria-odl-orthographe) {
     text-decoration: underline wavy #e5484d;

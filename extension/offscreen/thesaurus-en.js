@@ -1,4 +1,4 @@
-// Aria ODL — synonymes anglais (thésaurus tiré de WordNet 3.1, voir tools/build-thesaurus-en.mjs).
+// Aria Plume — synonymes anglais (thésaurus tiré de WordNet 3.1, voir tools/build-thesaurus-en.mjs).
 // Chargé au premier usage : environ 2 Mo compressés, 8 Mo une fois décompressé.
 //
 // WordNet ne connaît que les formes de base (« server », « run »). Pour « servers » ou

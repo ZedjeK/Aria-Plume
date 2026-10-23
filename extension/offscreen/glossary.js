@@ -1,4 +1,4 @@
-// Aria ODL — glossaire de traduction.
+// Aria Plume — glossaire de traduction.
 //
 // Bergamot ne sait pas qu'un « serveur » est une machine et pas un garçon de café.
 // Avant la traduction, chaque terme du glossaire trouvé dans le texte est entouré

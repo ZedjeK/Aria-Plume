@@ -1,7 +1,7 @@
-Aria ODL embarque les composants suivants, copiés sans modification
+Aria Plume embarque les composants suivants, copiés sans modification
 (seuls les modèles de traduction sont recompressés en gzip).
 
-Le code propre à Aria ODL est sous licence MIT (voir LICENSE). Comme l'extension
+Le code propre à Aria Plume est sous licence MIT (voir LICENSE). Comme l'extension
 embarque Grammalecte (GPL-3.0), l'extension prise comme un tout est diffusée
 selon les termes de la GPL-3.0.
 

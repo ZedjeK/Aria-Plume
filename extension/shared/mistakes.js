@@ -1,4 +1,4 @@
-// Aria ODL — « tes fautes récurrentes » : familles de fautes et règle en une ligne.
+// Aria Plume — « tes fautes récurrentes » : familles de fautes et règle en une ligne.
 // Seules les corrections que tu acceptes sont comptées, par famille, avec 3 exemples au plus.
 // Tout reste dans le stockage local du navigateur.
 

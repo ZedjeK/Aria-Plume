@@ -1,4 +1,4 @@
-// Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
+// Aria Plume — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
 import { topMistakes } from "../shared/mistakes.js";
 import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
@@ -226,7 +226,7 @@ function build() {
     $("#clearDict").addEventListener("click", () => save({ dictionary: [] }));
     $("#dictExport").addEventListener("click", () => {
         const blob = new Blob([[...settings.dictionary].sort().join("\n") + "\n"], { type: "text/plain" });
-        const link = el("a", { href: URL.createObjectURL(blob), download: "aria-odl-dictionnaire.txt" });
+        const link = el("a", { href: URL.createObjectURL(blob), download: "aria-plume-dictionnaire.txt" });
         link.click();
         URL.revokeObjectURL(link.href);
     });
@@ -311,9 +311,9 @@ function build() {
     }
 
     $("#export").addEventListener("click", () => {
-        const data = { app: "Aria ODL", version: chrome.runtime.getManifest().version, exportedAt: new Date().toISOString(), settings };
+        const data = { app: "Aria Plume", version: chrome.runtime.getManifest().version, exportedAt: new Date().toISOString(), settings };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const link = el("a", { href: URL.createObjectURL(blob), download: `aria-odl-reglages-${new Date().toISOString().slice(0, 10)}.json` });
+        const link = el("a", { href: URL.createObjectURL(blob), download: `aria-plume-reglages-${new Date().toISOString().slice(0, 10)}.json` });
         link.click();
         URL.revokeObjectURL(link.href);
         setStatus("Fichier exporté.", "ok");
@@ -333,7 +333,7 @@ function build() {
             const clean = sanitize(data?.settings ?? data);
             const keys = Object.keys(clean);
             if (keys.length === 0) {
-                throw new Error("aucun réglage d'Aria ODL reconnu");
+                throw new Error("aucun réglage d'Aria Plume reconnu");
             }
             await save(clean);
             setStatus(`Importé : ${keys.length} réglage${keys.length > 1 ? "s" : ""}.`, "ok");

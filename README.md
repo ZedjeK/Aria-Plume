@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/logo.png" width="160" alt="Logo d'Aria ODL : un A néon glitché avec une bulle de texte orange et sa vague de correction">
+  <img src="docs/logo.png" width="160" alt="Logo d'Aria Plume : un A néon glitché avec une bulle de texte orange et sa vague de correction">
 </p>
 
-<h1 align="center">Aria ODL</h1>
+<h1 align="center">Aria Plume</h1>
 
 <p align="center">
   Un correcteur et un traducteur français ↔ anglais pour Opera GX et les navigateurs Chromium.<br>
@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.21 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.22 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
-ODL = **O**util **D**e **L**angage.
+La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
 
 ## Ce qu'il fait
 
@@ -23,7 +23,7 @@ ODL = **O**util **D**e **L**angage.
 | **Correction en direct** | Souligne les fautes pendant que tu écris, dans n'importe quel champ (Gmail, Discord, claude.ai…). Clic droit sur un mot souligné : l'infobulle propose la correction | Grammalecte (français), Harper (anglais) |
 | **Accords complets** | Quand un accord touche plusieurs mots, une seule vague couvre le passage et propose la phrase entièrement corrigée (« Les enfant sont prêt » → « Les enfants sont prêts ») | Grammalecte, relancé jusqu'à ce que le passage soit sans faute |
 | **Homophones** | Ce que Grammalecte laisse passer ou corrige mal : « **Sa** marche pas » → *Ça*, « le serveur **et** tombé » → *est*, « il **à** fini » → *a*, « **ces** pas grave » → *C'est*, « il **ses** trompé » → *s'est*, « ils **on** fini » → *ont*, « je pense **quel** viendra » → *qu'elle*, « il **ni** a plus rien » → *n'y*. Règles prudentes : dans le doute, rien n'est souligné | Règles d'Aria sur la morphologie de Grammalecte |
-| **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria ODL*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
+| **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria Plume*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
 | **Conjugueur** | Onglet *Conjugaison* de la popup et de la fenêtre séparée : tous les temps d'un verbe, avec négation, forme interrogative, temps composés, forme pronominale et féminin. Accepte un verbe conjugué (« marchait » → *marcher*) et propose les verbes proches d'une faute (« conjuger » → *conjuguer*) | Module de conjugaison de Grammalecte |
 | **Grammaire en plus** | Ce que Grammalecte ne voit pas : participe passé des verbes pronominaux (« elles se sont lavé » → *lavées*, mais « elles se sont parlé » reste invariable), concordance après « si » (« si j'avais su, je **serai** venu » → *serais*), *tout* devant un adjectif féminin (« **tout** contente » → *toute*), *prêt*/*près* (« **prêt** de la gare » → *près*), « va s'y » → *vas-y*. Et les cas relevés dans la Banque de dépannage linguistique de l'OQLF : « **tant qu'à** moi » → *quant à*, « **quoique** tu fasses » → *quoi que*, « **si non** » → *sinon*, « il est **la** » → *là*, « plus d'un technicien **sont** venus » → *est*, « j'en ai **mangées** trois » → *mangé*, « combien de pommes as-tu **mangé** » → *mangées*, « elle s'en est **prise** à moi » → *pris*, « **achète-en** » → *achètes-en*, « les enfants **obéissant** sont rares » → *obéissants* | Règles d'Aria sur la morphologie et la conjugaison de Grammalecte |
 | **Formes fautives** | Les fautes qui ne sont pas des fautes de frappe reçoivent la bonne forme en premier : « faisez » → *faites*, « disez » → *dites*, « envoierai » → *enverrai*, « chevals » → *chevaux* | Règles du pluriel et module de conjugaison de Grammalecte |
@@ -53,15 +53,15 @@ L'extension n'est pas publiée sur un store : elle se charge en mode développeu
 
 Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscreen et l'API CSS Custom Highlight : il faut un navigateur Chromium récent.
 
-**Pour mettre à jour** : remplace le dossier `extension`, puis clique sur ⟳ sur la carte d'Aria ODL et recharge tes onglets.
+**Pour mettre à jour** : remplace le dossier `extension`, puis clique sur ⟳ sur la carte d'Aria Plume et recharge tes onglets.
 
 ## Premiers pas
 
 1. **Écris** dans n'importe quel champ : les fautes se soulignent 500 ms après ta dernière frappe. Rouge pour l'orthographe, orange pour la grammaire, bleu pour le style et la typographie.
 2. **Clic droit sur un mot souligné** : l'infobulle explique la faute et propose la correction. « Ajouter au dictionnaire » apprend un mot (`systemd`, `Elegoo`…) une fois pour toutes. Ailleurs, le menu habituel du navigateur reste là.
-3. **Trouver un synonyme** : clic droit sur un mot → *Aria ODL* → *Synonymes avec Aria ODL*, puis clic sur le synonyme choisi.
-4. **Traduire un passage** : sélectionne-le, clic droit → *Aria ODL* → *Traduire avec Aria ODL* (ou Alt+Maj+L).
-5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria ODL*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
+3. **Trouver un synonyme** : clic droit sur un mot → *Aria Plume* → *Synonymes avec Aria Plume*, puis clic sur le synonyme choisi.
+4. **Traduire un passage** : sélectionne-le, clic droit → *Aria Plume* → *Traduire avec Aria Plume* (ou Alt+Maj+L).
+5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria Plume*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
 6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, français soigné pour le site ouvert, traduction rapide, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
 
 ## Sécurité
@@ -135,6 +135,6 @@ tests/
 
 ## Licence
 
-Code d'Aria ODL sous licence [MIT](LICENSE). Les composants tiers gardent leur propre licence : Grammalecte sous GPL-3.0, Harper sous Apache-2.0, Bergamot et les modèles Mozilla sous MPL-2.0, WordNet sous la licence de Princeton. Comme l'extension embarque Grammalecte, l'extension prise comme un tout est diffusée selon les termes de la GPL-3.0. Détails et textes complets : [LICENCES-TIERS.txt](LICENCES-TIERS.txt).
+Code d'Aria Plume sous licence [MIT](LICENSE). Les composants tiers gardent leur propre licence : Grammalecte sous GPL-3.0, Harper sous Apache-2.0, Bergamot et les modèles Mozilla sous MPL-2.0, WordNet sous la licence de Princeton. Comme l'extension embarque Grammalecte, l'extension prise comme un tout est diffusée selon les termes de la GPL-3.0. Détails et textes complets : [LICENCES-TIERS.txt](LICENCES-TIERS.txt).
 
-Aria ODL n'est ni affilié ni approuvé par les projets Grammalecte, Harper, Bergamot, Mozilla ou WordNet.
+Aria Plume n'est ni affilié ni approuvé par les projets Grammalecte, Harper, Bergamot, Mozilla ou WordNet.

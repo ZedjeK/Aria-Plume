@@ -1,4 +1,4 @@
-// Aria ODL — service worker
+// Aria Plume — service worker
 // Rôle : router les demandes des pages vers le document offscreen, qui héberge les moteurs.
 // Aucun accès réseau : la CSP de l'extension limite connect-src à 'self'.
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
@@ -9,10 +9,10 @@ import { addMistakes } from "./shared/mistakes.js";
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";
 const MENUS = [
-    { id: "aria-odl-check", title: "Vérifier avec Aria ODL", contexts: ["editable", "selection"], cmd: "open-panel" },
-    { id: "aria-odl-translate", title: "Traduire avec Aria ODL", contexts: ["editable", "selection"], cmd: "translate-selection" },
-    { id: "aria-odl-synonyms", title: "Synonymes avec Aria ODL", contexts: ["editable", "selection"], cmd: "synonyms" },
-    { id: "aria-odl-translate-page", title: "Traduire la page avec Aria ODL", contexts: ["page"], cmd: "translate-page" },
+    { id: "aria-odl-check", title: "Vérifier avec Aria Plume", contexts: ["editable", "selection"], cmd: "open-panel" },
+    { id: "aria-odl-translate", title: "Traduire avec Aria Plume", contexts: ["editable", "selection"], cmd: "translate-selection" },
+    { id: "aria-odl-synonyms", title: "Synonymes avec Aria Plume", contexts: ["editable", "selection"], cmd: "synonyms" },
+    { id: "aria-odl-translate-page", title: "Traduire la page avec Aria Plume", contexts: ["page"], cmd: "translate-page" },
 ];
 const COMMANDS = { "check-text": "open-panel", "translate-text": "translate-selection" };
 let creating = null;
@@ -26,14 +26,14 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function flagError(tabId, error) {
-    console.warn("Aria ODL : action impossible sur cette page", error);
+    console.warn("Aria Plume : action impossible sur cette page", error);
     try {
         await chrome.action.setBadgeBackgroundColor({ tabId, color: "#ff4fd8" });
         await chrome.action.setBadgeText({ tabId, text: "!" });
-        await chrome.action.setTitle({ tabId, title: `Aria ODL : action impossible sur cette page (${error?.message ?? error})` });
+        await chrome.action.setTitle({ tabId, title: `Aria Plume : action impossible sur cette page (${error?.message ?? error})` });
         setTimeout(() => {
             chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
-            chrome.action.setTitle({ tabId, title: "Aria ODL" }).catch(() => {});
+            chrome.action.setTitle({ tabId, title: "Aria Plume" }).catch(() => {});
         }, 5000);
     } catch {
         // onglet fermé entre-temps
