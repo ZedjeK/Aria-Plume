@@ -46,6 +46,16 @@ const Homophones = (() => {
         tout: "« tout » (= tout à fait) s'accorde devant un adjectif féminin qui commence par une consonne (elle est toute contente, elle est tout émue).",
         pres: "« prêt » = disposé à (prêt à partir). Pour la proximité, c'est « près de » (près de la gare).",
         vasy: "Impératif de « aller » devant « y » : on écrit « vas-y », avec un trait d'union.",
+        quanta: "« Tant qu'à » + nom ou pronom est fautif : on écrit « quant à » (quant à moi).",
+        quoique: "« quoique » = bien que. Pour « quelle que soit la chose que », c'est « quoi que » (quoi que tu fasses).",
+        sinon: "Au sens de « autrement », on écrit « sinon » en un seul mot.",
+        la: "Adverbe de lieu : « là », avec un accent (il est là). « la » est un article ou un pronom.",
+        plusdun: "Après « plus d'un », le verbe se met au singulier (plus d'un technicien est venu).",
+        en: "Avec le pronom « en » placé avant, le participe passé reste invariable (des pommes, j'en ai mangé).",
+        combien: "Le complément « combien de… » est placé avant : le participe passé s'accorde avec lui (combien de pommes as-tu mangées ?).",
+        senprendre: "« s'en prendre à » : le participe reste invariable (elle s'en est pris à moi).",
+        imperatif: "À l'impératif, devant « en » ou « y », on ajoute un « s » aux verbes terminés par -e (manges-en, penses-y).",
+        adjectif: "Employé comme adjectif (sans complément), le mot en -ant s'accorde avec le nom (des enfants obéissants).",
     };
     const VOWEL_START = /^[aeiouyhàâäéèêëîïôöùûüœæ]/;
     const BE_FORMS = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fus", "fut", "fûmes", "fûtes", "furent", "fût"]);
@@ -491,11 +501,156 @@ const Homophones = (() => {
             push(tokens[i], tokens[i].end, plural ? "toutes" : "toute", MESSAGES.tout, "tout_adverbe", "accord");
         }
 
+        const AVOIR_FORMS = new Set(["ai", "as", "a", "avons", "avez", "ont", "avais", "avait", "avions", "aviez", "avaient", "aurai", "auras", "aura", "aurons", "aurez", "auront", "aurais", "aurait", "aurions", "auriez", "auraient", "aie", "aies", "ait", "ayons", "ayez", "aient", "eus", "eut", "eurent"]);
+        const QUOI_QUE_VERBS = new Set(["faire", "dire", "penser", "arriver", "advenir", "décider", "choisir", "vouloir", "demander", "entreprendre", "proposer", "répondre", "raconter", "prétendre", "écrire"]);
+        const PLACE_FOLLOWERS = new Set(["depuis", "dans", "sur", "avec", "en", "à", "au", "aux", "pour", "devant", "derrière", "chez", "aussi", "encore", "déjà", "toujours", "maintenant", "ce", "cette", "hier", "demain", "aujourd'hui", "tout", "non", "bas", "haut", "dedans", "dehors"]);
+        const qForm = (lemma, gender, number) => (hasConj ? conj.getConj(lemma, ":Q", `:${gender}:${number}`) || conj.getConj(lemma, ":Q", ":m:s") : null);
+
+        // Accord d'un participe placé après « avoir » ; renvoie l'entrée :Q du participe.
+        const participleTags = (token) => /:([mfe]):([spi])/.exec(participleEntry(token) ?? "") ?? [];
+
+        function moreRules(tokens, i, push) {
+            const token = tokens[i];
+            const next = tokens[i + 1];
+            // 1. « Tant qu'à moi » → Quant à moi ; « tant qu'à faire » (+ infinitif) reste.
+            if (token.lower === "tant" && next?.lower === "qu'" && tokens[i + 2]?.lower === "à") {
+                const after = tokens[i + 3];
+                // « tant qu'à faire », « tant qu'à y être » (infinitif, éventuellement précédé d'un pronom) restent.
+                if (after && !after.punct && !has(after, /:Y/) && !OBJECT_PRONOUNS.has(after.lower)) {
+                    push(token, tokens[i + 2].end, "quant à", MESSAGES.quanta, "tant_qua", "homophone");
+                }
+            }
+            // 2. « Quoique tu fasses, … » → Quoi que ; « quoiqu'il soit malade » (= bien que) reste.
+            if (["quoique", "quoiqu'"].includes(token.lower)) {
+                let k = i + 1;
+                if (token.lower === "quoique" && SUBJECTS.has(tokens[k]?.lower)) {
+                    k++;
+                } else if (token.lower === "quoiqu'" && ["il", "ils", "elle", "elles", "on"].includes(tokens[k]?.lower)) {
+                    k++;
+                } else {
+                    return;
+                }
+                const verb = tokens[k];
+                const entry = verb && morph(verb).find((m) => /:V[^/]*:S[pq]/.test(m));
+                if (entry && QUOI_QUE_VERBS.has(lemmaOf(entry)) && endOrPunct(tokens[k + 1])) {
+                    push(token, token.end, token.lower === "quoique" ? "quoi que" : "quoi qu'", MESSAGES.quoique, "quoique_quoi_que", "homophone");
+                }
+            }
+            // 3. « Si non, on reporte » → Sinon.
+            if (token.lower === "si" && next?.lower === "non" && clauseStart(tokens, i) && tokens[i + 2]?.text === ",") {
+                push(token, next.end, "sinon", MESSAGES.sinon, "si_non", "homophone");
+            }
+            // 4. « Il est la depuis ce matin » → là ; « c'est la que » → là ; « il est la meilleure » reste.
+            if (token.lower === "la" && i > 0 && (BE_FORMS.has(tokens[i - 1].lower) || ["voilà", "voici"].includes(tokens[i - 1].lower))) {
+                const quiet = endOrPunct(next) || PLACE_FOLLOWERS.has(next.lower)
+                    || (["que", "qu'"].includes(next.lower) && tokens[i - 2]?.lower === "c'");
+                if (quiet && !(next && has(next, /:[NA]/) && !PLACE_FOLLOWERS.has(next.lower) && !endOrPunct(next))) {
+                    push(token, token.end, "là", MESSAGES.la, "la_adverbe", "homophone");
+                }
+            }
+            // 5. « Plus d'un technicien sont venus » → est.
+            if (token.lower === "plus" && ["d'", "de"].includes(next?.lower) && ["un", "une"].includes(tokens[i + 2]?.lower)) {
+                // Avec un nom seulement (« plus d'un technicien ») : « plus d'un ont été… » est toléré.
+                let k = i + 3;
+                if (!tokens[k] || !noun(tokens[k], "s")) {
+                    return;
+                }
+                k++;
+                const verb = tokens[k];
+                const entry = verb && morph(verb).find((m) => /:V[^/]*:(Ip|Iq|If|K|Is):[^/]*3p/.test(m));
+                if (entry && !REFLEXIVES.has(tokens[k - 1].lower)) {
+                    const tense = /:(Ip|Iq|If|K|Is)/.exec(entry)[1];
+                    const singular = hasConj ? conj.getConj(lemmaOf(entry), `:${tense}`, ":3s") : null;
+                    if (singular) {
+                        push(verb, verb.end, singular, MESSAGES.plusdun, "plus_dun", "accord");
+                    }
+                }
+            }
+            // 6. « Des pommes, j'en ai mangées » → mangé (sauf « … qu'il en a tirées », accord avec que).
+            if (token.lower === "en" && next && AVOIR_FORMS.has(next.lower)) {
+                let k = i + 2;
+                while (tokens[k] && NEGATIONS.has(tokens[k].lower)) {
+                    k++;
+                }
+                const pp = tokens[k];
+                const [, gender, number] = pp ? participleTags(pp) : [];
+                let clause = i - 1;
+                while (clause >= 0 && !tokens[clause].punct) {
+                    clause--;
+                }
+                const relative = tokens.slice(clause + 1, i).some((t) => ["que", "qu'"].includes(t.lower));
+                // Seulement avec une quantité après (« j'en ai mangées trois ») : sans elle, l'accord
+                // est toléré par certains grammairiens (« elle en avait eus »).
+                const quantity = tokens[k + 1] && (/^\d/.test(tokens[k + 1].text) || has(tokens[k + 1], /:B/) || ["un", "une", "beaucoup", "plusieurs", "trop", "assez", "peu", "tant", "autant", "moins", "plus", "quelques-uns", "quelques-unes", "certains", "certaines"].includes(tokens[k + 1].lower));
+                if (pp && !relative && quantity && (gender === "f" || number === "p")) {
+                    const invariable = qForm(lemmaOf(participleEntry(pp)), "m", "s");
+                    if (invariable && invariable !== pp.lower) {
+                        push(pp, pp.end, invariable, MESSAGES.en, "ppas_en", "accord");
+                    }
+                }
+            }
+            // 7. « Combien de pommes as-tu mangé ? » → mangées.
+            if (token.lower === "combien" && ["de", "d'"].includes(next?.lower)) {
+                const nounToken = tokens[i + 2];
+                const nounMorph = nounToken ? morph(nounToken).filter((m) => /:N/.test(m)) : [];
+                if (nounMorph.length) {
+                    const gender = nounMorph.every((m) => /:f/.test(m)) ? "f" : nounMorph.every((m) => /:m/.test(m)) ? "m" : null;
+                    // « combien de temps » (invariable) : sens singulier, on ne dit rien.
+                    const number = nounMorph.every((m) => /:p/.test(m)) ? "p" : null;
+                    for (let k = i + 3; k < Math.min(tokens.length - 1, i + 8) && !tokens[k].punct; k++) {
+                        const aux = tokens[k].lower.split("-")[0];
+                        if (AVOIR_FORMS.has(aux) && participleEntry(tokens[k + 1]) && gender && number) {
+                            const pp = tokens[k + 1];
+                            const [, g, n] = participleTags(pp);
+                            if (g !== gender || n !== number) {
+                                const form = qForm(lemmaOf(participleEntry(pp)), gender, number);
+                                if (form && form !== pp.lower) {
+                                    push(pp, pp.end, form, MESSAGES.combien, "ppas_combien", "accord");
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            // 8. « Elle s'en est prise à moi » → pris.
+            if (["s'", "se", "m'", "me", "t'", "te", "nous", "vous"].includes(token.lower) && next?.lower === "en" && BE_FORMS.has(tokens[i + 2]?.lower)) {
+                const pp = tokens[i + 3];
+                const entry = pp && participleEntry(pp);
+                if (entry && lemmaOf(entry) === "prendre" && pp.lower !== "pris" && ["à", "au", "aux"].includes(tokens[i + 4]?.lower)) {
+                    push(pp, pp.end, "pris", MESSAGES.senprendre, "sen_prendre", "accord");
+                }
+            }
+            // 9. « Mange-s-en », « Achète-en », « Pense-y » → Manges-en, Achètes-en, Penses-y.
+            const imperative = /^(\p{L}+e)(-s)?-(en|y)$/iu.exec(token.text);
+            if (imperative && clauseStart(tokens, i)) {
+                const base = imperative[1];
+                if (morph({ text: base, punct: false }).some((m) => /:V[^/]*:E:2s/.test(m))) {
+                    push(token, token.end, `${base}s-${imperative[3]}`, MESSAGES.imperatif, "imperatif_s", "conjugaison");
+                }
+            }
+            // 10. « Les enfants obéissant sont rares » → obéissants (adjectif sans complément).
+            if (/ant$/.test(token.lower) && i >= 2 && has(token, /:V[^/]*:P/) && next && has(next, /:V[^/]*:(Ip|Iq|Is|If|K)/) && !has(next, /:[NA]/)) {
+                const start = simpleNounPhrase(tokens, i, null);
+                const nounToken = tokens[i - 1];
+                const nounMorph = morph(nounToken).filter((m) => /:N/.test(m));
+                if (start >= 0 && nounMorph.length) {
+                    const plural = DET_PLUR.has(tokens[start].lower);
+                    const feminine = nounMorph.every((m) => /:f/.test(m));
+                    const form = token.lower + (feminine ? "e" : "") + (plural ? "s" : "");
+                    if (form !== token.lower && morph({ text: form, punct: false }).some((m) => /:A/.test(m))) {
+                        push(token, token.end, form, MESSAGES.adjectif, "adjectif_verbal", "accord");
+                    }
+                }
+            }
+        }
+
         function grammarRules(tokens, push, vetoes) {
             tokens.forEach((token, i) => {
                 if (token.punct) {
                     return;
                 }
+                moreRules(tokens, i, push);
                 rulePronominalParticiple(tokens, i, push, vetoes);
                 if (token.lower === "tout") {
                     ruleTout(tokens, i, push);
