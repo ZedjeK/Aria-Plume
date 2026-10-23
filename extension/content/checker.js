@@ -2299,7 +2299,7 @@
         if (area === "local") {
             applySettings();
             // Réglages qui changent l'analyse elle-même : on relance tout de suite.
-            if (changes.formalFrench || changes.englishDialect || changes.repetitions || changes.repetitionDistance) {
+            if (changes.formalFrench || changes.formalHosts || changes.casualHosts || changes.englishDialect || changes.repetitions || changes.repetitionDistance) {
                 live.session?.schedule(0);
                 if (panel.isOpen() && panel.state?.checked) {
                     panel.analyze();

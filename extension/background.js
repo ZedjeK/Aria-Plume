@@ -3,6 +3,8 @@
 // Aucun accès réseau : la CSP de l'extension limite connect-src à 'self'.
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
 
+import { DEFAULTS, formalFor } from "./shared/settings.js";
+
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";
 const MENUS = [
@@ -329,7 +331,16 @@ async function synonyms(msg) {
     return second.groups?.length ? { ...second, lang: other } : { ...first, lang };
 }
 
-async function handle(msg) {
+// Site de l'onglet d'où vient l'analyse (cadre principal, même pour un éditeur dans une iframe).
+function senderHost(sender) {
+    try {
+        return new URL(sender?.tab?.url ?? "").hostname;
+    } catch {
+        return "";
+    }
+}
+
+async function handle(msg, sender) {
     switch (msg.cmd) {
         case "env":
             return {
@@ -346,9 +357,9 @@ async function handle(msg) {
                 lang = detection.lang;
             }
             const offscreenCreated = await ensureOffscreen();
-            const settings = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: false, repetitions: true, repetitionDistance: 30 });
+            const settings = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: DEFAULTS.formalFrench, formalHosts: DEFAULTS.formalHosts, casualHosts: DEFAULTS.casualHosts, repetitions: true, repetitionDistance: 30 });
             const distance = settings.repetitions === true ? Math.min(60, Math.max(10, Number(settings.repetitionDistance) || 30)) : 0;
-            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: settings.englishDialect, formal: settings.formalFrench === true, repetitions: distance });
+            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: settings.englishDialect, formal: formalFor(senderHost(sender), settings), repetitions: distance });
             // Les mots du dictionnaire personnel (Elegoo, systemd…) ne comptent pas comme répétitions.
             const known = new Set(settings.dictionary.map((w) => w.toLowerCase()));
             result.matches = result.matches.filter((m) => m.rule !== "aria_repetition" || !known.has(msg.text.slice(m.start, m.end).toLowerCase()));
@@ -387,7 +398,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.target !== "sw" || sender.id !== chrome.runtime.id) {
         return false;
     }
-    handle(msg).then(
+    handle(msg, sender).then(
         (result) => sendResponse({ ok: true, ...result }),
         (error) => sendResponse({ ok: false, error: String(error?.message ?? error) }),
     );

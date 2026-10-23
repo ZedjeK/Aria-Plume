@@ -26,6 +26,9 @@ export const DEFAULTS = {
     disabledKinds: [],
     hideNativeSpellcheck: false,
     formalFrench: false,
+    // Français écrit soigné site par site (le réglage général vaut ailleurs).
+    formalHosts: ["mail.google.com", "outlook.live.com", "outlook.office.com", "outlook.office365.com"],
+    casualHosts: ["discord.com"],
     repetitions: true,
     repetitionDistance: 30,
     colors: DEFAULT_COLORS,
@@ -61,6 +64,36 @@ const MAX_LIST = 2000;
 
 const isString = (value) => typeof value === "string";
 
+// « https://Mail.Google.com/mail/u/0 » → « mail.google.com » ; "" si ce n'est pas un nom d'hôte.
+export function cleanHost(text) {
+    let host = String(text ?? "").trim().toLowerCase();
+    try {
+        if (/^[a-z]+:\/\//.test(host)) {
+            host = new URL(host).hostname;
+        }
+    } catch {
+        return "";
+    }
+    host = host.replace(/^\*\./, "").replace(/\/.*$/, "");
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$|^localhost$/.test(host) ? host : "";
+}
+
+// L'hôte (ou un de ses parents) figure-t-il dans la liste ? « mail.google.com » ⊂ « google.com ».
+export function hostMatches(host, list) {
+    return list.some((entry) => host === entry || host.endsWith(`.${entry}`));
+}
+
+// Français soigné pour ce site : liste « soigné », sinon liste « courant », sinon réglage général.
+export function formalFor(host, settings) {
+    if (host && hostMatches(host, settings.formalHosts ?? [])) {
+        return true;
+    }
+    if (host && hostMatches(host, settings.casualHosts ?? [])) {
+        return false;
+    }
+    return settings.formalFrench === true;
+}
+
 // Nettoie un objet de réglages (import d'un fichier, stockage) : seules les clés
 // connues, avec le bon type, passent. Le reste est ignoré.
 export function sanitize(input) {
@@ -83,8 +116,10 @@ export function sanitize(input) {
     if (Number.isFinite(input.repetitionDistance)) {
         result.repetitionDistance = Math.min(REPETITION_RANGE.max, Math.max(REPETITION_RANGE.min, Math.round(input.repetitionDistance)));
     }
-    if (Array.isArray(input.disabledHosts)) {
-        result.disabledHosts = [...new Set(input.disabledHosts.filter(isString).map((h) => h.trim().toLowerCase()).filter(Boolean))].slice(0, MAX_LIST);
+    for (const key of ["disabledHosts", "formalHosts", "casualHosts"]) {
+        if (Array.isArray(input[key])) {
+            result[key] = [...new Set(input[key].filter(isString).map(cleanHost).filter(Boolean))].slice(0, MAX_LIST);
+        }
     }
     if (Number.isFinite(input.debounceMs)) {
         result.debounceMs = Math.min(DEBOUNCE_RANGE.max, Math.max(DEBOUNCE_RANGE.min, Math.round(input.debounceMs)));

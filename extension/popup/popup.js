@@ -2,7 +2,9 @@
 // traduction rapide dans les deux sens entre deux bulles, et conjugueur.
 // La même page sert aussi de fenêtre séparée (popup.html?mode=window).
 
-const DEFAULTS = { liveEnabled: true, disabledHosts: [] };
+import { DEFAULTS as ALL_DEFAULTS } from "../shared/settings.js";
+
+const DEFAULTS = { liveEnabled: true, disabledHosts: [], formalFrench: ALL_DEFAULTS.formalFrench, formalHosts: ALL_DEFAULTS.formalHosts, casualHosts: ALL_DEFAULTS.casualHosts };
 const WINDOW_SIZE = { width: 560, height: 780 };
 const BOUNDS_KEY = "windowBounds";
 const $ = (selector) => document.querySelector(selector);
@@ -40,6 +42,7 @@ function render() {
     $("#live").checked = settings.liveEnabled;
     const siteToggle = $("#site");
     const siteRow = $("#site-row");
+    renderFormal();
     $("#check").disabled = !host;
     $("#translate-page").disabled = !host;
     if (!host) {
@@ -75,6 +78,41 @@ function done() {
 }
 
 $("#live").addEventListener("change", (event) => save({ liveEnabled: event.target.checked }));
+
+// Français soigné sur ce site : liste « soigné », liste « courant », ou réglage général.
+function renderFormal() {
+    const select = $("#formal-site");
+    const row = $("#formal-row");
+    $("#formal-hint").textContent = `Réglage général : ${settings.formalFrench ? "oui" : "non"}`;
+    $("#formal-row").title = "Français écrit soigné : le « ne » oublié, « se rappeler de », « pallier à »…";
+    select.disabled = !host;
+    row.classList.toggle("disabled", !host);
+    select.value = !host ? "default" : settings.formalHosts.includes(host) ? "formal" : settings.casualHosts.includes(host) ? "casual" : "default";
+    // Un domaine parent (« google.com ») dans une liste : on le signale, sans le modifier ici.
+    const parent = [...settings.formalHosts, ...settings.casualHosts].find((h) => host && h !== host && host.endsWith(`.${h}`));
+    if (parent && select.value === "default") {
+        $("#formal-hint").textContent = `Réglé pour ${parent} dans la page de réglages.`;
+    }
+}
+
+// Réglages changés ailleurs (page de réglages, autre fenêtre) : la popup suit.
+chrome.storage.onChanged.addListener(async (changes, area) => {
+    if (area === "local" && Object.keys(changes).some((key) => key in DEFAULTS)) {
+        settings = await chrome.storage.local.get(DEFAULTS);
+        render();
+    }
+});
+
+$("#formal-site").addEventListener("change", (event) => {
+    const formalHosts = settings.formalHosts.filter((h) => h !== host);
+    const casualHosts = settings.casualHosts.filter((h) => h !== host);
+    if (event.target.value === "formal") {
+        formalHosts.push(host);
+    } else if (event.target.value === "casual") {
+        casualHosts.push(host);
+    }
+    save({ formalHosts, casualHosts });
+});
 
 $("#site").addEventListener("change", (event) => {
     const others = settings.disabledHosts.filter((h) => h !== host);
@@ -472,6 +510,7 @@ function showTab(name, focus = true) {
         button.tabIndex = active ? 0 : -1;
         panel.hidden = !active;
     }
+    $("#qt-status").hidden = name !== "quick";  // l'état de la traduction, dans la barre d'onglets
     // Popup : la place manque, les interrupteurs et l'aide s'effacent le temps de conjuguer.
     document.body.classList.toggle("conj-mode", name === "conj");
     if (name === "conj") {

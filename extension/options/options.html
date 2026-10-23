@@ -109,6 +109,24 @@
         </section>
 
         <section>
+            <h2>Français soigné par site</h2>
+            <p class="hint">Le réglage « Français écrit soigné » vaut partout, sauf sur ces sites. Un domaine compte pour ses sous-domaines (« google.com » couvre « mail.google.com »). Tu peux aussi régler le site ouvert depuis la popup.</p>
+            <h3>Toujours en français soigné <span class="count" id="formalCount"></span></h3>
+            <form class="add" id="formalForm">
+                <input type="text" id="formalInput" placeholder="mail.google.com" autocomplete="off" spellcheck="false" aria-label="Site en français soigné">
+                <button type="submit" class="primary">Ajouter</button>
+            </form>
+            <ul class="list words" id="formalHosts"></ul>
+            <h3>Toujours en français courant <span class="count" id="casualCount"></span></h3>
+            <form class="add" id="casualForm">
+                <input type="text" id="casualInput" placeholder="discord.com" autocomplete="off" spellcheck="false" aria-label="Site en français courant">
+                <button type="submit" class="primary">Ajouter</button>
+            </form>
+            <ul class="list words" id="casualHosts"></ul>
+            <p class="status" id="hostStatus" aria-live="polite"></p>
+        </section>
+
+        <section>
             <h2>Sites désactivés <span class="count" id="hostsCount"></span></h2>
             <p class="hint">Sites où la correction en direct est coupée (interrupteur « Actif sur ce site » de la popup).</p>
             <ul class="list" id="hosts"></ul>

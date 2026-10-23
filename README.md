@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.18 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.19 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -33,7 +33,7 @@ ODL = **O**util **D**e **L**angage.
 | **Dictionnaire personnel** | « Ajouter au dictionnaire » dans l'infobulle ou le panneau : le mot n'est plus souligné, en français comme en anglais, et il est proposé quand tu l'écris avec une faute de frappe. Liste modifiable, import et export en .txt | — |
 | **Glossaire de traduction** | Impose la traduction d'un terme dans les deux sens (« serveur ↔ server » : fini le « waiter ») et garde tels quels les termes à ne jamais traduire (« logs », « VLAN »). Vaut pour la sélection, la page entière et la traduction rapide | Bergamot, guidé par des marqueurs posés autour des termes |
 | **Répétitions** | Vague bleue sous un mot plein revenu trop vite (« il faut vérifier… il faut aussi **vérifier** »), avec des synonymes dans l'infobulle. En français, les formes d'un même mot comptent ensemble (serveur, serveurs). Sigles, noms propres, petits mots, unités (« huit heures… deux heures ») et mots du dictionnaire personnel ne comptent pas. Distance réglable de 10 à 60 mots | Morphologie et thésaurus de Grammalecte (français), WordNet (anglais) |
-| **Français écrit soigné** | Réglage décoché par défaut : signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral, comme le *ne* oublié (« j'ai pas le temps »), « je n'ai **pas** vu personne », « se rappeler **de** cette journée », « pallier **à** », « aller **au** coiffeur » | Grammalecte (règle du *ne*) et règles d'Aria |
+| **Français écrit soigné** | Réglage décoché par défaut : signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral, comme le *ne* oublié (« j'ai pas le temps »), « je n'ai **pas** vu personne », « se rappeler **de** cette journée », « pallier **à** », « aller **au** coiffeur ». Réglable site par site : activé d'office sur Gmail et Outlook, coupé sur Discord, et un choix *Comme d'habitude / Toujours / Jamais* dans la popup pour le site ouvert | Grammalecte (règle du *ne*) et règles d'Aria |
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
@@ -60,7 +60,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 3. **Trouver un synonyme** : clic droit sur un mot → *Aria ODL* → *Synonymes avec Aria ODL*, puis clic sur le synonyme choisi.
 4. **Traduire un passage** : sélectionne-le, clic droit → *Aria ODL* → *Traduire avec Aria ODL* (ou Alt+Maj+L).
 5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria ODL*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
-6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, traduction rapide, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
+6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, français soigné pour le site ouvert, traduction rapide, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
 
 ## Sécurité
 

@@ -32,6 +32,18 @@
         </span>
         <input type="checkbox" id="site">
     </label>
+
+    <label class="switch select-row" id="formal-row">
+        <span>
+            <strong>Français soigné ici</strong>
+            <small id="formal-hint">Réglage général : non</small>
+        </span>
+        <select id="formal-site" aria-label="Français écrit soigné sur ce site">
+            <option value="default">Comme d'habitude</option>
+            <option value="formal">Toujours</option>
+            <option value="casual">Jamais</option>
+        </select>
+    </label>
     </div>
 
     <div class="actions">
@@ -46,20 +58,17 @@
     <div class="tabs" role="tablist" aria-label="Outils">
         <button role="tab" id="tab-quick" aria-controls="panel-quick" aria-selected="true">Traduction</button>
         <button role="tab" id="tab-conj" aria-controls="panel-conj" aria-selected="false">Conjugaison</button>
+        <span id="qt-status" class="qt-status"></span>
     </div>
 
     <section class="quick" id="panel-quick" role="tabpanel" aria-labelledby="tab-quick">
-        <div class="quick-head">
-            <strong>Traduction</strong>
-            <span id="qt-status" class="qt-status"></span>
-        </div>
         <div class="qt-grid">
         <div class="bubble">
             <div class="bubble-head">
                 <span class="lang" id="qt-lang-a">FR / EN</span>
                 <button class="mini" id="qt-copy-a" title="Copier ce texte">Copier</button>
             </div>
-            <textarea id="qt-a" rows="4" spellcheck="false" placeholder="Écris ou colle ton texte ici…"></textarea>
+            <textarea id="qt-a" rows="2" spellcheck="false" placeholder="Écris ou colle ton texte ici…"></textarea>
         </div>
         <button class="swap" id="qt-swap" title="Échanger les deux bulles">⇅</button>
         <div class="bubble">
@@ -67,7 +76,7 @@
                 <span class="lang" id="qt-lang-b">FR / EN</span>
                 <button class="mini" id="qt-copy-b" title="Copier ce texte">Copier</button>
             </div>
-            <textarea id="qt-b" rows="4" spellcheck="false" placeholder="… ou écris ici : l'autre bulle se traduit."></textarea>
+            <textarea id="qt-b" rows="2" spellcheck="false" placeholder="… ou écris ici : l'autre bulle se traduit."></textarea>
         </div>
         </div>
     </section>
@@ -87,6 +96,6 @@
         <div class="conj-info" id="conj-info" aria-live="polite"></div>
         <div class="conj-results" id="conj-results"></div>
     </section>
-    <p class="hint">Clic droit sur un mot souligné pour le corriger · Alt+Maj+V : panneau complet · Alt+Maj+L : traduire la sélection</p>
+    <p class="hint">Clic droit sur un mot souligné pour le corriger · Alt+Maj+V : panneau · Alt+Maj+L : traduction</p>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
@@ -70,6 +70,16 @@ function render() {
         return el("li", {}, el("span", { className: "word", textContent: entry.word }), el("span", { className: "meta", textContent: `${KIND_LABELS[entry.kind] ?? entry.kind} · ${entry.rule}` }), remove);
     }));
     $("#clearIgnored").disabled = settings.ignored.length === 0;
+
+    for (const [key, other, list, count] of [["formalHosts", "casualHosts", "#formalHosts", "#formalCount"], ["casualHosts", "formalHosts", "#casualHosts", "#casualCount"]]) {
+        $(count).textContent = settings[key].length;
+        $(list).replaceChildren(...[...settings[key]].sort().map((host) => {
+            const remove = el("button", { textContent: "×", title: "Retirer ce site" });
+            remove.setAttribute("aria-label", `Retirer ${host}`);
+            remove.addEventListener("click", () => save({ [key]: settings[key].filter((h) => h !== host) }));
+            return el("li", {}, el("span", { className: "word", textContent: host }), remove);
+        }));
+    }
 
     $("#hostsCount").textContent = settings.disabledHosts.length;
     $("#hosts").replaceChildren(...settings.disabledHosts.map((host) => {
@@ -254,6 +264,24 @@ function build() {
     $("#resetColors").addEventListener("click", () => save({ colors: { ...DEFAULT_COLORS } }));
 
     $("#clearIgnored").addEventListener("click", () => save({ ignored: [] }));
+
+    // Un site ne peut être que dans une des deux listes : l'ajouter à l'une le retire de l'autre.
+    for (const [form, input, key, other] of [["#formalForm", "#formalInput", "formalHosts", "casualHosts"], ["#casualForm", "#casualInput", "casualHosts", "formalHosts"]]) {
+        $(form).addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const host = cleanHost($(input).value);
+            const status = $("#hostStatus");
+            if (!host) {
+                status.textContent = "Adresse de site invalide (exemple : mail.google.com).";
+                status.className = "status ko";
+                return;
+            }
+            await save({ [key]: [...settings[key].filter((h) => h !== host), host], [other]: settings[other].filter((h) => h !== host) });
+            $(input).value = "";
+            status.textContent = `${host} ajouté.`;
+            status.className = "status ok";
+        });
+    }
 
     $("#export").addEventListener("click", () => {
         const data = { app: "Aria ODL", version: chrome.runtime.getManifest().version, exportedAt: new Date().toISOString(), settings };
