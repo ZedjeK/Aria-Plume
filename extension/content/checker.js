@@ -42,6 +42,7 @@
         colors: DEFAULT_COLORS,
         ignored: [],
         dictionary: [],
+        reviewBeforeSend: true,
     };
     const MAX_IGNORED = 2000;
     const COLOR = /^#[0-9a-f]{6}$/i;
@@ -49,6 +50,7 @@
         debounceMs: DEFAULTS.debounceMs,
         disabledKinds: new Set(),
         hideNativeSpellcheck: false,
+        reviewBeforeSend: true,
     };
     const HIGHLIGHTS_SUPPORTED = typeof Highlight === "function" && !!globalThis.CSS?.highlights;
 
@@ -1049,6 +1051,7 @@
             panel.close();
             translateBubble.close();
             synonymBubble.close();
+            sendReview.close();
         }
     }, true);
 
@@ -1860,6 +1863,206 @@
         },
     };
 
+    // ---------------------------------------------------------------------
+    // Relecture avant envoi (Gmail)
+    // ---------------------------------------------------------------------
+    // Au clic sur « Envoyer » (ou Ctrl+Entrée), s'il reste des fautes d'orthographe ou de
+    // grammaire dans le mail, l'envoi est retenu et une bulle propose de les voir ou d'envoyer
+    // quand même. En cas de doute (page de Gmail changée, analyse trop longue), le mail part.
+
+    const REVIEW_HOSTS = ["mail.google.com"];
+    const SEND_LABEL = /^\s*(envoyer|send)\b/i;
+    const REVIEW_TIMEOUT_MS = 4000;
+    const MESSAGE_BODY = '[contenteditable="true"][role="textbox"], [contenteditable="true"][g_editable="true"]';
+    const REPLAY_EVENTS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"];
+
+    const REVIEW_SHEET = sheet(`
+        .review { width: min(340px, calc(100vw - 16px)); padding: 10px 12px; }
+        .review .title { font-weight: 600; margin-bottom: 4px; }
+        .review .title b { color: #ff4fd8; }
+        .review .text { color: #8b91a8; font-size: 13px; margin: 0 0 10px; }
+        .review .actions { justify-content: flex-end; }
+    `);
+
+    const sendReview = {
+        host: null,
+        box: null,
+        busy: false,
+        bypassUntil: 0,
+
+        active() {
+            return prefs.reviewBeforeSend && REVIEW_HOSTS.includes(location.hostname) && Date.now() > this.bypassUntil;
+        },
+
+        sendButtonIn(path) {
+            for (const node of path) {
+                if (!(node instanceof Element)) {
+                    continue;
+                }
+                if (node.getAttribute("role") === "button" || node.tagName === "BUTTON") {
+                    const label = node.getAttribute("data-tooltip") || node.getAttribute("aria-label") || "";
+                    return SEND_LABEL.test(label) ? node : null;
+                }
+            }
+            return null;
+        },
+
+        // Corps du brouillon : la zone éditable la plus proche du bouton « Envoyer ».
+        bodyNear(button) {
+            for (let node = button.parentElement, depth = 0; node && depth < 25; node = node.parentElement, depth++) {
+                const body = node.querySelector(MESSAGE_BODY);
+                if (body) {
+                    return body;
+                }
+            }
+            return null;
+        },
+
+        buttonNear(body) {
+            for (let node = body.parentElement, depth = 0; node && depth < 25; node = node.parentElement, depth++) {
+                const button = [...node.querySelectorAll('[role="button"], button')].find((b) => SEND_LABEL.test(b.getAttribute("data-tooltip") || b.getAttribute("aria-label") || ""));
+                if (button) {
+                    return button;
+                }
+            }
+            return null;
+        },
+
+        // Texte écrit par toi : sans la citation du message auquel tu réponds ni la signature.
+        ownText(body) {
+            const clone = body.cloneNode(true);
+            clone.querySelectorAll(".gmail_quote, blockquote, .gmail_signature, [data-smartmail='gmail_signature']").forEach((node) => node.remove());
+            return new EditableTarget(clone, { doc: document, offsetX: 0, offsetY: 0 }).getText();
+        },
+
+        async countErrors(body) {
+            const text = this.ownText(body);
+            if (text.trim().length < 2) {
+                return 0;
+            }
+            const timeout = new Promise((resolve) => setTimeout(() => resolve(null), REVIEW_TIMEOUT_MS));
+            const response = await Promise.race([requestCheck(text), timeout]);
+            if (!response?.ok) {
+                return null;  // pas de réponse : on ne bloque pas l'envoi
+            }
+            return response.matches.filter((m) => (m.kind === "orthographe" || m.kind === "grammaire") && !isHidden(m, text.slice(m.start, m.end))).length;
+        },
+
+        async review(button, body) {
+            if (this.busy) {
+                return;
+            }
+            this.busy = true;
+            try {
+                const count = await this.countErrors(body);
+                if (!count) {
+                    this.send(button);
+                } else {
+                    this.show(button, body, count);
+                }
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        // Rejoue le clic sur « Envoyer » (Gmail réagit à la séquence souris complète).
+        send(button) {
+            this.close();
+            if (!button?.isConnected) {
+                return;
+            }
+            this.bypassUntil = Date.now() + 1500;
+            const rect = button.getBoundingClientRect();
+            const point = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+            for (const type of REPLAY_EVENTS) {
+                const event = type.startsWith("pointer") ? new PointerEvent(type, { ...point, pointerType: "mouse", isPrimary: true }) : new MouseEvent(type, point);
+                button.dispatchEvent(event);
+            }
+        },
+
+        show(button, body, count) {
+            if (!this.host?.isConnected) {
+                const { host, root } = createShadowHost("aria-odl-review", [UI_SHEET, REVIEW_SHEET]);
+                this.host = host;
+                this.box = el("div", { className: "box review" });
+                this.box.setAttribute("role", "alertdialog");
+                this.box.setAttribute("aria-label", "Aria ODL — relecture avant envoi");
+                this.box.addEventListener("mousedown", (event) => event.preventDefault());
+                root.append(this.box);
+            }
+            this.host.hidden = false;
+            const look = el("button", { textContent: "Voir les fautes" });
+            look.addEventListener("click", () => {
+                this.close();
+                body.focus();
+                panel.open();
+            });
+            const anyway = el("button", { className: "primary", textContent: "Envoyer quand même" });
+            anyway.addEventListener("click", () => this.send(button));
+            const plural = count > 1 ? "s" : "";
+            this.box.replaceChildren(
+                el("div", { className: "title" }, el("b", { textContent: `${count} faute${plural}` }), ` reste${count > 1 ? "nt" : ""} dans ton mail.`),
+                el("p", { className: "text", textContent: "Orthographe ou grammaire. Échap pour revenir au mail." }),
+                el("div", { className: "actions" }, look, anyway),
+            );
+            placeBox(this.box, button.getBoundingClientRect(), false);
+            anyway.focus();
+        },
+
+        isOpen() {
+            return !!this.host?.isConnected && !this.host.hidden;
+        },
+
+        isInPath(event) {
+            return this.isOpen() && event.composedPath().includes(this.host);
+        },
+
+        close() {
+            if (this.host) {
+                this.host.hidden = true;
+            }
+        },
+
+        dispose() {
+            this.host?.remove();
+            this.host = null;
+        },
+    };
+
+    // Souris : on retient toute la séquence du clic sur « Envoyer », puis on relit.
+    for (const type of REPLAY_EVENTS) {
+        listen(window, type, (event) => {
+            if (!event.isTrusted || !sendReview.active() || sendReview.isInPath(event)) {
+                return;
+            }
+            const button = sendReview.sendButtonIn(event.composedPath());
+            const body = button && sendReview.bodyNear(button);
+            if (!body) {
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (type === "click") {
+                sendReview.review(button, body);
+            }
+        }, true);
+    }
+
+    // Clavier : Ctrl+Entrée (Cmd+Entrée sur Mac) dans le corps du message.
+    listen(window, "keydown", (event) => {
+        if (!event.isTrusted || event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || !sendReview.active()) {
+            return;
+        }
+        const target = event.composedPath().find((node) => node instanceof Element && node.matches(MESSAGE_BODY));
+        const button = target && sendReview.buttonNear(target);
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        sendReview.review(button, target);
+    }, true);
+
     function escapeHtml(text) {
         return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -2284,6 +2487,7 @@
         prefs.debounceMs = Number.isFinite(settings.debounceMs) ? Math.min(2000, Math.max(200, settings.debounceMs)) : DEFAULTS.debounceMs;
         prefs.disabledKinds = new Set(Array.isArray(settings.disabledKinds) ? settings.disabledKinds : []);
         prefs.hideNativeSpellcheck = settings.hideNativeSpellcheck === true;
+        prefs.reviewBeforeSend = settings.reviewBeforeSend !== false;
         ignored.clear();
         for (const entry of Array.isArray(settings.ignored) ? settings.ignored : []) {
             if (entry && typeof entry.word === "string" && typeof entry.rule === "string") {
@@ -2359,6 +2563,7 @@
         panel.dispose();
         translateBubble.dispose();
         synonymBubble.dispose();
+        sendReview.dispose();
         pageTranslation.stop();
     }
 

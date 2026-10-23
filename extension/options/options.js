@@ -37,6 +37,7 @@ function render() {
     $("#hideNativeSpellcheck").checked = settings.hideNativeSpellcheck;
     $("#formalFrench").checked = settings.formalFrench;
     $("#trackMistakes").checked = settings.trackMistakes;
+    $("#reviewBeforeSend").checked = settings.reviewBeforeSend;
     renderMistakes();
     $("#repetitions").checked = settings.repetitions;
     $("#repetitionDistance").value = settings.repetitionDistance;
@@ -253,6 +254,7 @@ function build() {
     $("#hideNativeSpellcheck").addEventListener("change", (e) => save({ hideNativeSpellcheck: e.target.checked }));
     $("#formalFrench").addEventListener("change", (e) => save({ formalFrench: e.target.checked }));
     $("#trackMistakes").addEventListener("change", (e) => save({ trackMistakes: e.target.checked }));
+    $("#reviewBeforeSend").addEventListener("change", (e) => save({ reviewBeforeSend: e.target.checked }));
     $("#clearMistakes").addEventListener("click", async () => {
         await chrome.storage.local.remove(["mistakeStats", "mistakeStatsSince"]);
         renderMistakes();

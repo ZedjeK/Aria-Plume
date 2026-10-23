@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.20 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.21 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -34,6 +34,7 @@ ODL = **O**util **D**e **L**angage.
 | **Glossaire de traduction** | Impose la traduction d'un terme dans les deux sens (« serveur ↔ server » : fini le « waiter ») et garde tels quels les termes à ne jamais traduire (« logs », « VLAN »). Vaut pour la sélection, la page entière et la traduction rapide | Bergamot, guidé par des marqueurs posés autour des termes |
 | **Répétitions** | Vague bleue sous un mot plein revenu trop vite (« il faut vérifier… il faut aussi **vérifier** »), avec des synonymes dans l'infobulle. En français, les formes d'un même mot comptent ensemble (serveur, serveurs). Sigles, noms propres, petits mots, unités (« huit heures… deux heures ») et mots du dictionnaire personnel ne comptent pas. Distance réglable de 10 à 60 mots | Morphologie et thésaurus de Grammalecte (français), WordNet (anglais) |
 | **Français écrit soigné** | Réglage décoché par défaut : signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral, comme le *ne* oublié (« j'ai pas le temps »), « je n'ai **pas** vu personne », « se rappeler **de** cette journée », « pallier **à** », « aller **au** coiffeur ». Réglable site par site : activé d'office sur Gmail et Outlook, coupé sur Discord, et un choix *Comme d'habitude / Toujours / Jamais* dans la popup pour le site ouvert | Grammalecte (règle du *ne*) et règles d'Aria |
+| **Relecture avant envoi** | Dans Gmail, au clic sur « Envoyer » (ou Ctrl+Entrée), s'il reste des fautes d'orthographe ou de grammaire dans ce que tu as écrit (citation et signature exclues), le mail est retenu : *Voir les fautes* ou *Envoyer quand même*. Sans faute, il part normalement ; en cas de doute (analyse trop longue, page de Gmail modifiée), il part aussi | Grammalecte, Harper |
 | **Tes fautes récurrentes** | Les corrections que tu acceptes sont comptées par famille (homophones, participe passé, -er/-é, conjugaison…) ; la page de réglages montre le top 5 avec tes derniers exemples et la règle en une ligne. Tout reste dans le navigateur, comptage désactivable, bouton pour tout effacer | Familles des règles de Grammalecte et d'Aria |
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
@@ -86,6 +87,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 - La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Le glossaire corrige les termes que tu y mets ; relis le reste du jargon technique.
 - Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
 - La traduction de page ne traite pas le contenu des iframes, et traduit toute la page dans le même sens.
+- La relecture avant envoi repose sur la structure de la page de Gmail (bouton « Envoyer », zone de rédaction) : testée sur une reproduction locale, à confirmer sur le vrai Gmail. Si Gmail change sa page, la relecture ne se déclenche plus, mais n'empêche jamais l'envoi.
 - Les applications de bureau (Discord, Gmail…) et Google Docs, qui dessine son texte sur un canvas, sont hors de portée d'une extension.
 - Les synonymes proposés pour une répétition viennent des mêmes thésaurus, qui ignorent le contexte : pour « serveur », ils proposent « barman ». Choisis, ou clique sur « Ignorer » pour ne plus voir ce mot signalé.
 - Les thésaurus mélangent les sens d'un mot : pour « rapide », « agile » côtoie « bref » ou « alarme », et « serveur » n'a pas de sens informatique en français. En anglais, seules les formes régulières retrouvent leur base (« servers », « running », pas « broke »).
