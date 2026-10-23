@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Aria Plume",
     "short_name": "Aria Plume",
-    "version": "0.22.0",
+    "version": "0.22.1",
     "description": "Correcteur français/anglais et traduction, 100 % locaux : correction en direct, traduction de sélection et de page entière.",
     "icons": {
         "16": "icons/icon-16.png",
