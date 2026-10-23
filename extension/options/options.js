@@ -1,5 +1,6 @@
 // Aria ODL — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
+import { topMistakes } from "../shared/mistakes.js";
 import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -35,6 +36,8 @@ function render() {
     $("#liveEnabled").checked = settings.liveEnabled;
     $("#hideNativeSpellcheck").checked = settings.hideNativeSpellcheck;
     $("#formalFrench").checked = settings.formalFrench;
+    $("#trackMistakes").checked = settings.trackMistakes;
+    renderMistakes();
     $("#repetitions").checked = settings.repetitions;
     $("#repetitionDistance").value = settings.repetitionDistance;
     $("#repetitionDistance").disabled = !settings.repetitions;
@@ -88,6 +91,23 @@ function render() {
         remove.addEventListener("click", () => save({ disabledHosts: settings.disabledHosts.filter((h) => h !== host) }));
         return el("li", {}, el("span", { className: "word", textContent: host }), el("span", { className: "meta" }), remove);
     }));
+}
+
+async function renderMistakes() {
+    const { mistakeStats, mistakeStatsSince } = await chrome.storage.local.get({ mistakeStats: {}, mistakeStatsSince: null });
+    const top = topMistakes(mistakeStats, 5);
+    $("#mistakes").replaceChildren(...top.map((entry) => el("li", {},
+        el("div", { className: "mistake-head" },
+            el("strong", { textContent: entry.label }),
+            el("span", { className: "mistake-count", textContent: `${entry.count} fois` })),
+        el("div", { className: "mistake-examples", textContent: entry.examples.map((e) => `${e.from} → ${e.to || "(supprimé)"}`).join("   ·   ") }),
+        el("div", { className: "mistake-rule", textContent: entry.rule }),
+    )));
+    const total = Object.values(mistakeStats).reduce((sum, e) => sum + (e?.count ?? 0), 0);
+    $("#mistakesSince").textContent = mistakeStatsSince && total
+        ? `${total} correction${total > 1 ? "s" : ""} comptée${total > 1 ? "s" : ""} depuis le ${new Date(mistakeStatsSince).toLocaleDateString("fr-FR")}.`
+        : "";
+    $("#clearMistakes").disabled = total === 0;
 }
 
 function renderDictionary() {
@@ -232,6 +252,11 @@ function build() {
     $("#liveEnabled").addEventListener("change", (e) => save({ liveEnabled: e.target.checked }));
     $("#hideNativeSpellcheck").addEventListener("change", (e) => save({ hideNativeSpellcheck: e.target.checked }));
     $("#formalFrench").addEventListener("change", (e) => save({ formalFrench: e.target.checked }));
+    $("#trackMistakes").addEventListener("change", (e) => save({ trackMistakes: e.target.checked }));
+    $("#clearMistakes").addEventListener("click", async () => {
+        await chrome.storage.local.remove(["mistakeStats", "mistakeStatsSince"]);
+        renderMistakes();
+    });
     $("#repetitions").addEventListener("change", (e) => save({ repetitions: e.target.checked }));
     const distance = $("#repetitionDistance");
     Object.assign(distance, { min: REPETITION_RANGE.min, max: REPETITION_RANGE.max, step: REPETITION_RANGE.step });

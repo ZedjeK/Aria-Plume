@@ -136,6 +136,17 @@
         }
     }
 
+    // Correction acceptée : comptée pour « tes fautes récurrentes » (réglages), sans attendre la réponse.
+    function recordCorrections(items) {
+        try {
+            chrome.runtime.sendMessage({ target: "sw", cmd: "record-mistakes", items }).catch(() => {});
+        } catch {
+            // extension rechargée : tant pis pour cette correction
+        }
+    }
+
+    const correction = (match, word, suggestion, lang) => ({ rule: match.rule, kind: match.kind, lang, word, suggestion });
+
     async function requestCheck(text) {
         try {
             return await chrome.runtime.sendMessage({ target: "sw", cmd: "check", lang: "auto", text });
@@ -802,6 +813,7 @@
                 return;
             }
             this.text = text;
+            this.lang = response.lang;
             this.items = response.matches
                 .filter((m) => m.end > m.start)
                 .map((match) => {
@@ -870,6 +882,7 @@
             } else {
                 this.target.replaceRange(item.range, suggestion);
             }
+            recordCorrections([correction(item.match, item.word, suggestion, this.lang)]);
         }
 
         setActive(active) {
@@ -1278,6 +1291,7 @@
                 }
                 undoSteps = fixes.length;
             }
+            recordCorrections(fixes.map((m) => correction(m, m.word, m.suggestions[0], state.lang)));
             if (!state.scope.whole) {
                 state.scope.end += delta;
             }
@@ -1326,6 +1340,7 @@
                 return;
             }
             state.target.replace(match.start, match.end, suggestion);
+            recordCorrections([correction(match, match.word, suggestion, state.lang)]);
             if (!state.scope.whole) {
                 state.scope.end += suggestion.length - (match.end - match.start);
             }

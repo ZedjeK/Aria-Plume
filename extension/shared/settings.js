@@ -31,6 +31,7 @@ export const DEFAULTS = {
     casualHosts: ["discord.com"],
     repetitions: true,
     repetitionDistance: 30,
+    trackMistakes: true,
     colors: DEFAULT_COLORS,
     ignored: [],
     dictionary: [],
@@ -109,6 +110,9 @@ export function sanitize(input) {
     }
     if (typeof input.formalFrench === "boolean") {
         result.formalFrench = input.formalFrench;
+    }
+    if (typeof input.trackMistakes === "boolean") {
+        result.trackMistakes = input.trackMistakes;
     }
     if (typeof input.repetitions === "boolean") {
         result.repetitions = input.repetitions;

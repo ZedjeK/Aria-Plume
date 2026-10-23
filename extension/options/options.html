@@ -53,6 +53,20 @@
         </section>
 
         <section>
+            <h2>Tes fautes récurrentes</h2>
+            <p class="hint">Les corrections que tu acceptes (infobulle, panneau, « Tout corriger ») sont comptées par famille, pour repérer ce qui revient le plus chez toi. Tout reste dans ton navigateur ; seuls les 3 derniers exemples de chaque famille sont gardés.</p>
+            <label class="row">
+                <span><strong>Compter mes corrections</strong><small>Décoche pour ne plus rien enregistrer.</small></span>
+                <input type="checkbox" id="trackMistakes" class="toggle">
+            </label>
+            <ol class="mistakes" id="mistakes"></ol>
+            <p class="status" id="mistakesSince"></p>
+            <div class="buttons">
+                <button id="clearMistakes" class="danger">Tout effacer</button>
+            </div>
+        </section>
+
+        <section>
             <h2>Anglais</h2>
             <label class="row">
                 <span><strong>Variante</strong><small>Orthographe de référence pour le correcteur anglais (color / colour…).</small></span>

@@ -371,3 +371,56 @@ button:hover, .button:hover, select:hover {
 .row.disabled {
     opacity: 0.45;
 }
+
+.mistakes {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mistakes:empty::before {
+    content: "Rien pour l'instant : accepte quelques corrections et reviens ici.";
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.mistakes li {
+    background: #0f1220;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--magenta);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.mistakes .mistake-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.mistakes .mistake-head strong {
+    color: var(--text);
+}
+
+.mistakes .mistake-count {
+    font: 12px var(--mono);
+    color: var(--magenta);
+    white-space: nowrap;
+}
+
+.mistakes .mistake-examples {
+    font: 13px var(--mono);
+    color: var(--cyan);
+    margin: 3px 0;
+    overflow-wrap: anywhere;
+}
+
+.mistakes .mistake-rule {
+    color: var(--muted);
+    font-size: 13px;
+}

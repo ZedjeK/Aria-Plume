@@ -4,6 +4,7 @@
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
 
 import { DEFAULTS, formalFor } from "./shared/settings.js";
+import { addMistakes } from "./shared/mistakes.js";
 
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";
@@ -340,6 +341,22 @@ function senderHost(sender) {
     }
 }
 
+// Fautes récurrentes : les écritures passent l'une après l'autre (plusieurs onglets peuvent corriger en même temps).
+let mistakeQueue = Promise.resolve();
+function recordMistakes(items) {
+    mistakeQueue = mistakeQueue.then(async () => {
+        const { trackMistakes, mistakeStats, mistakeStatsSince } = await chrome.storage.local.get({ trackMistakes: true, mistakeStats: {}, mistakeStatsSince: null });
+        if (trackMistakes !== true || !Array.isArray(items) || items.length === 0) {
+            return;
+        }
+        await chrome.storage.local.set({
+            mistakeStats: addMistakes(mistakeStats, items.slice(0, 200)),
+            mistakeStatsSince: mistakeStatsSince ?? new Date().toISOString(),
+        });
+    }).catch(() => {});
+    return mistakeQueue;
+}
+
 async function handle(msg, sender) {
     switch (msg.cmd) {
         case "env":
@@ -372,6 +389,9 @@ async function handle(msg, sender) {
             return translate(msg);
         case "synonyms":
             return synonyms(msg);
+        case "record-mistakes":
+            await recordMistakes(msg.items);
+            return {};
         case "conjugate":
             await ensureOffscreen();
             return toOffscreen({ cmd: "conjugate", verb: String(msg.verb ?? "").slice(0, 60), options: msg.options ?? {} });

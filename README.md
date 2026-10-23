@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.19 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.20 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -34,6 +34,7 @@ ODL = **O**util **D**e **L**angage.
 | **Glossaire de traduction** | Impose la traduction d'un terme dans les deux sens (« serveur ↔ server » : fini le « waiter ») et garde tels quels les termes à ne jamais traduire (« logs », « VLAN »). Vaut pour la sélection, la page entière et la traduction rapide | Bergamot, guidé par des marqueurs posés autour des termes |
 | **Répétitions** | Vague bleue sous un mot plein revenu trop vite (« il faut vérifier… il faut aussi **vérifier** »), avec des synonymes dans l'infobulle. En français, les formes d'un même mot comptent ensemble (serveur, serveurs). Sigles, noms propres, petits mots, unités (« huit heures… deux heures ») et mots du dictionnaire personnel ne comptent pas. Distance réglable de 10 à 60 mots | Morphologie et thésaurus de Grammalecte (français), WordNet (anglais) |
 | **Français écrit soigné** | Réglage décoché par défaut : signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral, comme le *ne* oublié (« j'ai pas le temps »), « je n'ai **pas** vu personne », « se rappeler **de** cette journée », « pallier **à** », « aller **au** coiffeur ». Réglable site par site : activé d'office sur Gmail et Outlook, coupé sur Discord, et un choix *Comme d'habitude / Toujours / Jamais* dans la popup pour le site ouvert | Grammalecte (règle du *ne*) et règles d'Aria |
+| **Tes fautes récurrentes** | Les corrections que tu acceptes sont comptées par famille (homophones, participe passé, -er/-é, conjugaison…) ; la page de réglages montre le top 5 avec tes derniers exemples et la règle en une ligne. Tout reste dans le navigateur, comptage désactivable, bouton pour tout effacer | Familles des règles de Grammalecte et d'Aria |
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
@@ -67,7 +68,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 - **Aucun accès réseau** : la politique de sécurité de l'extension (`connect-src 'self'`) bride le service worker, le document offscreen et les moteurs : même en cas de bug, ils ne peuvent rien envoyer à l'extérieur. Le script injecté dans les pages n'est pas couvert par cette politique, mais il ne fait aucun appel réseau et ne communique qu'avec l'extension. Les moteurs et les modèles sont dans le dossier `extension`.
 - **Champs ignorés** : les champs de mot de passe, ceux que le site déclare comme numéro de carte bancaire ou code à usage unique (attribut `autocomplete`) et les éditeurs de code ne sont jamais lus. Un champ sensible mal balisé par le site peut être analysé, mais toujours en local.
 - **Modèles vérifiés** : l'empreinte SHA-256 publiée par Mozilla est contrôlée à chaque chargement d'un modèle.
-- **Rien d'envoyé** : les réglages, les mots ignorés, le dictionnaire personnel et le glossaire restent dans le stockage local du navigateur ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
+- **Rien d'envoyé** : les réglages, les mots ignorés, le dictionnaire personnel, le glossaire et le décompte de tes fautes restent dans le stockage local du navigateur ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
 
 | Permission | Pourquoi |
 | --- | --- |
