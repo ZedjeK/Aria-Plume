@@ -34,6 +34,7 @@ async function save(patch) {
 function render() {
     $("#liveEnabled").checked = settings.liveEnabled;
     $("#hideNativeSpellcheck").checked = settings.hideNativeSpellcheck;
+    $("#formalFrench").checked = settings.formalFrench;
     $("#debounceMs").value = settings.debounceMs;
     $("#debounceValue").textContent = `${settings.debounceMs} ms`;
     $("#englishDialect").value = settings.englishDialect;
@@ -215,6 +216,7 @@ function build() {
 
     $("#liveEnabled").addEventListener("change", (e) => save({ liveEnabled: e.target.checked }));
     $("#hideNativeSpellcheck").addEventListener("change", (e) => save({ hideNativeSpellcheck: e.target.checked }));
+    $("#formalFrench").addEventListener("change", (e) => save({ formalFrench: e.target.checked }));
 
     const dialect = $("#englishDialect");
     for (const [value, label] of Object.entries(DIALECTS)) {

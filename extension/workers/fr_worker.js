@@ -740,7 +740,7 @@ function conjugate(input, options = {}) {
 const sameFix = (error, fix) => error.suggestions.some((sugg) => sugg.toLowerCase().replace("’", "'") === fix.toLowerCase().replace("’", "'"));
 
 function addHomophones(line, grammar) {
-    const all = homophones.find(line);
+    const all = homophones.find(line, { formal: formalMode });
     // Grammalecte a déjà vu la faute et propose notre correction, mais pas en premier
     // (« Il et parti » → ait, est, hait) : on la remonte en tête.
     for (const h of all) {
@@ -775,7 +775,32 @@ function addHomophones(line, grammar) {
     return { grammar: kept, extra: found };
 }
 
-function check(text) {
+// « Français écrit soigné » : règle du « ne » oublié de Grammalecte et règles de registre d'Aria.
+// Les caches de réanalyse dépendent des options : on les vide quand le réglage change.
+let formalMode = false;
+
+function setFormal(formal) {
+    if (formal !== formalMode) {
+        formalMode = formal;
+        gc_engine.setOption("neg", formal);
+        solutionCache.clear();
+        cascadeCache.clear();
+    }
+}
+
+// Grammalecte met parfois sa suggestion en capitales (« C' » → « CE N' ») : on suit la casse du texte.
+function followCase(original, suggestion) {
+    const letters = original.replace(/[^\p{L}]/gu, "");
+    const shouting = suggestion.replace(/[^\p{L}]/gu, "").length > 1 && suggestion === suggestion.toUpperCase();
+    if (shouting && (letters.length <= 1 || letters !== letters.toUpperCase())) {
+        const lower = suggestion.toLowerCase();
+        return /^\p{Lu}/u.test(original) ? lower[0].toUpperCase() + lower.slice(1) : lower;
+    }
+    return suggestion;
+}
+
+function check(text, formal = false) {
+    setFormal(formal);
     const start = performance.now();
     const matches = [];
     let offset = 0;
@@ -786,9 +811,9 @@ function check(text) {
                 start: err.nStart,
                 end: err.nEnd,
                 kind: "grammaire",
-                detail: err.sType,
+                detail: /^g\d__neg_/.test(err.sRuleId) ? "français soigné" : err.sType,
                 message: err.sMessage,
-                suggestions: err.aSuggestions || [],
+                suggestions: (err.aSuggestions || []).map((sugg) => followCase(line.slice(err.nStart, err.nEnd), sugg)),
                 rule: err.sRuleId,
             }));
             const { grammar: independent, extra } = addHomophones(line, grammar);
@@ -824,7 +849,7 @@ self.onmessage = (event) => {
         if (cmd === "init") {
             result = init();
         } else if (cmd === "check") {
-            result = check(payload.text);
+            result = check(payload.text, !!payload.formal);
         } else if (cmd === "conjugate") {
             result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {

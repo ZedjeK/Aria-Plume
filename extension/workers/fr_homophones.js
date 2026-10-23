@@ -56,6 +56,10 @@ const Homophones = (() => {
         senprendre: "« s'en prendre à » : le participe reste invariable (elle s'en est pris à moi).",
         imperatif: "À l'impératif, devant « en » ou « y », on ajoute un « s » aux verbes terminés par -e (manges-en, penses-y).",
         adjectif: "Employé comme adjectif (sans complément), le mot en -ant s'accorde avec le nom (des enfants obéissants).",
+        rappeler: "En français soigné, on se rappelle quelque chose, sans « de » (je me rappelle cette journée) ; « se souvenir de » prend « de ».",
+        pallier: "« pallier » se construit sans « à » : on pallie un problème (pallier ce problème).",
+        chez: "On va « chez » quelqu'un (chez le coiffeur), et « à » un lieu (au salon de coiffure).",
+        doubleneg: "« pas » fait double emploi avec « personne », « rien » ou « aucun » : je n'ai vu personne.",
     };
     const VOWEL_START = /^[aeiouyhàâäéèêëîïôöùûüœæ]/;
     const BE_FORMS = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fus", "fut", "fûmes", "fûtes", "furent", "fût"]);
@@ -675,9 +679,82 @@ const Homophones = (() => {
             ruleConcordance(tokens, push);
         }
 
-        const keepCase = (original, replacement) => (/^\p{Lu}/u.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement);
+        const keepCase = (original, replacement) => (replacement && /^\p{Lu}/u.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement);
 
-        function find(line) {
+        // --- Français écrit soigné (réglage, décoché par défaut) ---
+        const PROFESSIONS = new Set(["coiffeur", "coiffeuse", "médecin", "docteur", "dentiste", "boucher", "boulanger", "garagiste", "notaire", "pharmacien", "kiné", "kinésithérapeute", "opticien", "vétérinaire", "véto", "plombier", "avocat", "banquier", "épicier", "fleuriste", "libraire", "ophtalmo", "ophtalmologue", "dermato", "dermatologue", "psy", "psychologue", "psychiatre", "gynéco", "gynécologue", "ostéo", "ostéopathe", "orthodontiste", "cordonnier", "tailleur", "traiteur", "charcutier", "poissonnier", "généraliste", "pédiatre", "radiologue", "esthéticienne", "toiletteur"]);
+        const NEG_WORDS = new Set(["personne", "rien", "aucun", "aucune", "nulle"]);
+        const lemmaIs = (token, lemma) => !!token && morph(token).some((m) => /:V/.test(m) && lemmaOf(m) === lemma);
+
+        // Locutions (« de temps en temps », « de moins en moins »), interrogatifs (« de quelle manière »)
+        // et pronoms de personne (« se rappeler de moi », admis) : « de » n'y est pas fautif.
+        const RAPPELER_DE_OK = new Set(["temps", "moins", "plus", "loin", "suite", "quelle", "quel", "quels", "quelles", "nouveau", "même", "près", "façon", "manière", "mieux", "bonne", "moi", "toi", "lui", "elle", "nous", "vous", "eux", "elles", "soi"]);
+
+        // Vrai verbe pronominal : « je me rappelle », « tu te rappelles », « il se rappelle ».
+        // « Cela me rappelle… » ou « je vais te rappeler » ne sont pas pronominaux.
+        function reflexiveUse(tokens, i) {
+            const window = tokens.slice(Math.max(0, i - 4), i).map((t) => t.lower);
+            if (window.includes("se") || window.includes("s'")) {
+                return true;
+            }
+            const pairs = [["me", "je"], ["m'", "je"], ["me", "j'"], ["m'", "j'"], ["te", "tu"], ["t'", "tu"]];
+            if (pairs.some(([pronoun, subject]) => window.includes(pronoun) && window.includes(subject))) {
+                return true;
+            }
+            return ["nous", "vous"].some((p) => window.filter((w) => w === p).length >= 2);
+        }
+
+        function registerRules(tokens, push, setKind) {
+            tokens.forEach((token, i) => {
+                const next = tokens[i + 1];
+                if (token.punct || !next) {
+                    return;
+                }
+                // « Je me rappelle de cette journée » → je me rappelle cette journée ;
+                // « je me rappelle de l'avoir vu » (+ infinitif) reste.
+                if (lemmaIs(token, "rappeler") && reflexiveUse(tokens, i) && ["de", "d'", "du", "des"].includes(next.lower)
+                    && !RAPPELER_DE_OK.has(tokens[i + 2]?.lower)) {
+                    let k = i + 2;
+                    while (tokens[k] && OBJECT_PRONOUNS.has(tokens[k].lower)) {
+                        k++;
+                    }
+                    // Infinitif juste après (« de l'avoir vu », « de tout ranger ») : construction admise.
+                    const infinitive = [tokens[k], tokens[i + 2], tokens[i + 3]].some((t) => t && !t.punct && has(t, /:Y/));
+                    if (tokens[i + 2] && !tokens[i + 2].punct && !infinitive) {
+                        const fix = { du: "le", des: "les" }[next.lower] ?? "";
+                        const end = fix ? next.end : tokens[i + 2].start;
+                        push(next, end, fix, MESSAGES.rappeler, "se_rappeler_de", "français soigné");
+                        setKind("style");
+                    }
+                }
+                // « pallier à ce problème » → pallier ce problème.
+                if (lemmaIs(token, "pallier") && ["à", "au", "aux"].includes(next.lower) && tokens[i + 2]) {
+                    const fix = { au: "le", aux: "les" }[next.lower] ?? "";
+                    push(next, fix ? next.end : tokens[i + 2].start, fix, MESSAGES.pallier, "pallier_a", "français soigné");
+                    setKind("style");
+                }
+                // « aller au coiffeur » → chez le coiffeur.
+                if (["au", "aux"].includes(token.lower) && PROFESSIONS.has(next.lower.replace(/s$/, "")) && tokens.slice(Math.max(0, i - 3), i).some((t) => lemmaIs(t, "aller"))) {
+                    push(token, token.end, token.lower === "au" ? "chez le" : "chez les", MESSAGES.chez, "aller_chez", "français soigné");
+                    setKind("style");
+                }
+                // « Je n'ai pas vu personne » → je n'ai vu personne ; « ce n'est pas rien » reste.
+                if (token.lower === "pas" && next.lower !== "rien") {
+                    let start = i - 1;
+                    while (start >= 0 && !tokens[start].punct) {
+                        start--;
+                    }
+                    const hasNe = tokens.slice(start + 1, i).some((t) => ["ne", "n'"].includes(t.lower));
+                    const neg = tokens.slice(i + 1, i + 4).find((t) => NEG_WORDS.has(t.lower));
+                    const beforeNeg = neg ? tokens[tokens.indexOf(neg) - 1] : null;
+                    if (hasNe && neg && beforeNeg && !DET_SING.has(beforeNeg.lower) && !DET_PLUR.has(beforeNeg.lower) && !tokens.slice(i + 1, tokens.indexOf(neg)).some((t) => t.punct)) {
+                        push(token, next.start, "", MESSAGES.doubleneg, "double_negation", "français soigné");
+                    }
+                }
+            });
+        }
+
+        function find(line, options = {}) {
             const tokens = tokenize(line);
             const apostrophe = line.includes("’") ? "’" : "'";
             const results = [];
@@ -749,6 +826,11 @@ const Homophones = (() => {
                 }
             });
             grammarRules(tokens, push, results.vetoes);
+            if (options.formal) {
+                registerRules(tokens, push, (kind) => {
+                    results.at(-1).kind = kind;
+                });
+            }
             return results;
         }
 

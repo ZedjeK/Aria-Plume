@@ -25,6 +25,7 @@ export const DEFAULTS = {
     englishDialect: "american",
     disabledKinds: [],
     hideNativeSpellcheck: false,
+    formalFrench: false,
     colors: DEFAULT_COLORS,
     ignored: [],
     dictionary: [],
@@ -69,6 +70,9 @@ export function sanitize(input) {
     }
     if (typeof input.hideNativeSpellcheck === "boolean") {
         result.hideNativeSpellcheck = input.hideNativeSpellcheck;
+    }
+    if (typeof input.formalFrench === "boolean") {
+        result.formalFrench = input.formalFrench;
     }
     if (Array.isArray(input.disabledHosts)) {
         result.disabledHosts = [...new Set(input.disabledHosts.filter(isString).map((h) => h.trim().toLowerCase()).filter(Boolean))].slice(0, MAX_LIST);

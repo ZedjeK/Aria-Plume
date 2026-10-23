@@ -2298,6 +2298,13 @@
     function onStorageChanged(changes, area) {
         if (area === "local") {
             applySettings();
+            // Réglages qui changent l'analyse elle-même : on relance tout de suite.
+            if (changes.formalFrench || changes.englishDialect) {
+                live.session?.schedule(0);
+                if (panel.isOpen() && panel.state?.checked) {
+                    panel.analyze();
+                }
+            }
         }
     }
     chrome.storage.onChanged.addListener(onStorageChanged);

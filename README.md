@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.16 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.17 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 ODL = **O**util **D**e **L**angage.
@@ -32,7 +32,8 @@ ODL = **O**util **D**e **L**angage.
 | **Traduction de page** | Toute la page, au fil du défilement, liens et mise en forme conservés, bascule original ↔ traduction | Bergamot + modèles Mozilla |
 | **Dictionnaire personnel** | « Ajouter au dictionnaire » dans l'infobulle ou le panneau : le mot n'est plus souligné, en français comme en anglais, et il est proposé quand tu l'écris avec une faute de frappe. Liste modifiable, import et export en .txt | — |
 | **Glossaire de traduction** | Impose la traduction d'un terme dans les deux sens (« serveur ↔ server » : fini le « waiter ») et garde tels quels les termes à ne jamais traduire (« logs », « VLAN »). Vaut pour la sélection, la page entière et la traduction rapide | Bergamot, guidé par des marqueurs posés autour des termes |
-| **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
+| **Français écrit soigné** | Réglage décoché par défaut : signale aussi ce que les grammaires condamnent à l'écrit mais qui passe à l'oral, comme le *ne* oublié (« j'ai pas le temps »), « je n'ai **pas** vu personne », « se rappeler **de** cette journée », « pallier **à** », « aller **au** coiffeur » | Grammalecte (règle du *ne*) et règles d'Aria |
+| **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.

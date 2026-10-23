@@ -1,5 +1,6 @@
 // Corpus des règles d'Aria (homophones, formes fautives) : [phrase, mot fautif attendu (null si la phrase
-// est juste), correction attendue]. Lancer : node tests/francais/run.js
+// est juste), correction attendue, { formal: true } pour le réglage « Français écrit soigné »].
+// Lancer : node tests/francais/run.js
 export const corpus = [
   // sa / ça
   ["Sa marche pas.", "Sa", "Ça"],
@@ -320,4 +321,29 @@ export const corpus = [
   ["Les serveurs tournant sous Linux sont stables.", null],
   ["Les données manquant à l'appel ont été restaurées.", null],
   ["Une équipe gagnante ne lâche rien.", null],
+  // « Français écrit soigné » (réglage) : rien n'est signalé sans lui
+  ["J'ai pas le temps.", null],
+  ["Je me rappelle de cette journée.", null],
+  ["Je suis allé au coiffeur.", null],
+  ["J'ai pas le temps.", "ai", "n'ai", { formal: true }],
+  ["Il viendra pas demain.", "viendra", "ne viendra", { formal: true }],
+  ["C'est pas grave.", "C'", "Ce n'", { formal: true }],
+  ["Je me rappelle de cette journée.", "de", "", { formal: true }],
+  ["Je me suis rappelé du film.", "du", "le", { formal: true }],
+  ["Il faut pallier à ce problème.", "à", "", { formal: true }],
+  ["Il faut pallier aux manques.", "aux", "les", { formal: true }],
+  ["Je suis allé au coiffeur.", "au", "chez le", { formal: true }],
+  ["Ils sont allés aux coiffeurs.", "aux", "chez les", { formal: true }],
+  ["Je n'ai pas vu personne.", "pas", "", { formal: true }],
+  ["Je n'ai pas aucune idée.", "pas", "", { formal: true }],
+  ["Je me rappelle de l'avoir vu.", null, null, { formal: true }],
+  ["Je me souviens de cette journée.", null, null, { formal: true }],
+  ["Tu te rappelles de moi ?", null, null, { formal: true }],
+  ["Je me rappelle de temps en temps mon enfance.", null, null, { formal: true }],
+  ["Cela me rappelle de loin mon enfance.", null, null, { formal: true }],
+  ["On va aller au cinéma.", null, null, { formal: true }],
+  ["Je vais au salon de coiffure.", null, null, { formal: true }],
+  ["Ce n'est pas rien.", null, null, { formal: true }],
+  ["Je n'ai pas vu une seule personne.", null, null, { formal: true }],
+  ["Je ne pense pas qu'il viendra.", null, null, { formal: true }],
 ];

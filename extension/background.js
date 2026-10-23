@@ -346,8 +346,8 @@ async function handle(msg) {
                 lang = detection.lang;
             }
             const offscreenCreated = await ensureOffscreen();
-            const { englishDialect, dictionary } = await chrome.storage.local.get({ englishDialect: "american", dictionary: [] });
-            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: englishDialect });
+            const { englishDialect, dictionary, formalFrench } = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: false });
+            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: englishDialect, formal: formalFrench === true });
             suggestFromDictionary(result.matches, msg.text, dictionary);
             return { ...result, lang, detection, offscreenCreated };
         }

@@ -17,12 +17,14 @@ ctx.self.onmessage({ data: { id: 1, cmd: "init" } });
   const { corpus } = await import(pathm.join(__dirname, "corpus.mjs"));
   let hit = 0, miss = 0, fa = 0, wrongFix = 0, ok = 0, first = 0;
   const verbose = process.argv.includes("-v");
-  for (const [text, bad, fix] of corpus) {
-    ctx.self.onmessage({ data: { id: 2, cmd: "check", payload: { text } } });
+  for (const [text, bad, fix, opts] of corpus) {
+    // 4e élément facultatif : { formal: true } pour le réglage « Français écrit soigné ».
+    ctx.self.onmessage({ data: { id: 2, cmd: "check", payload: { text, formal: !!opts?.formal } } });
     const ms = out.at(-1).result.matches;
     const show = ms.map((m) => `«${text.slice(m.start, m.end)}»→${m.suggestions.slice(0, 3).join("|")} [${m.rule}]`).join("  ");
     if (bad) {
-      const idx = text.search(new RegExp(`(?<![\\p{L}])${bad}(?![\\p{L}])`, "u"));
+      const after = /\p{L}$/u.test(bad) ? "(?![\\p{L}])" : "";
+      const idx = text.search(new RegExp(`(?<![\\p{L}])${bad}${after}`, "u"));
       const m = ms.find((m) => m.start <= idx && m.end >= idx + bad.length);
       if (!m) { miss++; console.log(`RATÉ     ${text}   ${show}`); }
       else if (!m.suggestions.some((s) => s.includes(fix))) { wrongFix++; console.log(`MAUVAISE ${text}   ${show}`); }
