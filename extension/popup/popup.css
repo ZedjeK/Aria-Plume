@@ -300,8 +300,67 @@ button.icon {
 
 /* Conjugueur */
 body.conj-mode:not(.window) .settings,
-body.conj-mode:not(.window) .hint {
+body.conj-mode:not(.window) .hint,
+body.fix-mode:not(.window) .settings,
+body.fix-mode:not(.window) .hint {
     display: none;
+}
+
+/* Correcteur */
+.fix {
+    margin-top: 8px;
+}
+
+.fix-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.fix-head select {
+    font: inherit;
+    color: var(--text);
+    background: #1d2235;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 6px;
+}
+
+.fix-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.fix-bubble textarea {
+    width: 100%;
+    min-height: 330px;
+    max-height: none;
+    resize: vertical;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font: 14px/1.5 system-ui, "Segoe UI", sans-serif;
+}
+
+body.window .fix {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.window .fix-bubble {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+body.window .fix-bubble textarea {
+    flex: 1;
+    resize: none;
 }
 
 .conj {

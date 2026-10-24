@@ -500,8 +500,60 @@ for (const box of optionBoxes) {
     });
 }
 
+// --- Correcteur ---
+// Le texte est corrigé par le même script que dans les pages (vagues, infobulle au clic droit,
+// panneau « Tout corriger »). La langue peut être imposée ; le texte reste en stockage de session.
+const fixText = $("#fix-text");
+const fixBox = $("#fix-box");
+
+function rememberFix() {
+    chrome.storage.session?.set({ fixText: fixText.value, fixLang: $("#fix-lang").value }).catch(() => {});
+}
+
+function applyFixLang() {
+    fixBox.setAttribute("data-aria-lang", $("#fix-lang").value);
+    // Relance l'analyse avec la nouvelle langue.
+    fixText.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+fixText.addEventListener("input", rememberFix);
+$("#fix-lang").addEventListener("change", () => {
+    applyFixLang();
+    rememberFix();
+    fixText.focus();
+});
+$("#fix-all").addEventListener("click", () => {
+    fixText.focus();
+    window.dispatchEvent(new Event("aria-odl-open-panel"));
+});
+$("#fix-copy").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    try {
+        await navigator.clipboard.writeText(fixText.value);
+        button.textContent = "Copié ✓";
+    } catch {
+        button.textContent = "Échec";
+    }
+    setTimeout(() => {
+        button.textContent = "Copier";
+    }, 1200);
+});
+$("#fix-clear").addEventListener("click", () => {
+    fixText.value = "";
+    fixText.dispatchEvent(new Event("input", { bubbles: true }));
+    fixText.focus();
+});
+try {
+    const saved = await chrome.storage.session.get({ fixText: "", fixLang: "auto" });
+    fixText.value = saved.fixText;
+    $("#fix-lang").value = ["auto", "fr", "en"].includes(saved.fixLang) ? saved.fixLang : "auto";
+    fixBox.setAttribute("data-aria-lang", $("#fix-lang").value);
+} catch {
+    // stockage de session indisponible
+}
+
 // --- Onglets ---
-const TABS = { quick: { tab: $("#tab-quick"), panel: $("#panel-quick") }, conj: { tab: $("#tab-conj"), panel: $("#panel-conj") } };
+const TABS = { quick: { tab: $("#tab-quick"), panel: $("#panel-quick") }, fix: { tab: $("#tab-fix"), panel: $("#panel-fix") }, conj: { tab: $("#tab-conj"), panel: $("#panel-conj") } };
 
 function showTab(name, focus = true) {
     for (const [key, { tab: button, panel }] of Object.entries(TABS)) {
@@ -513,12 +565,13 @@ function showTab(name, focus = true) {
     $("#qt-status").hidden = name !== "quick";  // l'état de la traduction, dans la barre d'onglets
     // Popup : la place manque, les interrupteurs et l'aide s'effacent le temps de conjuguer.
     document.body.classList.toggle("conj-mode", name === "conj");
+    document.body.classList.toggle("fix-mode", name === "fix");
     if (name === "conj") {
         fitConjResults();
     }
     chrome.storage.session?.set({ activeTab: name }).catch(() => {});
     if (focus) {
-        (name === "conj" ? conjInput : bubbles.a).focus();
+        ({ conj: conjInput, fix: $("#fix-text"), quick: bubbles.a })[name].focus();
     }
 }
 
@@ -526,7 +579,9 @@ for (const [name, { tab: button }] of Object.entries(TABS)) {
     button.addEventListener("click", () => showTab(name));
     button.addEventListener("keydown", (event) => {
         if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-            const next = name === "quick" ? "conj" : "quick";
+            const order = Object.keys(TABS);
+            const step = event.key === "ArrowRight" ? 1 : order.length - 1;
+            const next = order[(order.indexOf(name) + step) % order.length];
             showTab(next, false);
             TABS[next].tab.focus();
         }
@@ -552,11 +607,24 @@ try {
         box.checked = !!saved.conjOptions[box.dataset.option];
     }
     pronominalChoice = !!saved.conjOptions.pronominal;
-    activeTab = saved.activeTab === "conj" ? "conj" : "quick";
+    activeTab = saved.activeTab in TABS ? saved.activeTab : "quick";
 } catch {
     // stockage de session indisponible
 }
 showTab(activeTab);
+// Le script de correction se charge après cette page : on redonne le focus au correcteur
+// pour qu'il prenne le champ en charge tout de suite.
+const refocusFix = () => {
+    if (!$("#panel-fix").hidden) {
+        fixText.blur();
+        fixText.focus();
+    }
+};
+if (document.readyState === "complete") {
+    setTimeout(refocusFix, 0);
+} else {
+    window.addEventListener("load", refocusFix, { once: true });
+}
 if (conjInput.value.trim()) {
     runConj();
 }

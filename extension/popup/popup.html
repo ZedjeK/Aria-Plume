@@ -4,7 +4,10 @@
     <meta charset="utf-8">
     <title>Aria Plume</title>
     <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="../content/highlight.css">
     <script type="module" src="popup.js"></script>
+    <!-- Le même script que dans les pages : vagues, infobulle, panneau. -->
+    <script src="../content/checker.js" defer></script>
 </head>
 <body>
     <header>
@@ -57,6 +60,7 @@
 
     <div class="tabs" role="tablist" aria-label="Outils">
         <button role="tab" id="tab-quick" aria-controls="panel-quick" aria-selected="true">Traduction</button>
+        <button role="tab" id="tab-fix" aria-controls="panel-fix" aria-selected="false">Correction</button>
         <button role="tab" id="tab-conj" aria-controls="panel-conj" aria-selected="false">Conjugaison</button>
         <span id="qt-status" class="qt-status"></span>
     </div>
@@ -68,7 +72,7 @@
                 <span class="lang" id="qt-lang-a">FR / EN</span>
                 <button class="mini" id="qt-copy-a" title="Copier ce texte">Copier</button>
             </div>
-            <textarea id="qt-a" rows="2" spellcheck="false" placeholder="Écris ou colle ton texte ici…"></textarea>
+            <textarea id="qt-a" data-aria-odl="off" rows="2" spellcheck="false" placeholder="Écris ou colle ton texte ici…"></textarea>
         </div>
         <button class="swap" id="qt-swap" title="Échanger les deux bulles">⇅</button>
         <div class="bubble">
@@ -76,14 +80,32 @@
                 <span class="lang" id="qt-lang-b">FR / EN</span>
                 <button class="mini" id="qt-copy-b" title="Copier ce texte">Copier</button>
             </div>
-            <textarea id="qt-b" rows="2" spellcheck="false" placeholder="… ou écris ici : l'autre bulle se traduit."></textarea>
+            <textarea id="qt-b" data-aria-odl="off" rows="2" spellcheck="false" placeholder="… ou écris ici : l'autre bulle se traduit."></textarea>
         </div>
+        </div>
+    </section>
+
+    <section class="fix" id="panel-fix" role="tabpanel" aria-labelledby="tab-fix" hidden>
+        <div class="fix-head">
+            <select id="fix-lang" aria-label="Langue du texte">
+                <option value="auto">Langue : auto</option>
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+            </select>
+            <span class="fix-buttons">
+                <button id="fix-all" class="mini primary" title="Ouvre le panneau complet, avec « Tout corriger »">Tout corriger</button>
+                <button id="fix-copy" class="mini">Copier</button>
+                <button id="fix-clear" class="mini">Effacer</button>
+            </span>
+        </div>
+        <div class="bubble fix-bubble" id="fix-box" data-aria-lang="auto">
+            <textarea id="fix-text" data-aria-odl="on" spellcheck="false" placeholder="Écris ou colle ton texte : les fautes se soulignent, clic droit pour corriger."></textarea>
         </div>
     </section>
 
     <section class="conj" id="panel-conj" role="tabpanel" aria-labelledby="tab-conj" hidden>
         <form class="conj-form" id="conj-form">
-            <input type="text" id="conj-verb" placeholder="Un verbe : marcher, se lever, ou même « marchait »" autocomplete="off" spellcheck="false" aria-label="Verbe à conjuguer">
+            <input type="text" id="conj-verb" data-aria-odl="off" placeholder="Un verbe : marcher, se lever, ou même « marchait »" autocomplete="off" spellcheck="false" aria-label="Verbe à conjuguer">
             <button type="submit" class="primary">Conjuguer</button>
         </form>
         <div class="conj-options" id="conj-options">

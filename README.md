@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.22 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.23 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -37,6 +37,7 @@ La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O*
 | **Relecture avant envoi** | Dans Gmail, au clic sur « Envoyer » (ou Ctrl+Entrée), s'il reste des fautes d'orthographe ou de grammaire dans ce que tu as écrit (citation et signature exclues), le mail est retenu : *Voir les fautes* ou *Envoyer quand même*. Sans faute, il part normalement ; en cas de doute (analyse trop longue, page de Gmail modifiée), il part aussi | Grammalecte, Harper |
 | **Tes fautes récurrentes** | Les corrections que tu acceptes sont comptées par famille (homophones, participe passé, -er/-é, conjugaison…) ; la page de réglages montre le top 5 avec tes derniers exemples et la règle en une ligne. Tout reste dans le navigateur, comptage désactivable, bouton pour tout effacer | Familles des règles de Grammalecte et d'Aria |
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
+| **Correcteur dans la popup** | Onglet *Correction* de la popup et de la fenêtre séparée : écris ou colle un texte, les fautes se soulignent comme dans les pages (clic droit pour corriger, *Tout corriger*, Copier). Langue automatique, ou imposée en français ou en anglais. Marche même si la correction en direct est coupée | Grammalecte, Harper |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.
@@ -62,7 +63,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 3. **Trouver un synonyme** : clic droit sur un mot → *Aria Plume* → *Synonymes avec Aria Plume*, puis clic sur le synonyme choisi.
 4. **Traduire un passage** : sélectionne-le, clic droit → *Aria Plume* → *Traduire avec Aria Plume* (ou Alt+Maj+L).
 5. **Traduire la page** : clic droit sur la page → *Traduire la page avec Aria Plume*, ou le bouton de la popup. La barre en haut à droite bascule entre la traduction et l'original ; la croix remet tout comme avant.
-6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, français soigné pour le site ouvert, traduction rapide, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
+6. **La popup** (clic sur l'icône) : correction en direct on/off, désactivation par site, français soigné pour le site ouvert, traduction rapide, correcteur, conjugueur, réglages et banc d'essai. Le bouton ⧉ l'ouvre dans une **fenêtre séparée**, redimensionnable, qui reste ouverte et suit l'onglet que tu regardes.
 
 ## Sécurité
 
@@ -119,7 +120,7 @@ extension/
 ├── content/
 │   ├── checker.js              # script de page : vagues, infobulles, panneau, traduction
 │   └── highlight.css           # couleurs des vagues dans les zones éditables
-├── popup/                      # interrupteurs, traduction rapide, conjugueur, fenêtre séparée
+├── popup/                      # interrupteurs, traduction rapide, correcteur, conjugueur, fenêtre séparée
 ├── options/                    # page de réglages
 ├── shared/                     # réglages par défaut et contrôle des valeurs importées
 ├── test/                       # banc d'essai

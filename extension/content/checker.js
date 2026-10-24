@@ -149,9 +149,15 @@
 
     const correction = (match, word, suggestion, lang) => ({ rule: match.rule, kind: match.kind, lang, word, suggestion });
 
-    async function requestCheck(text) {
+    // Langue imposée par le champ (data-aria-lang="fr" ou "en", correcteur de la popup) ; sinon détection.
+    function forcedLang(element) {
+        const lang = element?.closest?.("[data-aria-lang]")?.getAttribute("data-aria-lang");
+        return lang === "fr" || lang === "en" ? lang : "auto";
+    }
+
+    async function requestCheck(text, element = null) {
         try {
-            return await chrome.runtime.sendMessage({ target: "sw", cmd: "check", lang: "auto", text });
+            return await chrome.runtime.sendMessage({ target: "sw", cmd: "check", lang: forcedLang(element), text });
         } catch (error) {
             return { ok: false, error: error.message };
         }
@@ -805,7 +811,7 @@
                 this.render();
                 return;
             }
-            const response = await requestCheck(text);
+            const response = await requestCheck(text, this.el);
             if (seq !== this.seq || this.disposed || !response?.ok) {
                 return;
             }
@@ -928,7 +934,11 @@
     }
 
     function onFocus(node) {
-        if (!live.enabled) {
+        // Le correcteur de la popup (data-aria-odl="on") marche même si la correction en direct est coupée.
+        if (!live.enabled && node?.closest?.('[data-aria-odl="on"]') === null) {
+            return;
+        }
+        if (!live.enabled && !node?.closest) {
             return;
         }
         const target = liveTargetFor(node);
@@ -1188,7 +1198,7 @@
             }
             this.info.textContent = "analyse…";
             this.place();
-            const response = await requestCheck(text);
+            const response = await requestCheck(text, state.target.el ?? state.target.host);
             if (this.state !== state) {
                 return;
             }
@@ -2527,6 +2537,11 @@
         }
     }
     chrome.storage.onChanged.addListener(onStorageChanged);
+
+    // Pages de l'extension (popup, fenêtre séparée) : le bouton « Tout corriger » ouvre le panneau.
+    if (location.protocol === "chrome-extension:") {
+        listen(window, "aria-odl-open-panel", () => panel.open());
+    }
     cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChanged));
 
     function onMessage(msg, sender, sendResponse) {
