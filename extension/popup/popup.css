@@ -314,6 +314,101 @@ body.fix-mode:not(.window) .hint {
     color: var(--muted);
 }
 
+.fix-list {
+    display: none;
+}
+
+body.window .fix-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Fenêtre séparée assez large : la liste des fautes à droite du texte, façon Grammarly. */
+@media (min-width: 760px) {
+    body.window .fix-body {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 8px;
+    }
+
+    body.window .fix-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 2px;
+    }
+}
+
+.fix-list:empty::before {
+    content: "Les fautes s'afficheront ici.";
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+    padding: 8px;
+}
+
+.fix-item {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid #ff6b6b;
+    border-radius: 8px;
+    padding: 6px 8px;
+}
+
+.fix-item.grammaire {
+    border-left-color: #f59e0b;
+}
+
+.fix-item.style, .fix-item.typographie {
+    border-left-color: #0ea5e9;
+}
+
+.fix-item .fix-kind {
+    font: 10px Consolas, monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.fix-item .fix-word {
+    color: var(--magenta);
+    font: 600 13px system-ui, "Segoe UI", sans-serif;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.fix-item .fix-message {
+    font-size: 12px;
+    margin: 2px 0 5px;
+}
+
+.fix-item .fix-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.fix-item button {
+    flex: none;
+    padding: 1px 7px;
+    font-size: 12px;
+}
+
+.fix-item button.sugg {
+    color: var(--cyan);
+    border-color: var(--cyan);
+}
+
+.fix-item button.ignore {
+    color: var(--muted);
+}
+
 .fix-source {
     margin: 2px 2px 0;
     min-height: 14px;
@@ -339,9 +434,10 @@ body.fix-mode:not(.window) .hint {
 
 .fix-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px 8px;
     margin-bottom: 6px;
 }
 
@@ -361,7 +457,7 @@ body.fix-mode:not(.window) .hint {
 
 .fix-bubble textarea {
     width: 100%;
-    min-height: 280px;
+    min-height: 250px;
     max-height: none;
     resize: vertical;
     border: none;

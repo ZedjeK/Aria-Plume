@@ -103,8 +103,11 @@
                 <button id="fix-clear" class="mini">Effacer</button>
             </span>
         </div>
-        <div class="bubble fix-bubble" id="fix-box" data-aria-lang="auto">
-            <textarea id="fix-text" data-aria-odl="on" spellcheck="false" placeholder="Écris ou colle ton texte : les fautes se soulignent, clic droit pour corriger."></textarea>
+        <div class="fix-body">
+            <div class="bubble fix-bubble" id="fix-box" data-aria-lang="auto">
+                <textarea id="fix-text" data-aria-odl="on" spellcheck="false" placeholder="Écris ou colle ton texte : les fautes se soulignent, clic droit pour corriger."></textarea>
+            </div>
+            <aside class="fix-list" id="fix-list" aria-label="Fautes trouvées"></aside>
         </div>
         <p class="fix-stats" id="fix-stats" aria-live="polite"></p>
         <p class="fix-source" id="fix-source" aria-live="polite"></p>

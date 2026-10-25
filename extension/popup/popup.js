@@ -549,9 +549,56 @@ function renderFixStats() {
     stats.replaceChildren(...parts);
 }
 
+// Liste des fautes à côté du texte (fenêtre séparée large) : un clic applique la correction.
+const KIND_NAMES = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
+const MAX_LISTED = 60;
+
+function applyFix(match, suggestion) {
+    if (fixText.value.slice(match.start, match.end) !== match.word) {
+        return;  // le texte a bougé : la prochaine analyse remettra la liste à jour
+    }
+    fixText.focus();
+    fixText.setSelectionRange(match.start, match.end);
+    // execCommand garde l'historique : Ctrl+Z annule comme une frappe.
+    if (!document.execCommand("insertText", false, suggestion)) {
+        fixText.setRangeText(suggestion, match.start, match.end, "end");
+        fixText.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    chrome.runtime.sendMessage({ target: "sw", cmd: "record-mistakes", items: [{ rule: match.rule, kind: match.kind, lang: fixResults.lang, word: match.word, suggestion }] }).catch(() => {});
+}
+
+async function ignoreFix(match) {
+    const { ignored = [] } = await chrome.storage.local.get({ ignored: [] });
+    if (!ignored.some((e) => e.word === match.word && e.rule === match.rule)) {
+        await chrome.storage.local.set({ ignored: [...ignored, { word: match.word, rule: match.rule, kind: match.kind }].slice(-2000) });
+    }
+}
+
+function renderFixList() {
+    const list = $("#fix-list");
+    const fresh = fixResults.text === fixText.value;
+    const matches = fresh ? fixResults.matches.slice(0, MAX_LISTED) : [];
+    list.replaceChildren(...matches.map((match) => {
+        const actions = el("div", { className: "fix-actions" });
+        for (const suggestion of match.suggestions.slice(0, 4)) {
+            const button = el("button", { className: "sugg", textContent: suggestion === "" ? "(supprimer)" : suggestion });
+            button.addEventListener("click", () => applyFix(match, suggestion));
+            actions.append(button);
+        }
+        const ignore = el("button", { className: "ignore", textContent: "Ignorer" });
+        ignore.addEventListener("click", () => ignoreFix(match));
+        actions.append(ignore);
+        return el("div", { className: `fix-item ${match.kind}` },
+            el("div", { className: "fix-kind" }, `${KIND_NAMES[match.kind] ?? match.kind} · `, el("span", { className: "fix-word", textContent: match.word })),
+            el("div", { className: "fix-message", textContent: match.message }),
+            actions);
+    }));
+}
+
 fixText.addEventListener("aria-odl-results", (event) => {
     fixResults = event.detail;
     renderFixStats();
+    renderFixList();
 });
 fixText.addEventListener("input", renderFixStats);
 fixText.addEventListener("input", rememberFix);
