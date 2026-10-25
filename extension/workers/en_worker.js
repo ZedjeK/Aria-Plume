@@ -1,6 +1,7 @@
 // Aria Plume — worker anglais (Harper 2.10, binaire WebAssembly « slim », fichiers d'origine non modifiés)
 import { LocalLinter, Dialect, SuggestionKind } from "../engines/harper/index.js";
 import { slimBinary } from "../engines/harper/slimBinary.js";
+import { findEnglishRules } from "./en_rules.js";
 
 const KIND_MAP = {
     Spelling: "orthographe",
@@ -89,8 +90,12 @@ async function check(text, dialect) {
         lint.free?.();
         return match;
     });
-    matches.sort((a, b) => a.start - b.start);
-    return { matches, ms: performance.now() - start };
+    // Règles d'Aria : quand elles s'appliquent, elles remplacent ce que Harper disait au même
+    // endroit (« Your the best » : Harper propose « Your » ou « The », Aria « You're »).
+    const extra = findEnglishRules(text);
+    const kept = matches.filter((m) => !extra.some((e) => m.start < e.end && m.end > e.start));
+    const all = [...kept, ...extra].sort((a, b) => a.start - b.start);
+    return { matches: all, ms: performance.now() - start };
 }
 
 self.onmessage = async (event) => {

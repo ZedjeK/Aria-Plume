@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.23 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.28 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -26,6 +26,7 @@ La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O*
 | **Synonymes** | Clic droit sur un mot d'un champ (ou sur une sélection d'un à trois mots) → *Synonymes avec Aria Plume*. Un clic remplace le mot (Ctrl+Z annule) ; dans le texte d'une page, il copie le synonyme. Les synonymes français sont accordés comme le mot (« marchaient » → « cheminaient », « belles » → « charmantes ») | Thésaurus de Grammalecte (français), WordNet 3.1 (anglais) |
 | **Conjugueur** | Onglet *Conjugaison* de la popup et de la fenêtre séparée : tous les temps d'un verbe, avec négation, forme interrogative, temps composés, forme pronominale et féminin. Accepte un verbe conjugué (« marchait » → *marcher*) et propose les verbes proches d'une faute (« conjuger » → *conjuguer*) | Module de conjugaison de Grammalecte |
 | **Grammaire en plus** | Ce que Grammalecte ne voit pas : participe passé des verbes pronominaux (« elles se sont lavé » → *lavées*, mais « elles se sont parlé » reste invariable), concordance après « si » (« si j'avais su, je **serai** venu » → *serais*), *tout* devant un adjectif féminin (« **tout** contente » → *toute*), *prêt*/*près* (« **prêt** de la gare » → *près*), « va s'y » → *vas-y*. Et les cas relevés dans la Banque de dépannage linguistique de l'OQLF : « **tant qu'à** moi » → *quant à*, « **quoique** tu fasses » → *quoi que*, « **si non** » → *sinon*, « il est **la** » → *là*, « plus d'un technicien **sont** venus » → *est*, « j'en ai **mangées** trois » → *mangé*, « combien de pommes as-tu **mangé** » → *mangées*, « elle s'en est **prise** à moi » → *pris*, « **achète-en** » → *achètes-en*, « les enfants **obéissant** sont rares » → *obéissants* | Règles d'Aria sur la morphologie et la conjugaison de Grammalecte |
+| **Anglais en plus** | Ce que Harper laisse passer : « rather walk **then** drive » → *than*, « and **than** we left » → *then*, « **your** welcome » → *you're*, « **its** not working » → *it's*, « **it's** own » → *its*, « don't **loose** » → *lose*, « **who's** car » → *whose*, « **there** going » → *they're*, « I **seen** » → *saw*, « **borrow** me » → *lend*, « **less** people » → *fewer* | Règles d'Aria (workers/en_rules.js) |
 | **Formes fautives** | Les fautes qui ne sont pas des fautes de frappe reçoivent la bonne forme en premier : « faisez » → *faites*, « disez » → *dites*, « envoierai » → *enverrai*, « chevals » → *chevaux* | Règles du pluriel et module de conjugaison de Grammalecte |
 | **Panneau complet** | Toutes les fautes du champ actif ou de la sélection, avec leur explication. **Tout corriger** applique d'un clic la première suggestion de chaque faute d'orthographe et de grammaire (un seul Ctrl+Z l'annule dans un champ de texte, un Ctrl+Z par correction dans une zone éditable) | Grammalecte, Harper |
 | **Traduction de sélection** | Sélection ou champ : infobulle avec la traduction, sens inversable, Copier, Remplacer (Ctrl+Z annule) | Bergamot + modèles Mozilla |
@@ -37,7 +38,7 @@ La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O*
 | **Relecture avant envoi** | Dans Gmail, au clic sur « Envoyer » (ou Ctrl+Entrée), s'il reste des fautes d'orthographe ou de grammaire dans ce que tu as écrit (citation et signature exclues), le mail est retenu : *Voir les fautes* ou *Envoyer quand même*. Sans faute, il part normalement ; en cas de doute (analyse trop longue, page de Gmail modifiée), il part aussi | Grammalecte, Harper |
 | **Tes fautes récurrentes** | Les corrections que tu acceptes sont comptées par famille (homophones, participe passé, -er/-é, conjugaison…) ; la page de réglages montre le top 5 avec tes derniers exemples et la règle en une ligne. Tout reste dans le navigateur, comptage désactivable, bouton pour tout effacer | Familles des règles de Grammalecte et d'Aria |
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
-| **Correcteur dans la popup** | Onglet *Correction* de la popup et de la fenêtre séparée : écris ou colle un texte, les fautes se soulignent comme dans les pages (clic droit pour corriger, *Tout corriger*, Copier). Langue automatique, ou imposée en français ou en anglais. Marche même si la correction en direct est coupée | Grammalecte, Harper |
+| **Correcteur dans la popup** | Onglet *Correction* de la popup et de la fenêtre séparée : écris ou colle un texte, les fautes se soulignent comme dans les pages (clic droit pour corriger, *Tout corriger*, Copier). Langue automatique, ou imposée en français ou en anglais. **Récupérer** prend le texte sélectionné dans la page, **Renvoyer** l'y remet corrigé ; **Traduire** l'envoie dans l'onglet Traduction ; un compteur donne fautes, répétitions, mots et temps de lecture ; dans la fenêtre séparée assez large, la liste des fautes s'affiche à droite du texte. Marche même si la correction en direct est coupée | Grammalecte, Harper |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.
@@ -116,7 +117,8 @@ extension/
 ├── workers/
 │   ├── fr_worker.js            # Grammalecte : suggestions améliorées, accords complets
 │   ├── fr_homophones.js        # règles d'Aria : homophones, participes pronominaux, concordance, tout, prêt/près
-│   └── en_worker.js            # Harper
+│   ├── en_worker.js            # Harper
+│   └── en_rules.js             # règles anglaises d'Aria (then/than, your/you're, its/it's…)
 ├── content/
 │   ├── checker.js              # script de page : vagues, infobulles, panneau, traduction
 │   └── highlight.css           # couleurs des vagues dans les zones éditables
@@ -131,7 +133,8 @@ extension/
 tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
-└── francais/                   # corpus de phrases justes et fautives : node tests/francais/run.js
+├── francais/                   # corpus de phrases justes et fautives : node tests/francais/run.js
+└── anglais/                    # corpus des règles anglaises : node tests/anglais/run.mjs
 ```
 
 ## Licence
