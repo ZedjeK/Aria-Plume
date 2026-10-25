@@ -307,6 +307,21 @@ body.fix-mode:not(.window) .hint {
 }
 
 /* Correcteur */
+.fix-stats {
+    margin: 5px 2px 0;
+    min-height: 16px;
+    font: 11px Consolas, monospace;
+    color: var(--muted);
+}
+
+.fix-stats .bad {
+    color: #ff6b6b;
+}
+
+.fix-stats .ok {
+    color: #4ade80;
+}
+
 .fix {
     margin-top: 8px;
 }
@@ -335,7 +350,7 @@ body.fix-mode:not(.window) .hint {
 
 .fix-bubble textarea {
     width: 100%;
-    min-height: 330px;
+    min-height: 310px;
     max-height: none;
     resize: vertical;
     border: none;

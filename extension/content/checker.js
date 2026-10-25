@@ -840,8 +840,29 @@
 
         render() {
             if (!this.disposed) {
-                this.painter.paint(this.visibleItems(), this.text);
+                const visible = this.visibleItems();
+                this.painter.paint(visible, this.text);
+                this.announce(visible);
             }
+        }
+
+        // Pages de l'extension (correcteur de la popup) : les fautes trouvées sont publiées sur le
+        // champ, pour le compteur et la liste à côté du texte. Jamais sur les sites web.
+        announce(visible) {
+            if (location.protocol !== "chrome-extension:" || this.el.getAttribute("data-aria-odl") !== "on") {
+                return;
+            }
+            const matches = visible.map((item) => ({
+                start: item.start,
+                end: item.end,
+                word: item.word,
+                kind: item.match.kind,
+                rule: item.match.rule,
+                detail: item.match.detail,
+                message: item.match.message,
+                suggestions: item.match.suggestions,
+            }));
+            this.el.dispatchEvent(new CustomEvent("aria-odl-results", { detail: { text: this.text, lang: this.lang, matches } }));
         }
 
         // Pendant la frappe dans un textarea : décale les vagues situées après la modification

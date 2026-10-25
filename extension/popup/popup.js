@@ -516,6 +516,44 @@ function applyFixLang() {
     fixText.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// Compteur sous le texte : fautes, style, répétitions, mots, temps de lecture.
+const WORDS = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+let fixResults = { text: "", matches: [] };
+
+function renderFixStats() {
+    const stats = $("#fix-stats");
+    const text = fixText.value;
+    const words = (text.match(WORDS) ?? []).length;
+    if (words === 0) {
+        stats.replaceChildren();
+        return;
+    }
+    const fresh = fixResults.text === text;
+    const matches = fresh ? fixResults.matches : [];
+    const faults = matches.filter((m) => m.kind === "orthographe" || m.kind === "grammaire").length;
+    const repeats = matches.filter((m) => m.rule === "aria_repetition").length;
+    const style = matches.filter((m) => (m.kind === "style" || m.kind === "typographie") && m.rule !== "aria_repetition").length;
+    const plural = (n, word) => `${n} ${word}${n > 1 ? "s" : ""}`;
+    const parts = [];
+    if (fresh) {
+        parts.push(el("span", faults ? { className: "bad", textContent: plural(faults, "faute") } : { className: "ok", textContent: "Aucune faute ✨" }));
+        if (style) {
+            parts.push(` · ${plural(style, "remarque")} de style`);
+        }
+        if (repeats) {
+            parts.push(` · ${plural(repeats, "répétition")}`);
+        }
+        parts.push(" · ");
+    }
+    parts.push(`${plural(words, "mot")} · ${Math.max(1, Math.round(words / 230))} min de lecture`);
+    stats.replaceChildren(...parts);
+}
+
+fixText.addEventListener("aria-odl-results", (event) => {
+    fixResults = event.detail;
+    renderFixStats();
+});
+fixText.addEventListener("input", renderFixStats);
 fixText.addEventListener("input", rememberFix);
 $("#fix-lang").addEventListener("change", () => {
     applyFixLang();
@@ -548,6 +586,7 @@ try {
     fixText.value = saved.fixText;
     $("#fix-lang").value = ["auto", "fr", "en"].includes(saved.fixLang) ? saved.fixLang : "auto";
     fixBox.setAttribute("data-aria-lang", $("#fix-lang").value);
+    renderFixStats();
 } catch {
     // stockage de session indisponible
 }
