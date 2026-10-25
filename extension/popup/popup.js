@@ -564,6 +564,18 @@ $("#fix-all").addEventListener("click", () => {
     fixText.focus();
     window.dispatchEvent(new Event("aria-odl-open-panel"));
 });
+// « Traduire » : le texte corrigé part dans la bulle du haut de l'onglet Traduction.
+$("#fix-translate").addEventListener("click", () => {
+    if (!fixText.value.trim()) {
+        return;
+    }
+    bubbles.a.value = fixText.value;
+    bubbles.b.value = "";
+    showTab("quick");
+    remember();
+    translateFrom("a");
+});
+
 $("#fix-copy").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     try {
