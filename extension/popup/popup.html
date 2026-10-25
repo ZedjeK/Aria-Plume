@@ -87,6 +87,10 @@
 
     <section class="fix" id="panel-fix" role="tabpanel" aria-labelledby="tab-fix" hidden>
         <div class="fix-head">
+            <span class="fix-buttons">
+                <button id="fix-grab" class="mini" title="Prend la sélection ou le champ actif de la page">⇣ Récupérer</button>
+                <button id="fix-put" class="mini" title="Remet le texte corrigé à sa place dans la page" disabled>⇡ Renvoyer</button>
+            </span>
             <select id="fix-lang" aria-label="Langue du texte">
                 <option value="auto">Langue : auto</option>
                 <option value="fr">Français</option>
@@ -103,6 +107,7 @@
             <textarea id="fix-text" data-aria-odl="on" spellcheck="false" placeholder="Écris ou colle ton texte : les fautes se soulignent, clic droit pour corriger."></textarea>
         </div>
         <p class="fix-stats" id="fix-stats" aria-live="polite"></p>
+        <p class="fix-source" id="fix-source" aria-live="polite"></p>
     </section>
 
     <section class="conj" id="panel-conj" role="tabpanel" aria-labelledby="tab-conj" hidden>

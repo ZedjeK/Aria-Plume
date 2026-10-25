@@ -564,6 +564,47 @@ $("#fix-all").addEventListener("click", () => {
     fixText.focus();
     window.dispatchEvent(new Event("aria-odl-open-panel"));
 });
+// Aller-retour avec la page : « Récupérer » prend la sélection ou le champ actif de l'onglet,
+// « Renvoyer » y remet le texte corrigé (seules les lignes modifiées sont remplacées).
+let grabbed = null;
+
+function setSource(text, isError = false) {
+    const source = $("#fix-source");
+    source.textContent = text;
+    source.className = isError ? "fix-source ko" : "fix-source";
+}
+
+$("#fix-grab").addEventListener("click", async () => {
+    await refreshTab();
+    if (!tab || !host) {
+        setSource("Ouvre une page web pour en récupérer le texte.", true);
+        return;
+    }
+    const response = await chrome.runtime.sendMessage({ target: "sw", cmd: "exchange", op: "grab-text", tabId: tab.id }).catch((error) => ({ ok: false, error: error.message }));
+    if (!response?.ok) {
+        setSource(response?.error ?? "Pas de réponse de la page.", true);
+        return;
+    }
+    grabbed = { tabId: tab.id, host, editable: response.editable };
+    fixText.value = response.text;
+    fixText.dispatchEvent(new Event("input", { bubbles: true }));
+    fixText.focus();
+    $("#fix-put").disabled = !response.editable;
+    setSource(`Récupéré depuis ${host}${response.whole ? "" : " (sélection)"}${response.editable ? " · « Renvoyer » le remettra à sa place" : " · texte non modifiable dans la page"}`);
+});
+
+$("#fix-put").addEventListener("click", async () => {
+    if (!grabbed) {
+        return;
+    }
+    const response = await chrome.runtime.sendMessage({ target: "sw", cmd: "exchange", op: "put-text", tabId: grabbed.tabId, text: fixText.value }).catch((error) => ({ ok: false, error: error.message }));
+    if (!response?.ok) {
+        setSource(response?.error ?? "Pas de réponse de la page.", true);
+        return;
+    }
+    setSource(response.changes ? `Renvoyé dans ${grabbed.host} ✓ (${response.changes} passage${response.changes > 1 ? "s" : ""} modifié${response.changes > 1 ? "s" : ""}, Ctrl+Z dans la page pour annuler)` : `Rien à renvoyer : le texte n'a pas changé.`);
+});
+
 // « Traduire » : le texte corrigé part dans la bulle du haut de l'onglet Traduction.
 $("#fix-translate").addEventListener("click", () => {
     if (!fixText.value.trim()) {
@@ -589,6 +630,9 @@ $("#fix-copy").addEventListener("click", async (event) => {
     }, 1200);
 });
 $("#fix-clear").addEventListener("click", () => {
+    grabbed = null;
+    $("#fix-put").disabled = true;
+    setSource("");
     fixText.value = "";
     fixText.dispatchEvent(new Event("input", { bubbles: true }));
     fixText.focus();

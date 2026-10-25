@@ -389,6 +389,23 @@ async function handle(msg, sender) {
             return translate(msg);
         case "synonyms":
             return synonyms(msg);
+        case "exchange": {
+            // Aller-retour du correcteur de la popup : « grab-text » ou « put-text » dans l'onglet.
+            if (!["grab-text", "put-text"].includes(msg.op) || !Number.isInteger(msg.tabId)) {
+                throw new Error("Demande invalide.");
+            }
+            try {
+                const response = await chrome.tabs.sendMessage(msg.tabId, { target: "content", cmd: msg.op, text: msg.text });
+                if (!response) {
+                    throw new Error("no response");
+                }
+                return response;
+            } catch {
+                throw new Error(msg.op === "grab-text"
+                    ? "Rien à récupérer : sélectionne du texte ou place le curseur dans un champ de la page (recharge la page si elle était ouverte avant l'extension)."
+                    : "Impossible de renvoyer le texte : la page a peut-être été rechargée.");
+            }
+        }
         case "record-mistakes":
             await recordMistakes(msg.items);
             return {};

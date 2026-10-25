@@ -2565,8 +2565,96 @@
     }
     cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChanged));
 
+    // --- Aller-retour avec le correcteur de la popup ---
+    // « Récupérer » prend la sélection (ou le champ entier) ; « Renvoyer » remet le texte corrigé
+    // à la même place. Seules les lignes modifiées sont remplacées, pour garder la mise en forme.
+    let exchange = null;
+
+    function grabText() {
+        const target = findPanelTarget();
+        if (!target) {
+            return null;
+        }
+        const scope = target.initialScope();
+        const full = target.getText();
+        const text = full.slice(scope.start, scope.end);
+        if (!text.trim()) {
+            return null;
+        }
+        exchange = { target, start: scope.start, end: scope.end, text };
+        return { text, editable: !!target.editable, whole: scope.whole };
+    }
+
+    // Morceaux changés entre deux textes : ligne par ligne si le nombre de lignes est le même,
+    // sinon un seul bloc entre le début et la fin communs.
+    function changedChunks(before, after) {
+        const chunk = (a, b, offset) => {
+            let start = 0;
+            while (start < a.length && start < b.length && a[start] === b[start]) {
+                start++;
+            }
+            let endA = a.length;
+            let endB = b.length;
+            while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
+                endA--;
+                endB--;
+            }
+            return start === endA && start === endB ? null : { start: offset + start, end: offset + endA, text: b.slice(start, endB) };
+        };
+        const linesA = before.split("\n");
+        const linesB = after.split("\n");
+        if (linesA.length !== linesB.length) {
+            const single = chunk(before, after, 0);
+            return single ? [single] : [];
+        }
+        const chunks = [];
+        let offset = 0;
+        linesA.forEach((line, i) => {
+            const c = chunk(line, linesB[i], offset);
+            if (c) {
+                chunks.push(c);
+            }
+            offset += line.length + 1;
+        });
+        return chunks;
+    }
+
+    function putText(text) {
+        if (!exchange) {
+            return { ok: false, error: "Récupère d'abord un texte depuis la page." };
+        }
+        const { target, start, end } = exchange;
+        if (!target.editable) {
+            return { ok: false, error: "Ce texte n'est pas modifiable dans la page : copie-le plutôt." };
+        }
+        const current = target.getText().slice(start, end);
+        if (current !== exchange.text) {
+            return { ok: false, error: "Le texte a changé dans la page depuis la récupération : récupère-le à nouveau." };
+        }
+        const chunks = changedChunks(current, text);
+        for (const c of [...chunks].reverse()) {
+            target.replace(start + c.start, start + c.end, c.text);
+        }
+        exchange = { ...exchange, end: start + text.length, text };
+        return { ok: true, changes: chunks.length };
+    }
+
     function onMessage(msg, sender, sendResponse) {
         if (sender.id !== chrome.runtime.id || msg?.target !== "content") {
+            return false;
+        }
+        // Seul le cadre qui a un texte répond (les autres cadres de l'onglet se taisent).
+        if (msg.cmd === "grab-text") {
+            const result = grabText();
+            if (result) {
+                sendResponse({ ok: true, ...result });
+            }
+            return false;
+        }
+        if (msg.cmd === "put-text") {
+            if (exchange) {
+                sendResponse(putText(String(msg.text ?? "")));
+            }
             return false;
         }
         if (msg.cmd === "open-panel") {
