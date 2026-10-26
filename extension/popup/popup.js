@@ -655,8 +655,37 @@ $("#fix-put").addEventListener("click", async () => {
         setSource(response?.error ?? "Pas de réponse de la page.", true);
         return;
     }
+    if (grabbed.app) {
+        setSource(`Renvoyé dans « ${grabbed.host} » ✓ (Ctrl+Z dans ce logiciel pour annuler)`);
+        return;
+    }
     setSource(response.changes ? `Renvoyé dans ${grabbed.host} ✓ (${response.changes} passage${response.changes > 1 ? "s" : ""} modifié${response.changes > 1 ? "s" : ""}, Ctrl+Z dans la page pour annuler)` : `Rien à renvoyer : le texte n'a pas changé.`);
 });
+
+// Application : texte pris dans un autre logiciel par le raccourci global. « Renvoyer » le
+// remplacera dans ce logiciel (l'application garde la trace de la fenêtre d'origine).
+if (isApp) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        if (msg?.target !== "popup" || msg.cmd !== "set-text") {
+            return false;
+        }
+        showTab("fix");
+        if (msg.error) {
+            grabbed = null;
+            $("#fix-put").disabled = true;
+            setSource(msg.error, true);
+        } else {
+            grabbed = { app: true, host: msg.source || "le logiciel d'origine", editable: true };
+            fixText.value = msg.text;
+            fixText.dispatchEvent(new Event("input", { bubbles: true }));
+            $("#fix-put").disabled = false;
+            setSource(`Récupéré depuis « ${grabbed.host} » · « Renvoyer » remplacera la sélection par le texte corrigé`);
+        }
+        fixText.focus();
+        sendResponse({ ok: true });
+        return false;
+    });
+}
 
 // « Traduire » : le texte corrigé part dans la bulle du haut de l'onglet Traduction.
 $("#fix-translate").addEventListener("click", () => {

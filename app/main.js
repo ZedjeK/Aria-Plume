@@ -3,7 +3,7 @@
 // au lieu de se fermer. Le moteur Aria tourne ici même (engine.js), sans fenêtre cachée.
 // La fenêtre affiche le correcteur de l'extension (popup.html), servi par le protocole aria:.
 
-import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, protocol, shell } from "electron";
+import { app, BrowserWindow, Menu, Tray, clipboard, globalShortcut, ipcMain, nativeImage, protocol, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ protocol.registerSchemesAsPrivileged([
 // Le moteur (et les réglages, qui en dépendent) ne se charge qu'une fois l'instance confirmée.
 const { aria, createService, ENGINE_ROOT } = await import("./engine.js");
 const { loadSettings, saveSettings, settingsFile, getValues } = await import("./settings.js");
+const { createInput, captureSelection, pasteInto } = await import("./windows-input.js");
 
 // --- Réglages : enregistrés dans le fichier, et signalés aux fenêtres ouvertes ---
 function updateSettings(changes) {
@@ -32,6 +33,9 @@ function updateSettings(changes) {
     if (Object.keys(diff).length) {
         for (const win of BrowserWindow.getAllWindows()) {
             win.webContents.send("storage-changed", diff);
+        }
+        if (diff.hotkey) {
+            registerHotkey();
         }
         tray?.setContextMenu(buildTrayMenu());
     }
@@ -81,6 +85,67 @@ async function servePage(request) {
     return new Response(body, { headers: { "content-type": type, "content-security-policy": CSP } });
 }
 
+// --- Raccourci global « à la Antidote » ---
+// Sélectionne du texte dans n'importe quel logiciel, appuie sur le raccourci : Aria Plume copie la
+// sélection, l'ouvre dans le correcteur, et « Renvoyer » la remplace par le texte corrigé.
+const input = createInput();
+let lastCapture = null;
+let capturing = false;
+let hotkey = { accelerator: "", ok: false };
+
+// Message vers la page du correcteur (une fois chargée).
+async function sendToPage(msg) {
+    if (!mainWindow) {
+        createWindow();
+    }
+    const contents = mainWindow.webContents;
+    if (contents.isLoading()) {
+        await new Promise((resolve) => contents.once("did-finish-load", resolve));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+    contents.send("content-message", { id: Date.now(), msg });
+}
+
+async function onHotkey() {
+    if (capturing) {
+        return;
+    }
+    // Raccourci depuis notre propre fenêtre : rien à copier, on la garde au premier plan.
+    if (mainWindow?.isVisible() && mainWindow.isFocused()) {
+        showWindow();
+        return;
+    }
+    capturing = true;
+    try {
+        const result = input.available
+            ? await captureSelection(input)
+            : { error: "La capture de la sélection n'est disponible que sous Windows : colle ton texte ici." };
+        lastCapture = result.text ? { hwnd: result.hwnd, title: result.title } : null;
+        showWindow();
+        await sendToPage({ target: "popup", cmd: "set-text", text: result.text ?? "", source: result.title ?? "", error: result.error ?? "" });
+    } finally {
+        capturing = false;
+    }
+}
+
+function registerHotkey() {
+    globalShortcut.unregisterAll();
+    const accelerator = loadSettings().hotkey;
+    let ok = false;
+    try {
+        ok = globalShortcut.register(accelerator, () => {
+            onHotkey().catch((error) => console.error("Raccourci :", error));
+        });
+    } catch {
+        ok = false;  // combinaison invalide
+    }
+    hotkey = { accelerator, ok };
+    tray?.setContextMenu(buildTrayMenu());
+}
+
+// « Alt+Shift+C » → « Alt+Maj+C ».
+const showAccelerator = (accelerator) => accelerator.replace(/Shift/g, "Maj").replace(/CommandOrControl|CmdOrCtrl|Control/g, "Ctrl");
+
 // --- Demandes de la fenêtre (chrome.runtime.sendMessage vers le « service worker ») ---
 const SERVICE_COMMANDS = {
     check: (msg) => service.check({ text: String(msg.text ?? ""), lang: msg.lang, host: "" }),
@@ -95,6 +160,18 @@ const SERVICE_COMMANDS = {
     "translate-cancel": async (msg) => {
         await aria.cancelTranslation(msg.jobId);
         return {};
+    },
+    // « Renvoyer » : le texte corrigé remplace la sélection dans le logiciel d'origine.
+    exchange: async (msg) => {
+        if (msg.op !== "put-text" || !lastCapture) {
+            throw new Error("Rien à renvoyer : sélectionne d'abord du texte dans un logiciel, puis utilise le raccourci.");
+        }
+        const result = await pasteInto(input, lastCapture.hwnd, String(msg.text ?? ""));
+        if (!result.ok) {
+            throw new Error(result.error);
+        }
+        mainWindow?.hide();
+        return { changes: 1 };
     },
 };
 
@@ -169,6 +246,12 @@ function buildTrayMenu() {
     const settings = loadSettings();
     const template = [
         { label: "Ouvrir le correcteur", click: showWindow },
+        {
+            label: hotkey.ok
+                ? `Raccourci : ${showAccelerator(hotkey.accelerator)} sur un texte sélectionné`
+                : `Raccourci ${showAccelerator(hotkey.accelerator)} indisponible (déjà pris ?)`,
+            enabled: false,
+        },
         { type: "separator" },
     ];
     if (process.platform === "win32") {
@@ -232,6 +315,19 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
         setTimeout(() => mainWindow?.close(), 50);
     });
     ipcMain.handle("test:serve", async (event, url) => (await servePage(new Request(url))).status);
+    // Raccourci simulé (ARIA_FAKE_INPUT=1) : « selection » est le texte sélectionné dans l'autre logiciel.
+    ipcMain.handle("test:hotkey", async (event, selection) => {
+        input.fake.selection = selection;
+        mainWindow?.hide();
+        await onHotkey();
+    });
+    ipcMain.handle("test:pasted", () => ({ received: input.fake?.received ?? null, hotkey }));
+    ipcMain.handle("test:clipboard", async (event, text) => {
+        if (typeof text === "string") {
+            await clipboard.writeText(text);
+        }
+        return clipboard.readText();
+    });
     ipcMain.handle("test:show", () => {
         showWindow();
     });
@@ -242,6 +338,8 @@ app.on("before-quit", () => {
     quitting = true;
 });
 app.on("will-quit", () => {
+    globalShortcut.unregisterAll();
+    input.stop();
     // Arrêt des workers du moteur. Sans attendre : retarder la fermeture (preventDefault puis
     // nouvel app.quit()) empêche Electron de se terminer quand une fenêtre a existé.
     aria.close().catch(() => {});
@@ -255,6 +353,9 @@ app.whenReady().then(() => {
     protocol.handle("aria", servePage);
     Menu.setApplicationMenu(null);
     createTray();
+    registerHotkey();
+    // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
+    input.warmUp();
     createWindow();
     if (!STARTED_HIDDEN) {
         mainWindow.once("ready-to-show", showWindow);

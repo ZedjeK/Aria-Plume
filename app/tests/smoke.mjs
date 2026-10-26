@@ -18,7 +18,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Réglages de test : partir d'un fichier vierge.
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
-const proc = spawn(`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"], { env: { ...process.env, ARIA_TEST_HOOKS: "1", NODE_OPTIONS: "" } });
+const proc = spawn(`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"], { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -100,6 +100,38 @@ check("action du navigateur refusée", (await win.evaluate(() => chrome.runtime.
 const statuses = await win.evaluate(async () => Promise.all(["aria://app/popup/popup.js", "aria://app/core/index.js", "aria://app/popup/%2e%2e/%2e%2e/package.json", "aria://autre/popup/popup.js", "aria://app/content/checker.js"].map((u) => window.ariaTest.serve(u))));
 check("seuls les fichiers prévus sont servis", JSON.stringify(statuses) === "[200,404,404,404,200]", JSON.stringify(statuses));
 check("la page ne peut rien charger d'autre (CSP)", await win.evaluate(async () => fetch("aria://app/popup/popup.js").then(() => false, () => true)));
+
+// Raccourci global (logiciel simulé) : copie de la sélection, correction, « Renvoyer ».
+const hk = await win.evaluate(() => window.ariaTest.pasted());
+check("raccourci enregistré", hk.hotkey.ok && hk.hotkey.accelerator === "Alt+Shift+C", JSON.stringify(hk.hotkey));
+await win.click("#tab-fix");
+await win.selectOption("#fix-lang", "auto");
+await win.evaluate(() => window.ariaTest.clipboard("ancien presse-papiers"));
+await win.evaluate(() => window.ariaTest.hotkey("Je pense que il viendras demain."));
+await wait(500);
+check("sélection reçue", (await win.inputValue("#fix-text")) === "Je pense que il viendras demain.", await win.inputValue("#fix-text"));
+check("onglet Correction", (await win.getAttribute("#tab-fix", "aria-selected")) === "true");
+check("source affichée", (await win.textContent("#fix-source")).includes("Bloc-notes (simulé)"), await win.textContent("#fix-source"));
+check("Renvoyer actif", !(await win.isDisabled("#fix-put")) && await win.isVisible("#fix-put"));
+check("presse-papiers restauré après la copie", (await win.evaluate(() => window.ariaTest.clipboard())) === "ancien presse-papiers");
+await win.waitForSelector("#fix-list .fix-item", { timeout: 15000 }).catch(() => {});
+const corrected = await win.evaluate(() => document.querySelectorAll("#fix-list .fix-item").length);
+// On corrige en appliquant les suggestions de la liste, une à une.
+for (let i = 0; i < 4 && await win.$("#fix-list .fix-item .sugg"); i++) {
+    await win.click("#fix-list .fix-item .sugg");
+    await wait(900);
+}
+const fixed = await win.inputValue("#fix-text");
+check("texte corrigé", fixed === "Je pense qu'il viendra demain.", `${fixed} (${corrected} fautes)`);
+await win.click("#fix-put");
+await wait(900);
+const pasted = await win.evaluate(() => window.ariaTest.pasted());
+check("texte recollé dans le logiciel", pasted.received === fixed, pasted.received);
+check("fenêtre cachée après le collage", !(await win.evaluate(() => window.ariaTest.state())).windows[0].visible);
+check("presse-papiers restauré après le collage", (await win.evaluate(() => window.ariaTest.clipboard())) === "ancien presse-papiers");
+await win.evaluate(() => window.ariaTest.hotkey(""));
+await wait(400);
+check("rien de sélectionné : message", (await win.textContent("#fix-source")).includes("Rien de sélectionné") && await win.isDisabled("#fix-put"), await win.textContent("#fix-source"));
 
 // Fermer = cacher ; réafficher ; quitter.
 await win.evaluate(() => window.ariaTest.close());

@@ -11,9 +11,9 @@ body.app .hint {
     display: none;
 }
 
-/* Aller-retour avec une page web : remplacé par le raccourci global (étape 2.3). */
-body.app #fix-grab,
-body.app #fix-put {
+/* Aller-retour : pas de « Récupérer » (c'est le raccourci global qui prend la sélection dans
+   n'importe quel logiciel) ; « Renvoyer » remet le texte corrigé à sa place. */
+body.app #fix-grab {
     display: none;
 }
 

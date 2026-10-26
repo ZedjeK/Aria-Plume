@@ -99,4 +99,7 @@ contextBridge.exposeInMainWorld("ariaTest", {
     close: () => ipcRenderer.invoke("test:close"),
     show: () => ipcRenderer.invoke("test:show"),
     serve: (url) => ipcRenderer.invoke("test:serve", url),
+    hotkey: (selection) => ipcRenderer.invoke("test:hotkey", selection),
+    pasted: () => ipcRenderer.invoke("test:pasted"),
+    clipboard: (text) => ipcRenderer.invoke("test:clipboard", text),
 });
