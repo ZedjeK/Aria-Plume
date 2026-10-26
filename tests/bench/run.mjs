@@ -15,6 +15,8 @@
 //                 d'Aria : chaque signalement est à examiner (vraie faute ou fausse alerte)
 //   - textes      une centaine de textes du quotidien avec des fautes volontaires (textes.mjs),
 //                 moteur complet par le service, comme dans l'extension et l'application
+//   - controle    50 textes neufs, écrits avant les correctifs tirés de « textes » et jamais
+//                 regardés pendant leur mise au point : les progrès tiennent-ils ailleurs ?
 
 import fs from "node:fs";
 import zlib from "node:zlib";
@@ -26,12 +28,13 @@ import { corpus as corpusEn } from "./corpus-en.mjs";
 import { createService } from "../../extension/core/service.js";
 import { DEFAULTS } from "../../extension/core/shared/settings.js";
 import { textes } from "./textes.mjs";
+import { textes as controle } from "./textes-controle.mjs";
 import { parse, evaluate, summarize, report, misses } from "./textes-eval.mjs";
 
 const args = process.argv.slice(2);
 const verbose = args.includes("-v");
 const update = args.includes("--update");
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes"];
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -160,7 +163,7 @@ function benchWordnet() {
 }
 
 // --- textes : textes du quotidien, moteur complet par le service (réglages par défaut, sans répétitions) ---
-async function benchTextes() {
+async function benchTextes(list = textes) {
     const settings = { ...DEFAULTS, repetitions: false };
     const service = createService({
         aria,
@@ -168,7 +171,7 @@ async function benchTextes() {
         saveValues: async () => {},
     });
     const results = [];
-    for (const item of textes) {
+    for (const item of list) {
         const parsed = parse(item.text);
         const { matches } = await service.check({ text: parsed.wrong, lang: item.lang });
         const result = { ...evaluate(parsed, matches), lang: item.lang, wrong: parsed.wrong };
@@ -188,7 +191,7 @@ async function benchTextes() {
 // Pour chaque mesure : faut-il qu'elle monte (more) ou qu'elle baisse (less) ?
 const DIRECTION = { found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
 
-const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: benchTextes };
+const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle) };
 const baselineFile = here("baseline.json");
 const baseline = fs.existsSync(baselineFile) ? JSON.parse(fs.readFileSync(baselineFile, "utf8")) : {};
 let regressions = 0;

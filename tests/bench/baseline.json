@@ -28,5 +28,13 @@
         "total": 134,
         "falseAlerts": 9,
         "oneClick": 77
+    },
+    "controle": {
+        "found": 45,
+        "fixed": 43,
+        "firstRank": 42,
+        "total": 60,
+        "falseAlerts": 4,
+        "oneClick": 30
     }
 }
