@@ -55,6 +55,11 @@ try {
     show("translate en→fr", trEn.text);
     expect("traduction en→fr", /sauvegardes/i.test(trEn.text));
 
+    const glossary = { glossary: [{ fr: "serveur", en: "server" }, { fr: "journal", en: "log" }], keepTerms: ["nginx"] };
+    const trGlo = await aria.translate({ text: "Le serveur nginx garde les journaux.", from: "fr", to: "en", glossary });
+    show(`translate glossaire (${trGlo.glossaryHits})`, trGlo.text);
+    expect("glossaire : server et logs imposés", /server/.test(trGlo.text) && /logs/.test(trGlo.text) && /nginx/.test(trGlo.text));
+
     show("info", JSON.stringify(aria.info()));
 } catch (error) {
     failures += 1;

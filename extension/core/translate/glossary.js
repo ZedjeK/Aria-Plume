@@ -9,8 +9,9 @@
 // Les marqueurs sont ensuite retirés. Les termes « à ne jamais traduire » suivent
 // le même chemin, avec le terme d'origine comme cible.
 //
-// Tout se passe dans un <template> : son contenu est inerte (aucun script exécuté,
-// aucune image chargée), même quand il vient d'une page web traduite.
+// Aucun DOM : le HTML est découpé en jetons (balises et texte) par un petit analyseur.
+// Rien n'est jamais interprété (aucun script, aucune image), les balises d'origine sont
+// recopiées telles quelles, et le même code tourne dans le navigateur comme sous Node.
 
 const MARK = "data-ag";
 const LETTER = "[\\p{L}\\p{N}_-]";
@@ -21,7 +22,6 @@ const ARTICLES = {
 };
 
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const escapeHtml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const isSingleWord = (text) => !/\s/u.test(text);
 
 function pluralize(word, lang) {
@@ -101,20 +101,67 @@ function rulesFor(glossaryData, from, to) {
     return cache.get(key);
 }
 
-function textNodes(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) {
-        nodes.push(walker.currentNode);
-    }
-    return nodes;
+// --- Mini-analyseur HTML ---
+// Jetons : { raw } pour une balise ou un commentaire (recopiée telle quelle),
+// { text, raw? } pour du texte (entités décodées ; raw = forme d'origine si inchangé).
+const TOKEN = /<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|<![^>]*>|[^<]+|</g;
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+function decodeEntities(raw) {
+    return raw.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/giu, (entity, name) => {
+        if (name[0] === "#") {
+            const code = name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+            return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+        }
+        return ENTITIES[name.toLowerCase()] ?? entity;
+    });
 }
 
-// Pose les marqueurs dans le fragment. Renvoie la liste des termes attendus.
-function markTerms(root, compiled) {
+// Comme le navigateur quand il sérialise du texte.
+const encodeText = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/ /g, "&nbsp;");
+
+function tokenize(html) {
+    return Array.from(html.matchAll(TOKEN), ([raw]) => (raw.length > 1 && raw[0] === "<" ? { raw } : { text: decodeEntities(raw), raw }));
+}
+
+// Parcourt les jetons visibles : texte d'un jeton, puis texte posé à sa suite (after).
+function textOf(tokens, from = 0, to = tokens.length) {
+    let text = "";
+    for (let i = from; i < to; i++) {
+        const token = tokens[i];
+        if (token.removed) {
+            continue;
+        }
+        text += token.text ?? "";
+        text += token.after ?? "";
+    }
+    return text;
+}
+
+function serialize(tokens) {
+    let html = "";
+    for (const token of tokens) {
+        if (token.removed) {
+            continue;
+        }
+        if (!token.unwrap) {
+            html += token.text !== undefined ? (token.raw ?? encodeText(token.text)) : token.raw;
+        }
+        html += token.after !== undefined ? encodeText(token.after) : "";
+    }
+    return html;
+}
+
+// Pose les marqueurs dans les jetons de texte. Renvoie la liste des termes attendus.
+function markTerms(tokens, compiled) {
     const markers = [];
-    for (const node of textNodes(root)) {
-        const text = node.nodeValue;
+    const out = [];
+    for (const token of tokens) {
+        if (token.text === undefined) {
+            out.push(token);
+            continue;
+        }
+        const text = token.text;
         compiled.regex.lastIndex = 0;
         let match;
         let last = 0;
@@ -132,20 +179,62 @@ function markTerms(root, compiled) {
             } else {
                 expected = matchCase(pluralSuffix ? pluralize(rule.target, compiled.to) : rule.target, match[index + 1]);
             }
-            parts.push(document.createTextNode(text.slice(last, match.index)));
-            const span = document.createElement("span");
-            span.setAttribute(MARK, String(markers.length));
-            span.textContent = surface;
-            parts.push(span);
+            if (match.index > last) {
+                parts.push({ text: text.slice(last, match.index) });
+            }
+            parts.push({ raw: `<span ${MARK}="${markers.length}">` }, { text: surface }, { raw: "</span>" });
             markers.push({ expected, base: rule.target, keep: rule.keep });
             last = match.index + surface.length;
         }
         if (parts.length) {
-            parts.push(document.createTextNode(text.slice(last)));
-            node.replaceWith(...parts);
+            if (last < text.length) {
+                parts.push({ text: text.slice(last) });
+            }
+            out.push(...parts);
+        } else {
+            out.push(token);
         }
     }
-    return markers;
+    return { tokens: out, markers };
+}
+
+// Les marqueurs <span data-ag="n"> de la traduction : { id, open, close } (indices des jetons).
+const SPAN_OPEN = /^<span\b/i;
+const SPAN_CLOSE = /^<\/span\s*>$/i;
+const MARK_ID = new RegExp(`\\b${MARK}\\s*=\\s*["']?(\\d+)`, "i");
+
+function findSpans(tokens) {
+    const spans = [];
+    const stack = [];
+    tokens.forEach((token, i) => {
+        if (token.text !== undefined) {
+            return;
+        }
+        if (SPAN_OPEN.test(token.raw) && !/\/\s*>$/.test(token.raw)) {
+            const id = MARK_ID.exec(token.raw)?.[1];
+            stack.push({ id: id === undefined ? null : Number(id), open: i });
+        } else if (SPAN_CLOSE.test(token.raw) && stack.length) {
+            const span = stack.pop();
+            if (span.id !== null) {
+                spans.push({ ...span, close: i });
+            }
+        }
+    });
+    // Marqueur jamais refermé : il court jusqu'à la fin.
+    for (const span of stack) {
+        if (span.id !== null) {
+            spans.push({ ...span, close: tokens.length });
+        }
+    }
+    return spans.sort((a, b) => a.open - b.open);
+}
+
+// Remplace le contenu d'un marqueur par un texte (comme textContent = … dans le DOM).
+function setText(tokens, span, text) {
+    for (let i = span.open + 1; i < span.close; i++) {
+        tokens[i].removed = true;
+    }
+    tokens[span.open].after = text;
 }
 
 function containsTerm(text, marker, lang) {
@@ -155,8 +244,7 @@ function containsTerm(text, marker, lang) {
 }
 
 // Remplace la traduction proposée par le terme imposé, en gardant l'article devant.
-function replaceContent(span, marker, lang) {
-    const text = span.textContent;
+function replacement(text, marker, lang) {
     const article = (ARTICLES[lang]?.exec(text) ?? [""])[0];
     const rest = text.slice(article.length);
     let term = marker.expected;
@@ -176,30 +264,35 @@ function replaceContent(span, marker, lang) {
         }
     }
     const trailing = /\s*$/u.exec(rest)[0];
-    span.textContent = `${prefix}${term}${trailing}`;
+    return `${prefix}${term}${trailing}`;
 }
 
-function resolveMarkers(root, markers, lang) {
-    const fullText = root.textContent;
+function resolveMarkers(tokens, markers, lang) {
+    const fullText = textOf(tokens);
+    const spans = findSpans(tokens);
     markers.forEach((marker, id) => {
-        const spans = [...root.querySelectorAll(`span[${MARK}="${id}"]`)];
-        if (!spans.length) {
+        // Un marqueur effacé avec le contenu d'un autre ne compte plus.
+        const found = spans.filter((span) => span.id === id && !tokens[span.open].removed);
+        if (!found.length) {
             return;
         }
-        if (spans.some((span) => containsTerm(span.textContent, marker, lang)) || containsTerm(fullText, marker, lang)) {
+        const texts = found.map((span) => textOf(tokens, span.open + 1, span.close));
+        if (texts.some((text) => containsTerm(text, marker, lang)) || containsTerm(fullText, marker, lang)) {
             return;
         }
-        const target = spans.find((span) => /[\p{L}\p{N}]/u.test(span.textContent));
-        if (target) {
-            replaceContent(target, marker, lang);
+        const index = texts.findIndex((text) => /[\p{L}\p{N}]/u.test(text));
+        if (index >= 0) {
+            setText(tokens, found[index], replacement(texts[index], marker, lang));
         } else {
-            spans[0].textContent = marker.expected;
+            setText(tokens, found[0], marker.expected);
         }
     });
-    for (const span of root.querySelectorAll(`span[${MARK}]`)) {
-        span.replaceWith(...span.childNodes);
+    for (const span of spans) {
+        tokens[span.open].unwrap = true;
+        if (span.close < tokens.length) {
+            tokens[span.close].unwrap = true;
+        }
     }
-    root.normalize();
 }
 
 // Prépare un texte (brut ou HTML) pour Bergamot. Renvoie null si aucun terme
@@ -214,24 +307,17 @@ export function prepareGlossary({ text, html, from, to, glossary }) {
     if (!compiled.regex.test(plain)) {
         return null;
     }
-    if (typeof document === "undefined") {
-        // Étape 1.4 de la feuille de route : version sans DOM à venir.
-        throw new Error("Le glossaire n'est pas encore disponible hors navigateur.");
-    }
-    const template = document.createElement("template");
-    template.innerHTML = html ? text : escapeHtml(text);
-    const markers = markTerms(template.content, compiled);
+    const { tokens, markers } = markTerms(html ? tokenize(text) : [{ text }], compiled);
     if (!markers.length) {
         return null;
     }
     return {
-        html: template.innerHTML,
+        html: serialize(tokens),
         hits: markers.length,
         finish(translated) {
-            const out = document.createElement("template");
-            out.innerHTML = translated;
-            resolveMarkers(out.content, markers, to);
-            return html ? out.innerHTML : out.content.textContent;
+            const out = tokenize(translated);
+            resolveMarkers(out, markers, to);
+            return html ? serialize(out) : textOf(out);
         },
     };
 }
