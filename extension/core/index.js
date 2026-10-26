@@ -5,10 +5,11 @@
 //     await aria.translate({ text, from: "fr", to: "en", html, glossary });
 //     await aria.conjugate({ verb: "prendre" });
 //     await aria.synonyms({ word: "rapide", lang: "fr" });
+//     await aria.close();
 //
 // Le moteur ne dépend ni de Chrome ni de Node : tout ce qui touche à l'environnement
 // (lire un fichier, lancer un worker, importer Bergamot) passe par la plateforme,
-// voir platform/browser.js. Les moteurs sont chargés à la demande, au premier usage :
+// voir platform/browser.js et platform/node.js. Les moteurs sont chargés à la demande, au premier usage :
 //   - fr : Grammalecte (worker classique) + règles d'Aria
 //   - en : Harper (worker module, WebAssembly) + règles d'Aria
 //   - traduction : Bergamot (ses propres workers, WebAssembly) + modèles Mozilla compressés en gzip
@@ -220,6 +221,22 @@ export function createAria(platform) {
             }
             const client = await getChecker("fr");
             return client.call("synonyms", { word });
+        },
+
+        // Arrête les workers (indispensable sous Node pour que le programme se termine).
+        async close() {
+            const clients = await Promise.allSettled(Object.values(checkers));
+            for (const { value } of clients) {
+                value?.port.terminate();
+            }
+            for (const lang of Object.keys(checkers)) {
+                delete checkers[lang];
+            }
+            if (translatorPromise) {
+                const translator = await translatorPromise.catch(() => null);
+                await translator?.delete();
+                translatorPromise = null;
+            }
         },
 
         // Moteurs chargés et temps de chargement (ms).

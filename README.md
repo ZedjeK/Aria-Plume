@@ -117,7 +117,9 @@ extension/
 ├── core/                       # moteur Aria : notre code, sans dépendance à Chrome (voir docs/FEUILLE-DE-ROUTE.md)
 │   ├── index.js                # interface unique : createAria(plateforme) → check, translate, conjugate, synonyms
 │   ├── platform/
-│   │   └── browser.js          # lecture des fichiers, workers et imports dans un navigateur
+│   │   ├── browser.js          # lecture des fichiers, workers et imports dans un navigateur
+│   │   ├── node.js             # la même chose sous Node (worker_threads)
+│   │   └── node-worker.js      # amorce : donne aux workers l'environnement d'un navigateur
 │   ├── fr/
 │   │   ├── worker.js           # Grammalecte : suggestions améliorées, accords complets, synonymes, conjugaison, répétitions
 │   │   └── homophones.js       # règles d'Aria : homophones, participes, concordance, registre…
@@ -145,7 +147,8 @@ tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
 ├── francais/                   # corpus de phrases justes et fautives : node tests/francais/run.js
-└── anglais/                    # corpus des règles anglaises : node tests/anglais/run.mjs
+├── anglais/                    # corpus des règles anglaises : node tests/anglais/run.mjs
+└── node/                       # le moteur sous Node : node tests/node/smoke.mjs
 ```
 
 ## Licence
