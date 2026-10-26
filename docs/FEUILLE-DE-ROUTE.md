@@ -4,7 +4,7 @@
 > et les met à disposition de partout : navigateur, mails, n'importe quel logiciel, et les IA via MCP.
 > Ensuite, remplacer pas à pas les moteurs tiers par le nôtre, mesuré à chaque étape.
 
-Dernière mise à jour : 26 octobre 2026 — extension en version 0.28.0.
+Dernière mise à jour : 26 octobre 2026 — extension en version 0.29.0. **Phase 1 terminée.**
 
 ## Règles du chantier
 
@@ -215,3 +215,4 @@ On remplace les moteurs tiers pièce par pièce, chaque pièce mesurée contre l
 | 26/10/2026 | 1.4 — Bergamot sous Node | La traduction marche sous Node sans adaptation (Bergamot a sa propre couche Node) : FR→EN, EN→FR, HTML, 11 demandes en parallèle en 1,8 s. Reste le glossaire, qui s'appuie sur le DOM du navigateur : sous Node, il renvoie pour l'instant une erreur claire. Décision demandée à Jérémy sur la façon de le rendre indépendant du DOM |
 | 26/10/2026 | 1.4 (suite) — glossaire sans DOM | Choix de Jérémy : réécriture plutôt que dépendance. Petit analyseur HTML maison (balises recopiées telles quelles, entités décodées). Comparé à l'ancienne version (navigateur) sur 20 cas texte et HTML, avec les vraies traductions de Bergamot : préparation identique 20/20, résultat final identique 20/20. Tests du glossaire et de la traduction dans l'extension au vert ; le glossaire marche sous Node. Défauts déjà présents notés pour plus tard : « Le arbre » (élision), « la lien montant » (genre de l'article), « lognewspaper » (mot doublé dans une phrase HTML découpée) |
 | 26/10/2026 | 1.5 — banc unifié `tests/bench/run.mjs` | Une commande, quatre suites, 3,6 s au total, sans Chromium. Mêmes chiffres qu'avant : FR 118/120 (118 en 1re position), 0 fausse alerte sur 212 ; EN 20/20 ; Grammalecte 1 hors zone, 44 dans les zones ; WordNet 2 signalements. Référence dans `baseline.json` : le banc sort en erreur au moindre recul (`--update` pour enregistrer un progrès). Les données (tests Grammalecte, exemples WordNet) sont dans le dépôt, compressées. Ancien `tests/francais` et `tests/anglais` remplacés |
+| 26/10/2026 | 1.6 — `core/api.md`, README, version 0.29.0 | Contrat de l'interface écrit et vérifié sur les vraies réponses du moteur. **Phase 1 terminée** : critère de réussite atteint (extension identique, moteur complet sous Node avec les mêmes résultats). Prochaine : phase 2, l'application portable |

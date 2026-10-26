@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.28 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.29 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -95,6 +95,17 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 - Les thésaurus mélangent les sens d'un mot : pour « rapide », « agile » côtoie « bref » ou « alarme », et « serveur » n'a pas de sens informatique en français. En anglais, seules les formes régulières retrouvent leur base (« servers », « running », pas « broke »).
 - Projet personnel, sans audit de sécurité indépendant.
 
+## Moteur Aria
+
+Toute la logique (correction, traduction, conjugaison, synonymes) vit dans `extension/core/`, sans dépendance à Chrome : le même moteur tourne dans l'extension et sous Node, première brique de l'application et du serveur MCP à venir. Contrat de l'interface : [`extension/core/api.md`](extension/core/api.md). Feuille de route : [`docs/FEUILLE-DE-ROUTE.md`](docs/FEUILLE-DE-ROUTE.md).
+
+```sh
+node tests/node/smoke.mjs     # le moteur sous Node : vérification, traduction, conjugaison, synonymes
+node tests/bench/run.mjs      # banc de mesure : corpus FR et EN, tests de Grammalecte, exemples WordNet
+```
+
+Node 22 ou plus récent. Aucune dépendance npm.
+
 ## Provenance des composants embarqués
 
 Les fichiers des moteurs sont copiés sans modification depuis leur source officielle.
@@ -115,6 +126,7 @@ extension/
 ├── background.js               # service worker : menus, raccourcis, détection de langue, routage
 ├── offscreen/                  # document caché qui fait tourner le moteur (relais vers core/)
 ├── core/                       # moteur Aria : notre code, sans dépendance à Chrome (voir docs/FEUILLE-DE-ROUTE.md)
+│   ├── api.md                  # contrat de l'interface
 │   ├── index.js                # interface unique : createAria(plateforme) → check, translate, conjugate, synonyms
 │   ├── platform/
 │   │   ├── browser.js          # lecture des fichiers, workers et imports dans un navigateur
