@@ -3,8 +3,7 @@
 // Aucun accès réseau : la CSP de l'extension limite connect-src à 'self'.
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
 
-import { DEFAULTS, formalFor } from "./core/shared/settings.js";
-import { addMistakes } from "./core/shared/mistakes.js";
+import { createService } from "./core/service.js";
 
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";
@@ -130,116 +129,6 @@ async function ensureOffscreen() {
     return true;
 }
 
-// Détection de langue. Le détecteur du navigateur se trompe souvent sur les textes courts
-// (« Please restart the backup service tonight. » → finnois, « Hello » → serbe). Comme seuls
-// le français et l'anglais nous intéressent, on le complète par un comptage de mots-outils.
-const FR_WORDS = new Set(("le la les un une des du de et est sont pas ne que qui quoi je tu il elle nous vous ils elles "
-    + "ce cette ces mon ma mes ton ta tes son sa ses notre nos votre vos leur leurs pour dans sur avec mais ou donc car au aux "
-    + "y été être avoir fait très bien merci bonjour salut oui non l d j qu n c m peux veux faut aussi plus moins comme").split(" "));
-const EN_WORDS = new Set(("the an and is are was were be been being not that which who what i you he she it we they this these "
-    + "those my your his her its our their for in with but or so to of at by from have has had do does did will would can could "
-    + "should please thanks thank hello hi yes no don isn aren won can't there here just also more less like").split(" "));
-
-function guessFrenchOrEnglish(text) {
-    const words = text.toLowerCase().split(/[^a-zà-ÿœæ]+/u).filter(Boolean);
-    let fr = 0;
-    let en = 0;
-    for (const word of words) {
-        if (FR_WORDS.has(word)) {
-            fr++;
-        }
-        if (EN_WORDS.has(word)) {
-            en++;
-        }
-    }
-    fr += Math.min(3, (text.match(/[éèêàçùûôîœ]/giu) ?? []).length * 0.5);
-    if (fr === en) {
-        return null;
-    }
-    return fr > en ? "fr" : "en";
-}
-
-function browserDetect(text) {
-    if (!chrome.i18n?.detectLanguage) {
-        return Promise.resolve({ isReliable: false, languages: [] });
-    }
-    return new Promise((resolve) => chrome.i18n.detectLanguage(text, (result) => resolve(result ?? { isReliable: false, languages: [] })));
-}
-
-async function detectLanguage(text) {
-    const result = await browserDetect(text);
-    const languages = result.languages ?? [];
-    const best = languages
-        .filter((l) => ["fr", "en"].includes(l.language.slice(0, 2)))
-        .sort((a, b) => b.percentage - a.percentage)[0];
-    const bestLang = best?.language.slice(0, 2) ?? null;
-    if (bestLang && result.isReliable) {
-        return { lang: bestLang, supported: true, reliable: true, source: "chrome.i18n", raw: languages };
-    }
-    const guess = guessFrenchOrEnglish(text);
-    if (guess) {
-        return { lang: guess, supported: true, reliable: false, source: "mots-outils", raw: languages };
-    }
-    // Rien de concluant : on prend l'avis du navigateur s'il penche pour le français ou l'anglais,
-    // sauf s'il est sûr de lui pour une autre langue.
-    const otherReliable = result.isReliable && languages.length > 0;
-    if (bestLang && !otherReliable) {
-        return { lang: bestLang, supported: true, reliable: false, source: "chrome.i18n (peu fiable)", raw: languages };
-    }
-    return { lang: "fr", supported: false, reliable: false, source: "langue non reconnue", raw: languages };
-}
-
-// Distance d'édition avec transposition (« sytemd » → « systemd » : une seule faute de frappe).
-function editDistance(a, b, limit) {
-    if (Math.abs(a.length - b.length) > limit) {
-        return limit + 1;
-    }
-    const rows = [Array.from({ length: b.length + 1 }, (_, j) => j)];
-    for (let i = 1; i <= a.length; i++) {
-        rows[i] = [i];
-        let best = i;
-        for (let j = 1; j <= b.length; j++) {
-            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-            let value = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
-            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
-                value = Math.min(value, rows[i - 2][j - 2] + 1);
-            }
-            rows[i][j] = value;
-            best = Math.min(best, value);
-        }
-        if (best > limit) {
-            return limit + 1;
-        }
-    }
-    return rows[a.length][b.length];
-}
-
-// Fautes d'orthographe proches d'un mot du dictionnaire personnel : ce mot passe en tête des suggestions.
-function suggestFromDictionary(matches, text, dictionary) {
-    if (!Array.isArray(matches) || !Array.isArray(dictionary) || dictionary.length === 0) {
-        return;
-    }
-    for (const match of matches) {
-        if (match.kind !== "orthographe") {
-            continue;
-        }
-        const word = text.slice(match.start, match.end).trim();
-        if (word.length < 3) {
-            continue;
-        }
-        const limit = word.length <= 5 ? 1 : 2;
-        const close = dictionary
-            .map((entry) => ({ entry, d: editDistance(word.toLowerCase(), entry.toLowerCase(), limit) }))
-            .filter((x) => x.d <= limit && x.d > 0)
-            .sort((x, y) => x.d - y.d)
-            .slice(0, 3)
-            .map((x) => x.entry);
-        if (close.length > 0) {
-            match.suggestions = [...new Set([...close, ...match.suggestions])].slice(0, 6);
-        }
-    }
-}
-
 async function toOffscreen(payload) {
     let response;
     try {
@@ -261,76 +150,28 @@ async function toOffscreen(payload) {
     return response;
 }
 
-// Sens de traduction : détecté sur le texte, avec la langue de la page comme indice
-// pour les sélections trop courtes pour être reconnues (un mot, un titre…).
-async function resolvePair(msg) {
-    if (msg.from && msg.from !== "auto") {
-        return { from: msg.from, to: msg.to ?? (msg.from === "fr" ? "en" : "fr"), detection: null };
+function browserDetect(text) {
+    if (!chrome.i18n?.detectLanguage) {
+        return Promise.resolve({ isReliable: false, languages: [] });
     }
-    const detection = await detectLanguage(msg.text);
-    let from = detection.supported ? detection.lang : null;
-    if (!from && ["fr", "en"].includes(msg.hint)) {
-        from = msg.hint;
-    }
-    if (!from) {
-        throw new Error("Langue non prise en charge : seuls le français et l'anglais sont disponibles.");
-    }
-    return { from, to: from === "fr" ? "en" : "fr", detection };
+    return new Promise((resolve) => chrome.i18n.detectLanguage(text, (result) => resolve(result ?? { isReliable: false, languages: [] })));
 }
 
-async function translate(msg) {
-    const offscreenCreated = await ensureOffscreen();
-    const { from, to, detection } = await resolvePair(msg);
-    const { glossary, keepTerms } = await chrome.storage.local.get({ glossary: [], keepTerms: [] });
-    const glossaryData = glossary.length || keepTerms.length ? { glossary, keepTerms } : null;
-    const common = { cmd: "translate", from, to, html: !!msg.html, priority: msg.priority ?? 0, jobId: msg.jobId ?? null, glossary: glossaryData };
-    // Texte brut sur plusieurs lignes : chaque ligne est traduite à part, les sauts de ligne restent en place.
-    const lines = msg.html ? [msg.text] : msg.text.split("\n");
-    if (lines.length > 1) {
-        const results = await Promise.all(lines.map((line) => (line.trim() === ""
-            ? Promise.resolve({ text: line, engineMs: 0 })
-            : toOffscreen({ ...common, text: line }))));
-        return {
-            text: results.map((r) => r.text).join("\n"),
-            engineMs: Math.max(...results.map((r) => r.engineMs ?? 0)),
-            pairCold: results.some((r) => r.pairCold),
-            loadMs: Math.max(...results.map((r) => r.loadMs ?? 0)),
-            glossaryHits: results.reduce((sum, r) => sum + (r.glossaryHits ?? 0), 0),
-            from,
-            to,
-            detection,
-            offscreenCreated,
-        };
-    }
-    const result = await toOffscreen({ ...common, text: msg.text });
-    return { ...result, from, to, detection, offscreenCreated };
-}
+// Le moteur vit dans le document offscreen : le service lui parle par messages.
+const offscreenAria = {
+    check: (args) => toOffscreen({ cmd: "check", ...args }),
+    translate: (args) => toOffscreen({ cmd: "translate", ...args }),
+    conjugate: (args) => toOffscreen({ cmd: "conjugate", ...args }),
+    synonyms: (args) => toOffscreen({ cmd: "synonyms", ...args }),
+    cancelTranslation: (jobId) => toOffscreen({ cmd: "translate-cancel", jobId }),
+};
 
-// Synonymes : la langue vient de la phrase autour du mot (un mot seul se reconnaît mal).
-// Si le thésaurus de cette langue ne connaît pas le mot, on essaie l'autre.
-async function synonyms(msg) {
-    await ensureOffscreen();
-    const word = String(msg.word ?? "").trim().slice(0, 80);
-    if (!word) {
-        throw new Error("Aucun mot à chercher.");
-    }
-    let lang = null;
-    const detection = await detectLanguage(msg.context || word);
-    if (detection.supported) {
-        lang = detection.lang;
-    } else if (["fr", "en"].includes(msg.hint)) {
-        lang = msg.hint;
-    } else {
-        lang = "fr";
-    }
-    const first = await toOffscreen({ cmd: "synonyms", lang, word });
-    if (first.groups?.length) {
-        return { ...first, lang };
-    }
-    const other = lang === "fr" ? "en" : "fr";
-    const second = await toOffscreen({ cmd: "synonyms", lang: other, word });
-    return second.groups?.length ? { ...second, lang: other } : { ...first, lang };
-}
+const service = createService({
+    aria: offscreenAria,
+    getSettings: (defaults) => chrome.storage.local.get(defaults),
+    saveValues: (values) => chrome.storage.local.set(values),
+    detectNative: browserDetect,
+});
 
 // Site de l'onglet d'où vient l'analyse (cadre principal, même pour un éditeur dans une iframe).
 function senderHost(sender) {
@@ -339,22 +180,6 @@ function senderHost(sender) {
     } catch {
         return "";
     }
-}
-
-// Fautes récurrentes : les écritures passent l'une après l'autre (plusieurs onglets peuvent corriger en même temps).
-let mistakeQueue = Promise.resolve();
-function recordMistakes(items) {
-    mistakeQueue = mistakeQueue.then(async () => {
-        const { trackMistakes, mistakeStats, mistakeStatsSince } = await chrome.storage.local.get({ trackMistakes: true, mistakeStats: {}, mistakeStatsSince: null });
-        if (trackMistakes !== true || !Array.isArray(items) || items.length === 0) {
-            return;
-        }
-        await chrome.storage.local.set({
-            mistakeStats: addMistakes(mistakeStats, items.slice(0, 200)),
-            mistakeStatsSince: mistakeStatsSince ?? new Date().toISOString(),
-        });
-    }).catch(() => {});
-    return mistakeQueue;
 }
 
 async function handle(msg, sender) {
@@ -367,28 +192,18 @@ async function handle(msg, sender) {
                 offscreenActive: chrome.offscreen ? await hasOffscreen() : false,
             };
         case "check": {
-            let lang = msg.lang;
-            let detection = null;
-            if (lang === "auto") {
-                detection = await detectLanguage(msg.text);
-                lang = detection.lang;
-            }
             const offscreenCreated = await ensureOffscreen();
-            const settings = await chrome.storage.local.get({ englishDialect: "american", dictionary: [], formalFrench: DEFAULTS.formalFrench, formalHosts: DEFAULTS.formalHosts, casualHosts: DEFAULTS.casualHosts, repetitions: true, repetitionDistance: 30 });
-            const distance = settings.repetitions === true ? Math.min(60, Math.max(10, Number(settings.repetitionDistance) || 30)) : 0;
-            const result = await toOffscreen({ cmd: "check", lang, text: msg.text, dialect: settings.englishDialect, formal: formalFor(senderHost(sender), settings), repetitions: distance });
-            // Les mots du dictionnaire personnel (Elegoo, systemd…) ne comptent pas comme répétitions.
-            const known = new Set(settings.dictionary.map((w) => w.toLowerCase()));
-            result.matches = result.matches.filter((m) => m.rule !== "aria_repetition" || !known.has(msg.text.slice(m.start, m.end).toLowerCase()));
-            suggestFromDictionary(result.matches, msg.text, settings.dictionary);
-            return { ...result, lang, detection, offscreenCreated };
+            return { ...(await service.check({ text: msg.text, lang: msg.lang, host: senderHost(sender) })), offscreenCreated };
         }
         case "detect":
-            return detectLanguage(msg.text);
-        case "translate":
-            return translate(msg);
+            return service.detectLanguage(msg.text);
+        case "translate": {
+            const offscreenCreated = await ensureOffscreen();
+            return { ...(await service.translate(msg)), offscreenCreated };
+        }
         case "synonyms":
-            return synonyms(msg);
+            await ensureOffscreen();
+            return service.synonyms(msg);
         case "exchange": {
             // Aller-retour du correcteur de la popup : « grab-text » ou « put-text » dans l'onglet.
             if (!["grab-text", "put-text"].includes(msg.op) || !Number.isInteger(msg.tabId)) {
@@ -407,11 +222,11 @@ async function handle(msg, sender) {
             }
         }
         case "record-mistakes":
-            await recordMistakes(msg.items);
+            await service.recordMistakes(msg.items);
             return {};
         case "conjugate":
             await ensureOffscreen();
-            return toOffscreen({ cmd: "conjugate", verb: String(msg.verb ?? "").slice(0, 60), options: msg.options ?? {} });
+            return service.conjugate(msg);
         case "translate-cancel":
             if (chrome.offscreen && await hasOffscreen()) {
                 await toOffscreen({ cmd: "translate-cancel", jobId: msg.jobId });

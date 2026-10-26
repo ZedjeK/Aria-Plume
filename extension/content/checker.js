@@ -53,6 +53,8 @@
         reviewBeforeSend: true,
     };
     const HIGHLIGHTS_SUPPORTED = typeof Highlight === "function" && !!globalThis.CSS?.highlights;
+    // Nos propres pages : popup et fenêtre de l'extension, fenêtre de l'application (aria:).
+    const OWN_PAGE = location.protocol === "chrome-extension:" || location.protocol === "aria:";
 
     // Mots ignorés : gardés dans les réglages, donc valables partout et après redémarrage.
     const ignored = new Set();
@@ -849,7 +851,7 @@
         // Pages de l'extension (correcteur de la popup) : les fautes trouvées sont publiées sur le
         // champ, pour le compteur et la liste à côté du texte. Jamais sur les sites web.
         announce(visible) {
-            if (location.protocol !== "chrome-extension:" || this.el.getAttribute("data-aria-odl") !== "on") {
+            if (!OWN_PAGE || this.el.getAttribute("data-aria-odl") !== "on") {
                 return;
             }
             const matches = visible.map((item) => ({
@@ -2559,8 +2561,8 @@
     }
     chrome.storage.onChanged.addListener(onStorageChanged);
 
-    // Pages de l'extension (popup, fenêtre séparée) : le bouton « Tout corriger » ouvre le panneau.
-    if (location.protocol === "chrome-extension:") {
+    // Nos pages (popup, fenêtre séparée, application) : le bouton « Tout corriger » ouvre le panneau.
+    if (OWN_PAGE) {
         listen(window, "aria-odl-open-panel", () => panel.open());
     }
     cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChanged));

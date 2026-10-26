@@ -115,6 +115,27 @@ Arrête les workers. Indispensable sous Node pour que le programme se termine.
 
 ---
 
+## Service (`core/service.js`)
+
+Au-dessus du moteur, le service applique ce que l'extension et l'application font de la même façon :
+détection du français et de l'anglais (`lang: "auto"`), réglages (dialecte, français soigné, répétitions,
+dictionnaire personnel, glossaire), traduction ligne par ligne, synonymes cherchés dans la langue de la
+phrase puis dans l'autre, fautes récurrentes.
+
+```js
+import { createService } from "./core/service.js";
+const service = createService({ aria, getSettings, saveValues, detectNative });
+await service.check({ text, lang: "auto", host: "mail.google.com" });   // + { lang, detection }
+await service.translate({ text, from: "auto", hint: "fr" });           // + { from, to, detection }
+await service.synonyms({ word, context });                              // + { lang }
+await service.conjugate({ verb, options });
+await service.recordMistakes([{ rule, kind, lang, word, suggestion }]);
+service.detectLanguage(text);
+```
+
+`getSettings(valeursParDéfaut)` et `saveValues(objet)` suivent `chrome.storage.local`. `detectNative`
+(facultatif) est le détecteur de langue du navigateur ; sans lui, la détection repose sur les mots-outils.
+
 ## Plateformes
 
 Une plateforme fournit ce qui dépend de l'environnement :

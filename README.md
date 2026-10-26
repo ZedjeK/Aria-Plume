@@ -128,6 +128,7 @@ extension/
 ├── core/                       # moteur Aria : notre code, sans dépendance à Chrome (voir docs/FEUILLE-DE-ROUTE.md)
 │   ├── api.md                  # contrat de l'interface
 │   ├── index.js                # interface unique : createAria(plateforme) → check, translate, conjugate, synonyms
+│   ├── service.js              # réglages, détection de langue, fautes récurrentes : partagé par l'extension et l'application
 │   ├── platform/
 │   │   ├── browser.js          # lecture des fichiers, workers et imports dans un navigateur
 │   │   ├── node.js             # la même chose sous Node (worker_threads)

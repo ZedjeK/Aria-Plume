@@ -1,6 +1,7 @@
 // Aria Plume — popup : réglages de la correction en direct (stockés localement),
 // traduction rapide dans les deux sens entre deux bulles, et conjugueur.
-// La même page sert aussi de fenêtre séparée (popup.html?mode=window).
+// La même page sert aussi de fenêtre séparée (popup.html?mode=window) et de fenêtre
+// de l'application de bureau (servie en aria:, voir app/).
 
 import { DEFAULTS as ALL_DEFAULTS } from "../core/shared/settings.js";
 
@@ -8,8 +9,10 @@ const DEFAULTS = { liveEnabled: true, disabledHosts: [], formalFrench: ALL_DEFAU
 const WINDOW_SIZE = { width: 560, height: 780 };
 const BOUNDS_KEY = "windowBounds";
 const $ = (selector) => document.querySelector(selector);
-const isWindow = new URLSearchParams(location.search).get("mode") === "window";
-document.body.classList.toggle("window", isWindow);
+const isApp = location.protocol === "aria:";
+const isWindow = !isApp && new URLSearchParams(location.search).get("mode") === "window";
+document.body.classList.toggle("window", isWindow || isApp);
+document.body.classList.toggle("app", isApp);
 
 let tab = null;
 let host = "";
@@ -18,6 +21,9 @@ let settings = await chrome.storage.local.get(DEFAULTS);
 // Onglet visé : celui de la fenêtre courante pour la popup ; pour la fenêtre séparée,
 // l'onglet actif de la dernière fenêtre de navigation utilisée.
 async function findTab() {
+    if (isApp) {
+        return null;  // l'application n'a pas d'onglet
+    }
     if (!isWindow) {
         return (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? null;
     }
@@ -72,7 +78,7 @@ async function save(patch) {
 
 // La popup se referme après une action ; la fenêtre séparée reste ouverte.
 function done() {
-    if (!isWindow) {
+    if (!isWindow && !isApp) {
         window.close();
     }
 }
@@ -449,7 +455,7 @@ function renderConj(result) {
 
 // Popup : Chrome la limite à 600 px de haut. La liste des temps défile dans la place qui reste.
 function fitConjResults() {
-    if (isWindow) {
+    if (isWindow || isApp) {
         return;
     }
     const results = $("#conj-results");
