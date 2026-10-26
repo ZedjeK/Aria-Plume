@@ -40,7 +40,10 @@
                     "core/**",
                     "engines/**",
                     "models/**",
-                    "data/**"
+                    "data/**",
+                    "popup/**",
+                    "content/**",
+                    "icons/**"
                 ]
             }
         ],

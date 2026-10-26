@@ -1,22 +1,32 @@
-:root {
-    color-scheme: dark;
-    --bg: #14121c;
-    --panel: #1e1b2b;
-    --text: #ece9f5;
-    --muted: #a39fb8;
-    --accent: #ff8a3d;
-    --border: #2f2a42;
+/* Aria Plume (application) — retouches du correcteur de l'extension (popup.html) pour la fenêtre
+   de l'application. La page reçoit la classe « app » (et « window » pour la mise en page pleine
+   fenêtre). Ce qui n'a de sens que dans le navigateur est masqué. */
+
+/* Réglages par site, actions sur l'onglet, fenêtre séparée : propres au navigateur. */
+body.app .settings,
+body.app .actions,
+body.app #detach,
+body.app #maximize,
+body.app .hint {
+    display: none;
 }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
-header { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
-h1 { margin: 0; font-size: 20px; }
-#status, .note { margin: 0; color: var(--muted); }
-.note { margin-bottom: 10px; font-size: 13px; }
-textarea { width: 100%; min-height: 140px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; resize: vertical; }
-.row { display: flex; gap: 8px; margin: 10px 0; }
-select, button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
-button { background: var(--accent); border-color: var(--accent); color: #1a1208; font-weight: 600; cursor: pointer; }
-#results { list-style: none; margin: 0; padding: 0; }
-#results li { padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--accent); background: var(--panel); border-radius: 4px; }
-#results b { color: var(--accent); }
+
+/* Aller-retour avec une page web : remplacé par le raccourci global (étape 2.3). */
+body.app #fix-grab,
+body.app #fix-put {
+    display: none;
+}
+
+body.app {
+    padding: 14px 16px;
+}
+
+body.app header {
+    margin-bottom: 12px;
+}
+
+/* Le correcteur et la conjugaison occupent toute la hauteur de la fenêtre. */
+body.app .fix {
+    flex: 1;
+    min-height: 0;
+}
