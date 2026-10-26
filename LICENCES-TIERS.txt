@@ -71,6 +71,17 @@ reproductible : même entrée, même fichier).
   thesaurus-en.json.gz  SHA-256 3b733f0f95f4efc3638b8266e820c292481a66bebac1c2b92d93c86867760d4c
 Le texte de la licence accompagne aussi le fichier : extension/data/LICENSE-WordNet.txt
 
+== Données du banc de mesure (tests/bench/data/) ==
+
+Utilisées seulement par le banc de mesure, pas par l'extension.
+  grammalecte-tests.json.gz  phrases de test de Grammalecte 2.3.0 (fichier
+      grammalecte/fr/tests_data.json de l'extension officielle grammalecte-fr 2.3.0,
+      même xpi que plus haut), compressé en gzip sans autre modification.
+      Licence : GPL-3.0. SHA-256 01e4366f9cd5f972a867a55841e4c5a30621e4f09cf380aa681f8fc4e826dde1
+  wordnet-examples.txt.gz    phrases d'exemple tirées des définitions de WordNet 3.1
+      (fichiers data.* du paquet npm wordnet-db 3.1.14, voir plus haut), une par ligne.
+      Licence : licence WordNet. SHA-256 86e3d37fbd1c71cc2f751b9e1a8aaa0c9f6387a84a7dfc7e691143094025ba1f
+
 ==============================================================================
 GNU GENERAL PUBLIC LICENSE, version 3
 ==============================================================================

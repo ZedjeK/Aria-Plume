@@ -1,5 +1,5 @@
 // Corpus des règles anglaises d'Aria (core/en/rules.js) : [phrase, mot fautif (null si juste), correction].
-// Lancer : node tests/anglais/run.mjs
+// Lancer : node tests/bench/run.mjs en
 export const corpus = [
   ["I'd rather walk then drive.", "then", "than"],
   ["It costs more then that.", "then", "than"],

@@ -954,6 +954,9 @@ self.onmessage = (event) => {
             result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {
             result = synonyms(payload.word);
+        } else if (cmd === "rules") {
+            // Banc de mesure : les règles d'Aria seules, sans Grammalecte.
+            result = [...homophones.find(payload.text, { formal: !!payload.formal })];
         } else {
             throw new Error(`Commande inconnue : ${cmd}`);
         }

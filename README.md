@@ -146,8 +146,7 @@ extension/
 tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
-├── francais/                   # corpus de phrases justes et fautives : node tests/francais/run.js
-├── anglais/                    # corpus des règles anglaises : node tests/anglais/run.mjs
+├── bench/                      # banc de mesure : node tests/bench/run.mjs (corpus FR et EN, tests Grammalecte, exemples WordNet)
 └── node/                       # le moteur sous Node : node tests/node/smoke.mjs
 ```
 

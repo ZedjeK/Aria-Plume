@@ -223,6 +223,12 @@ export function createAria(platform) {
             return client.call("synonyms", { word });
         },
 
+        // Banc de mesure : les règles françaises d'Aria seules, sans Grammalecte ni filtrage.
+        async rulesFr({ text, formal = false }) {
+            const client = await getChecker("fr");
+            return client.call("rules", { text, formal });
+        },
+
         // Arrête les workers (indispensable sous Node pour que le programme se termine).
         async close() {
             const clients = await Promise.allSettled(Object.values(checkers));

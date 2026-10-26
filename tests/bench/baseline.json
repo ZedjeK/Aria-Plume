@@ -1,0 +1,24 @@
+{
+    "fr": {
+        "found": 118,
+        "firstRank": 118,
+        "total": 120,
+        "falseAlerts": 0,
+        "correct": 212
+    },
+    "en": {
+        "found": 20,
+        "total": 20,
+        "falseAlerts": 0,
+        "correct": 20
+    },
+    "grammalecte": {
+        "sentences": 14160,
+        "outsideZone": 1,
+        "inZone": 44
+    },
+    "wordnet": {
+        "sentences": 47478,
+        "flagged": 2
+    }
+}

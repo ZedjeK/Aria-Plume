@@ -1,7 +1,7 @@
 // Corpus des règles d'Aria (homophones, formes fautives) : [phrase, mot fautif attendu (null si la phrase
 // est juste), correction attendue, { formal: true } pour le réglage « Français écrit soigné »,
 // { repetitions: 30 } pour les répétitions].
-// Lancer : node tests/francais/run.js
+// Lancer : node tests/bench/run.mjs fr
 export const corpus = [
   // sa / ça
   ["Sa marche pas.", "Sa", "Ça"],
