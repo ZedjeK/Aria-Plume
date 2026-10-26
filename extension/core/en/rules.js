@@ -24,6 +24,8 @@ const MESSAGES = {
     saw: "« seen » s'emploie avec have : « I saw » ou « I've seen ».",
     lend: "On emprunte (borrow) à quelqu'un, on prête (lend) à quelqu'un : « lend me ».",
     fewer: "Devant un nom pluriel dénombrable, on écrit plutôt « fewer » (fewer people).",
+    your: "« you're » = you are ; pour le possessif (ton, votre), c'est « your » (for your help).",
+    doesnt: "Avec he, she ou it, la négation est « doesn't » (he doesn't know) ; « don't » va avec I, you, we, they.",
 };
 
 const keepCase = (original, replacement) => (/^[A-Z]/.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement);
@@ -64,9 +66,10 @@ export function findEnglishRules(text) {
                 // « rather then », « more then » → than (Harper repère déjà « faster then »).
                 if (isPrev && COMPARATIVES.has(prev.lower)) {
                     push(token, token.end, "than", MESSAGES.than, "then_than");
-                } else if (tokens.slice(Math.max(0, i - 3), i).some((t) => t.lower === "rather")) {
-                    // « I'd rather walk then drive » : « rather » un peu avant, sans ponctuation entre.
-                    const from = tokens.slice(Math.max(0, i - 3), i).find((t) => t.lower === "rather");
+                } else if (tokens.slice(Math.max(0, i - 6), i).some((t) => t.lower === "rather")) {
+                    // « I'd rather walk then drive », « I'd rather call you tomorrow then send… » :
+                    // « rather » jusqu'à six mots avant, sans ponctuation entre.
+                    const from = tokens.slice(Math.max(0, i - 6), i).find((t) => t.lower === "rather");
                     if (!/[,.;:!?\n]/.test(text.slice(from.end, token.start))) {
                         push(token, token.end, "than", MESSAGES.than, "then_than");
                     }
@@ -97,6 +100,19 @@ export function findEnglishRules(text) {
             case "loose":
                 if (isPrev && LOSE_BEFORE.has(prev.lower)) {
                     push(token, token.end, "lose", MESSAGES.lose, "loose_lose");
+                }
+                break;
+            case "you're":
+                // « Thanks for you're quick reply » → your : après une préposition, c'est le possessif.
+                if (isPrev && ["for", "of", "to", "with", "about", "on", "in", "at", "by", "from", "into"].includes(prev.lower) && isNext && !["welcome", "not", "going", "right", "sure"].includes(next.lower)) {
+                    push(token, token.end, "your", MESSAGES.your, "youre_your");
+                }
+                break;
+            case "dont":
+            case "don't":
+                // « He dont know », « She don't like » → doesn't.
+                if (isPrev && ["he", "she", "it"].includes(prev.lower) && isNext) {
+                    push(token, token.end, "doesn't", MESSAGES.doesnt, "dont_doesnt");
                 }
                 break;
             case "who's":

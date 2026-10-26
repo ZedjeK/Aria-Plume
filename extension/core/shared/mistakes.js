@@ -38,6 +38,10 @@ const ARIA_RULES = [
     [/^aria_homophone_(double_negation|se_rappeler_de|pallier_a|aller_chez)$/, "soigne"],
     [/^aria_homophone_bonjour$/, "orthographe"],
     [/^aria_homophone_nombre_colle$/, "groupe"],
+    [/^aria_homophone_personne_ne$/, "groupe"],
+    [/^aria_homophone_infinitif_apres_aller$/, "infinitif"],
+    [/^aria_homophone_(nous|vous)_verbe$/, "verbe"],
+    [/^(aria_majuscule_debut|majuscule_après_point)$/, "majuscule"],
 ];
 
 // Règles de Grammalecte : la famille suit le niveau (« gv1__ppas_… », « g2__conf_… »).

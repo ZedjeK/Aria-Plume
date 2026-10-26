@@ -104,6 +104,14 @@ function editCandidates(word, person = null) {
             costs.set(candidate, cost);
         }
     };
+    // « oeuf » → œuf, « coeur » → cœur : le e dans l'o, que le clavier n'offre pas.
+    if (lower.includes("oe")) {
+        add(lower.replace(/oe/g, "œ"), 0.2);
+    }
+    // « volontée » → volonté : le e final en trop après é.
+    if (/ées?$/.test(lower)) {
+        add(lower.replace(/ée(s?)$/, "é$1"), 0.4);
+    }
     for (let i = 0; i <= lower.length; i++) {
         const left = lower.slice(0, i);
         const right = lower.slice(i);
@@ -945,12 +953,95 @@ function followCase(original, suggestion) {
     return suggestion;
 }
 
+// « Le serveur à redémarré » : Grammalecte propose deux corrections contraires, « a » sur « à »
+// et « redémarrer » sur le participe. Une seule est juste : si la proposition a déjà un sujet
+// pronom (« il reste plein de choses à organisé »), c'est l'infinitif ; sinon (« le serveur… »),
+// c'est « a ». On retire l'autre.
+const A_VERB_RULE = /^g\d__conf_a_à_verbe__/;
+const SUBJECT_PRONOUN = /(?:^|[\s'’])(je|j|tu|il|elle|on|nous|vous|ils|elles)(?=[\s'’])/i;
+
+function resolveAOrInfinitive(line, grammar) {
+    const drop = new Set();
+    for (const onA of grammar) {
+        if (!A_VERB_RULE.test(onA.rule) || !/^à(?!\p{L})/u.test(line.slice(onA.start, onA.end))) {
+            continue;
+        }
+        const onVerb = grammar.find((m) => m !== onA && m.start >= onA.end && m.start - onA.end <= 12
+            && (A_VERB_RULE.test(m.rule) || /^g\d__infi_/.test(m.rule)));
+        if (!onVerb) {
+            continue;
+        }
+        const clause = line.slice(0, onA.start).split(/[.!?;:,\n]|\b(?:et|mais|puis|qui|que)\b/).pop();
+        drop.add(SUBJECT_PRONOUN.test(clause) ? onA : onVerb);
+    }
+    return grammar.filter((m) => !drop.has(m));
+}
+
+// « La tâche planifiée était désactiver » : Grammalecte propose désactivé | désactivée. On met
+// en tête la forme qui s'accorde avec le sujet (désactivée).
+function orderParticiples(line, grammar) {
+    return grammar.map((match) => {
+        if (!/ppas/.test(match.rule) || match.suggestions.length < 2) {
+            return match;
+        }
+        const agreement = homophones.agreementBefore(line, match.start);
+        if (!agreement) {
+            return match;
+        }
+        const [gender, number] = agreement.split(":");
+        const fits = (word) => spellChecker.getMorph(word).some((m) => /:Q/.test(m) && new RegExp(`:[${gender}e]:[${number}i]`).test(m));
+        const best = match.suggestions.findIndex(fits);
+        if (best <= 0) {
+            return match;
+        }
+        return { ...match, suggestions: [match.suggestions[best], ...match.suggestions.filter((_, i) => i !== best)] };
+    });
+}
+
+// Majuscule en début de paragraphe : « bonjours, je… », « ok, je m'en occupe ». Une ligne qui suit
+// une ligne sans ponctuation finale est la suite de la même phrase (texte coupé) : on n'y touche pas.
+// Les mots inconnus du dictionnaire (systemd, nginx), les noms à majuscule interne (iPhone), les
+// adresses, mentions et hashtags gardent leur minuscule.
+const PARAGRAPH_WORD = /^[\s"«“(\[]*(\p{Ll}[\p{L}'’-]*)/u;
+
+function capitalAtStart(line, previous) {
+    if (previous !== null && previous.trim() !== "" && !/[.!?…:,;)»”"]\s*$/.test(previous)) {
+        return null;
+    }
+    const match = PARAGRAPH_WORD.exec(line);
+    if (!match || /^(https?|www|ftp)\b/i.test(line.trim()) || /[@#/\\]/.test(line.slice(0, match.index + match[0].length + 1))) {
+        return null;
+    }
+    const word = match[1].replace(/['’-].*$/, "");
+    if (/\p{Lu}/u.test(word)) {
+        return null;
+    }
+    let capital = word[0].toUpperCase() + word.slice(1);
+    if (!spellChecker.isValid(capital) && word.length <= 3 && spellChecker.isValid(word.toUpperCase())) {
+        capital = word.toUpperCase();  // « ok » → OK
+    }
+    if (!spellChecker.isValid(word) && !spellChecker.isValid(capital)) {
+        return null;
+    }
+    const start = match[0].length - match[1].length;
+    return {
+        start,
+        end: start + word.length,
+        kind: "grammaire",
+        detail: "majuscule",
+        message: "Majuscule en début de phrase.",
+        suggestions: [capital],
+        rule: "aria_majuscule_debut",
+    };
+}
+
 function check(text, formal = false, repetitionDistance = 0) {
     setFormal(formal);
     const start = performance.now();
     const matches = [];
     let offset = 0;
     editCandidatesBudget = MAX_EDIT_CANDIDATES_WORDS;
+    let previous = null;
     for (const line of text.split("\n")) {
         if (line.trim() !== "") {
             const grammar = gc_engine.parse(line, "FR", false, null, false).map((err) => ({
@@ -962,7 +1053,7 @@ function check(text, formal = false, repetitionDistance = 0) {
                 suggestions: (err.aSuggestions || []).map((sugg) => followCase(line.slice(err.nStart, err.nEnd), sugg)),
                 rule: err.sRuleId,
             }));
-            const { grammar: independent, extra } = addHomophones(line, grammar);
+            const { grammar: independent, extra } = addHomophones(line, orderParticiples(line, resolveAOrInfinitive(line, grammar)));
             const grouped = groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start));
             // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
             const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
@@ -970,7 +1061,22 @@ function check(text, formal = false, repetitionDistance = 0) {
             for (const match of [...grouped, ...extra]) {
                 matches.push({ ...match, suggestions: withApostrophe(match.suggestions), start: offset + match.start, end: offset + match.end });
             }
+            const capital = capitalAtStart(line, previous);
+            if (capital) {
+                const covering = matches.filter((m) => m.start <= offset + capital.start && m.end > offset + capital.start && m.rule !== "spelling");
+                if (covering.length) {
+                    // Une autre faute sur le premier mot (« personnes ne… ») : sa correction prend la majuscule.
+                    for (const m of covering) {
+                        m.suggestions = m.suggestions.map((sugg) => (sugg ? sugg[0].toUpperCase() + sugg.slice(1) : sugg));
+                    }
+                } else {
+                    matches.push({ ...capital, start: offset + capital.start, end: offset + capital.end });
+                }
+            }
             for (const err of spellChecker.parseParagraph(line)) {
+                if (capital && err.nStart === capital.start && spellChecker.isValid(capital.suggestions[0])) {
+                    continue;  // « ok » au début : c'est la majuscule qui manque (Ok), pas l'orthographe
+                }
                 matches.push({
                     start: offset + err.nStart,
                     end: offset + err.nEnd,
@@ -983,6 +1089,9 @@ function check(text, formal = false, repetitionDistance = 0) {
             }
         }
         offset += line.length + 1;
+        if (line.trim() !== "") {
+            previous = line;
+        }
     }
     if (repetitionDistance > 0) {
         matches.push(...findRepetitions(text, repetitionDistance, matches));

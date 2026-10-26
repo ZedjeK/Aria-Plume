@@ -42,4 +42,11 @@ export const corpus = [
   ["I lose my keys sometimes.", null],
   ["It's own goal was a mistake, said nobody.", "It's", "Its"],
   ["I would rather stay, then leave later.", null],
+    // Ajouts du 26/10 (banc « textes »)
+    ["Thanks for you're quick reply.", "you're", "your"],
+    ["He dont know what to do.", "dont", "doesn't"],
+    ["I'd rather call you tomorrow morning then send an email.", "then", "than"],
+    ["You're right, I don't know.", null, null],
+    ["Thanks, you're welcome to join us.", null, null],
+    ["It doesn't matter, they don't care.", null, null],
 ];

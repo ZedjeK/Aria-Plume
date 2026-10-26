@@ -24,7 +24,7 @@ const Homophones = (() => {
     const NEGATION = new Set(["pas", "jamais", "rien"]);
     const SOFT_NEGATION = new Set(["plus", "bien", "mal"]);
     // Ce qui suit « c'est » et ne peut pas suivre le déterminant « ces » / « ses ».
-    const AFTER_CEST = new Set(["moi", "toi", "lui", "eux", "ça", "cela", "le", "la", "l'", "un", "une", "mon", "ton", "son", "ma", "ta", "sa", "pour", "à", "au", "que", "qu'", "qui", "comme", "quand", "ici", "dommage", "ok"]);
+    const AFTER_CEST = new Set(["moi", "toi", "lui", "eux", "ça", "cela", "le", "la", "l'", "un", "une", "mon", "ton", "son", "ma", "ta", "sa", "pour", "à", "au", "que", "qu'", "qui", "comme", "quand", "ici", "dommage", "ok", "pourquoi"]);
     // Participes rares qui sont d'abord autre chose (« lui » de luire, « été » la saison).
     const NOT_PARTICIPLE = new Set(["lui", "été", "nui", "plu", "su"]);
     const RELATIVE = new Set(["qui", "quoi", "lequel", "laquelle", "lesquels", "lesquelles", "celui", "celle", "ceux", "celles"]);
@@ -64,10 +64,19 @@ const Homophones = (() => {
         nombre: "Il manque une espace entre le nombre et le mot",
         nombrePluriel: ", et le nom se met au pluriel à partir de 2",
         nombreSingulier: ", et le nom reste au singulier pour 0 ou 1",
+        unite: "Il manque une espace (insécable de préférence) entre le nombre et l'unité",
+        infinitif: "Après « aller », « pouvoir », « devoir » ou « vouloir », le verbe qui suit se met à l'infinitif (tu vas l'adorer).".replace(/« /g, "« ").replace(/ »/g, " »"),
+        personne: "« personne ne… » (aucune personne) reste au singulier.".replace(/« /g, "« ").replace(/ »/g, " »"),
+        personneVerbe: "Le verbe s'accorde avec le sujet",
     };
     // « 21an » → 21 ans : nombre collé à un nom de durée, de mesure ou de quantité courant.
     const GLUED_NUMBER = /^(\d+)(ans?|jours?|mois|semaines?|heures?|minutes?|secondes?|euros?|fois|kilos?|mètres?|kilomètres?|personnes?|pages?|lignes?|fichiers?|serveurs?|enfants?|places?)$/iu;
     const INVARIABLE_PLURAL = /[sx]$/;
+    // « 12Go », « 20min » → 12 Go, 20 min : nombre collé à une unité (qui ne prend pas de s).
+    const GLUED_UNIT = /^(\d+)(Ko|Mo|Go|To|ko|mo|go|to|min|km|kg|cm|mm|ms|Mbps|Gbps)$/u;
+    // Verbes qui se construisent avec un infinitif : « tu vas l'adorer », « je peux le changer ».
+    const INFINITIVE_VERBS = new Set(["aller", "pouvoir", "devoir", "vouloir"]);
+    const PRONOUNS_BEFORE_VERB = new Set(["le", "la", "les", "l'", "me", "m'", "te", "t'", "se", "s'", "lui", "leur", "y", "en", "nous", "vous"]);
     const VOWEL_START = /^[aeiouyhàâäéèêëîïôöùûüœæ]/;
     const BE_FORMS = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fus", "fut", "fûmes", "fûtes", "furent", "fût"]);
     const REFLEXIVES = new Set(["se", "s'", "me", "m'", "te", "t'", "nous", "vous"]);
@@ -157,10 +166,14 @@ const Homophones = (() => {
                 j--;
             }
             const head = tokens[j];
-            if (!head || head.punct || !noun(head, number)) {
+            const dets = number === "s" ? DET_SING : number === "p" ? DET_PLUR : ALL_DETS;
+            // Juste après un déterminant, un mot qui peut être un nom en est un (« le bus », même si
+            // « bus » est aussi un participe de boire).
+            const numberRe = number === "s" ? /:[si]/ : number === "p" ? /:[pi]/ : /./;
+            const nounAfterDet = head && !head.punct && dets.has(tokens[j - 1]?.lower) && morph(head).some((m) => /:N/.test(m) && numberRe.test(m));
+            if (!head || head.punct || !(noun(head, number) || nounAfterDet)) {
                 return -1;
             }
-            const dets = number === "s" ? DET_SING : number === "p" ? DET_PLUR : ALL_DETS;
             let k = j - 1;
             if (tokens[k] && !tokens[k].punct && isPureAdjective(tokens[k]) && dets.has(tokens[k - 1]?.lower)) {
                 k--;
@@ -267,7 +280,30 @@ const Homophones = (() => {
             if (prev.lower === "qui" && isParticiple(next)) {
                 return true;
             }
-            return nounPhraseBefore(tokens, i, "s") && isParticiple(next) && !has(next, /:N/);
+            if (!nounPhraseBefore(tokens, i, "s")) {
+                return false;
+            }
+            // « la résine à enfin bien durci » : des adverbes peuvent séparer « a » du participe.
+            let k = i + 1;
+            while (k < i + 4 && tokens[k] && isAdverb(tokens[k]) && !has(tokens[k], /:Q/) && !["pas", "plus", "point"].includes(tokens[k].lower)) {
+                k++;
+            }
+            return isParticiple(tokens[k]) && !has(tokens[k], /:N/) && !["de", "d'", "du", "des"].includes(tokens[k + 1]?.lower);
+        }
+
+        // Après « a » (avoir) sans complément placé avant, le participe reste au masculin singulier :
+        // « la résine à durcie » → a durci. Renvoie [indice du participe, forme juste] ou null.
+        function participleAfterAvoir(tokens, i) {
+            let k = i + 1;
+            while (tokens[k] && isAdverb(tokens[k]) && !has(tokens[k], /:Q/) && k < i + 4) {
+                k++;
+            }
+            const entry = tokens[k] && participleEntry(tokens[k]);
+            if (!entry || !hasConj || tokens.slice(0, i).some((t) => ["que", "qu'", "l'", "la", "les", "le"].includes(t.lower) && !DET_SING.has(t.lower) && !DET_PLUR.has(t.lower))) {
+                return null;
+            }
+            const invariable = conj.getConj(lemmaOf(entry), ":Q", ":m:s");
+            return invariable && invariable !== tokens[k].lower ? [k, invariable] : null;
         }
 
         function ruleCest(tokens, i) {
@@ -290,10 +326,25 @@ const Homophones = (() => {
             return singularAdjectiveOnly(next) && (!has(next, /:N/) || endOrPunct(tokens[i + 2]));
         }
 
+        // Adverbes qui peuvent séparer « s'est » du participe : « c'est bien passé » → s'est bien passé.
+        const SEST_ADVERBS = new Set(["bien", "mal", "déjà", "vite", "encore", "toujours", "finalement", "enfin", "aussi", "très"]);
+        const pronominalVerb = (token) => {
+            const entry = participleEntry(token);
+            return !!entry && hasConj && /^.{5}[pqr]/.test(conj.getVtyp(lemmaOf(entry)) || "");
+        };
+
         function ruleSest(tokens, i) {
-            const next = tokens[i + 1];
+            let next = tokens[i + 1];
+            if (next && SEST_ADVERBS.has(next.lower) && isParticiple(tokens[i + 2]) && pronominalVerb(tokens[i + 2])) {
+                next = tokens[i + 2];
+            }
             if (endOrPunct(next) || !isParticiple(next)) {
                 return false;
+            }
+            // « … c'est bien passée » : après « c'est », un adjectif serait au masculin singulier ;
+            // un participe accordé au féminin ou au pluriel d'un verbe pronominal appelle « s'est ».
+            if (tokens[i].lower === "c'" && pronominalVerb(next) && morph(next).some((m) => /:Q/.test(m) && /:(f|p)/.test(m)) && !morph(next).some((m) => /:Q/.test(m) && /:m:s/.test(m))) {
+                return true;
             }
             const prev = tokens[i - 1];
             if (prev && (subject3s(tokens, i) || prev.lower === "qui")) {
@@ -529,6 +580,49 @@ const Homophones = (() => {
             if ((token.lower === "bonjours" || token.lower === "bonsoirs") && (!prev || /[.!?…:;«"(]/.test(prev.text))
                 && (!next || next.punct || /^\p{Lu}/u.test(next.text))) {
                 push(token, token.end, token.text.slice(0, -1), MESSAGES.bonjour, "bonjour", "orthographe");
+            }
+            // 0c. « 12Go » → 12 Go ; « 10€ » → 10 €.
+            const unit = GLUED_UNIT.exec(token.text);
+            if (unit) {
+                const fixed = `${unit[1]} ${unit[2]}`;
+                push(token, token.end, fixed, `${MESSAGES.unite} : « ${fixed} ».`, "nombre_colle", "typographie");
+            }
+            if (/^\d+$/.test(token.text) && next?.text === "€" && next.start === token.end) {
+                push(token, next.end, `${token.text} €`, `${MESSAGES.unite} : « ${token.text} € ».`, "nombre_colle", "typographie");
+            }
+            // 0d. « Personnes ne les réussissait » → Personne ne.
+            if (token.lower === "personnes" && clauseStart(tokens, i) && ["ne", "n'"].includes(next?.lower)) {
+                push(token, token.end, "personne", MESSAGES.personne, "personne_ne", "accord");
+            }
+            // 0e. « tu vas l'adorée », « je peux le changé » → l'adorer, le changer.
+            if (hasConj && has(token, /:V[^/]*:(Ip|Iq|If|K)/) && morph(token).some((m) => INFINITIVE_VERBS.has(lemmaOf(m)) && /:V/.test(m))) {
+                let k = i + 1;
+                while (tokens[k] && PRONOUNS_BEFORE_VERB.has(tokens[k].lower) && k < i + 3) {
+                    k++;
+                }
+                const verb = tokens[k];
+                const entry = verb && k > i + 1 && participleEntry(verb);
+                // « ils voulaient les damnés » : après vouloir, devoir ou pouvoir, « le », « la », « les »
+                // suivis d'un nom sont un complément (pas de nom possible directement après « aller »).
+                const isAller = morph(token).some((m) => lemmaOf(m) === "aller");
+                const article = ["le", "la", "les", "l'"].includes(tokens[k - 1]?.lower) && has(verb, /:N/);
+                if (entry && (isAller || !article) && /er$/.test(lemmaOf(entry)) && /é(e|s|es)?$/.test(verb.lower) && !has(verb, /:Y/)) {
+                    push(verb, verb.end, lemmaOf(entry), MESSAGES.infinitif, "infinitif_apres_aller", "infinitif");
+                }
+            }
+            // 0f. « Nous avons reçu votre demande et nous reviendront » → reviendrons : « nous » sujet
+            // après « et » ou « mais », quand la phrase a déjà « nous » sujet d'un verbe à la 1re personne.
+            if ((token.lower === "nous" || token.lower === "vous") && ["et", "mais", "puis"].includes(prev?.lower) && next && hasConj) {
+                const person = token.lower === "nous" ? ":1p" : ":2p";
+                const earlier = tokens.slice(0, i - 1).some((t, j) => t.lower === token.lower && has(tokens[j + 1], new RegExp(`:V[^/]*${person}`)));
+                const verbEntry = morph(next).find((m) => /:V[^/]*:(Ip|Iq|If|K)/.test(m));
+                if (earlier && verbEntry && !has(next, new RegExp(`:V[^/]*${person}`)) && !has(next, /:[NAW]/)) {
+                    const tense = /:(Ip|Iq|If|K)/.exec(verbEntry)[0];
+                    const form = conj.getConj(lemmaOf(verbEntry), tense, person);
+                    if (form && form !== next.lower) {
+                        push(next, next.end, form, `${MESSAGES.personneVerbe} : « ${token.lower} ${form} ».`, `${token.lower}_verbe`, "conjugaison");
+                    }
+                }
             }
             // 0b. « 21an » → 21 ans.
             const glued = GLUED_NUMBER.exec(token.text);
@@ -810,7 +904,14 @@ const Homophones = (() => {
                         break;
                     case "à":
                         if (ruleA(tokens, i)) {
-                            push(token, token.end, "a", MESSAGES.a, "a_a");
+                            const agreement = participleAfterAvoir(tokens, i);
+                            if (agreement) {
+                                const [k, form] = agreement;
+                                const between = line.slice(token.end, tokens[k].start);
+                                push(token, tokens[k].end, `a${between}${form}`, MESSAGES.a, "a_a");
+                            } else {
+                                push(token, token.end, "a", MESSAGES.a, "a_a");
+                            }
                         }
                         break;
                     case "ces":
@@ -858,7 +959,30 @@ const Homophones = (() => {
             return results;
         }
 
-        return { find };
+        // Genre et nombre du sujet d'un participe employé avec « être » (« la tâche planifiée était
+        // désactivée », « les mots de passe doivent être changés ») : « f:s », « m:p »… ou null.
+        const MODALS = new Set(["pouvoir", "devoir", "aller", "sembler", "paraître", "vouloir"]);
+        function agreementBefore(line, offset) {
+            const tokens = tokenize(line);
+            let k = tokens.findIndex((t) => t.start >= offset) - 1;
+            const skippable = (t) => BE_FORMS.has(t.lower) || ["être", "été", "ne", "n'", "pas", "plus", "jamais", "toujours", "bien", "déjà", "encore"].includes(t.lower)
+                || morph(t).some((m) => /:V/.test(m) && MODALS.has(lemmaOf(m)));
+            while (k >= 0 && !tokens[k].punct && skippable(tokens[k])) {
+                k--;
+            }
+            if (k < 0 || tokens[k].punct) {
+                return null;
+            }
+            if (has(tokens[k], /:[AQ]/) && !has(tokens[k], /:N/) && k > 0 && noun(tokens[k - 1], null)) {
+                k--;  // « la tâche planifiée »
+            }
+            if (k > 1 && ["de", "d'"].includes(tokens[k - 1].lower) && noun(tokens[k - 2], null)) {
+                k -= 2;  // « les mots de passe »
+            }
+            return subjectAgreement(tokens, k);
+        }
+
+        return { find, agreementBefore };
     }
 
     return { create, tokenize };
