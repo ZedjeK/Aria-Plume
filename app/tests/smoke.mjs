@@ -18,7 +18,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Réglages de test : partir d'un fichier vierge.
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
-const proc = spawn(`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"], { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", NODE_OPTIONS: "" } });
+// APP_BINARY=chemin : teste l'application empaquetée (electron-builder) au lieu des sources.
+const command = process.env.APP_BINARY
+    ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
+    : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;

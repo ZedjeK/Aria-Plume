@@ -3,6 +3,21 @@
 Application de bureau Electron autour du moteur Aria (`../extension/core`), 100 % locale.
 Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md), phase 2.
 
+## Version portable (Windows)
+
+Deux formats, aucun n'installe quoi que ce soit :
+
+- **`Aria-Plume-<version>-portable.exe`** : un seul fichier. À chaque lancement, il se décompresse
+  dans un dossier temporaire (quelques secondes), puis démarre. Les réglages sont dans
+  `aria-plume-reglages.json`, à côté de l'exe.
+- **`Aria-Plume-<version>-win-x64.zip`** : un dossier à décompresser où tu veux (clé USB comprise),
+  puis `Aria Plume.exe`. Démarrage immédiat. Les réglages sont à côté de `Aria Plume.exe`.
+
+Pas de signature de code : au premier lancement, Windows SmartScreen affiche « Windows a protégé
+votre ordinateur » → « Informations complémentaires » → « Exécuter quand même ».
+
+Construire (depuis Linux ou Windows) : `npm run dist`, résultats dans `dist/`.
+
 ## Lancer en développement
 
 Il faut Node 22 ou plus récent.

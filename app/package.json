@@ -10,7 +10,7 @@
     "private": true,
     "scripts": {
         "start": "electron .",
-        "dist": "electron-builder --win portable",
+        "dist": "electron-builder --win --x64",
         "test": "node tests/smoke.mjs"
     },
     "devDependencies": {
@@ -28,6 +28,7 @@
             "main.js",
             "engine.js",
             "settings.js",
+            "windows-input.js",
             "preload.cjs",
             "ui/**",
             "build/*.png"
@@ -48,11 +49,23 @@
             }
         ],
         "win": {
-            "target": "portable",
-            "icon": "build/icon-128.png"
+            "target": [
+                "portable",
+                "zip"
+            ],
+            "icon": "build/icon-256.png",
+            "artifactName": "Aria-Plume-${version}-win-x64.${ext}"
         },
         "portable": {
             "artifactName": "Aria-Plume-${version}-portable.exe"
+        },
+        "linux": {
+            "target": "dir",
+            "icon": "build/icon-256.png"
         }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ZedjeK/Aria-Plume.git"
     }
 }
