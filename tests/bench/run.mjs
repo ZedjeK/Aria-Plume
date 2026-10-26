@@ -1,7 +1,7 @@
 // Aria Plume — banc de mesure du moteur Aria, sous Node (plus besoin de Chromium pour mesurer).
 //
 //     node tests/bench/run.mjs                  toutes les suites
-//     node tests/bench/run.mjs fr grammalecte   seulement celles-là (fr, en, grammalecte, wordnet)
+//     node tests/bench/run.mjs fr grammalecte   seulement celles-là (fr, en, grammalecte, wordnet, textes)
 //     node tests/bench/run.mjs -v               détail de chaque phrase
 //     node tests/bench/run.mjs --update         enregistre les chiffres comme nouvelle référence
 //
@@ -13,6 +13,8 @@
 //                 une alerte hors des zones fautives est une fausse alerte
 //   - wordnet     47 478 phrases d'exemple de WordNet 3.1 (anglais correct), règles anglaises
 //                 d'Aria : chaque signalement est à examiner (vraie faute ou fausse alerte)
+//   - textes      une centaine de textes du quotidien avec des fautes volontaires (textes.mjs),
+//                 moteur complet par le service, comme dans l'extension et l'application
 
 import fs from "node:fs";
 import zlib from "node:zlib";
@@ -21,11 +23,15 @@ import { nodePlatform } from "../../extension/core/platform/node.js";
 import { findEnglishRules } from "../../extension/core/en/rules.js";
 import { corpus as corpusFr } from "./corpus-fr.mjs";
 import { corpus as corpusEn } from "./corpus-en.mjs";
+import { createService } from "../../extension/core/service.js";
+import { DEFAULTS } from "../../extension/core/shared/settings.js";
+import { textes } from "./textes.mjs";
+import { parse, evaluate, summarize, report, misses } from "./textes-eval.mjs";
 
 const args = process.argv.slice(2);
 const verbose = args.includes("-v");
 const update = args.includes("--update");
-const SUITES = ["fr", "en", "grammalecte", "wordnet"];
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -153,10 +159,36 @@ function benchWordnet() {
     return { sentences: lines.length, flagged };
 }
 
-// Pour chaque mesure : faut-il qu'elle monte (more) ou qu'elle baisse (less) ?
-const DIRECTION = { found: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
+// --- textes : textes du quotidien, moteur complet par le service (réglages par défaut, sans répétitions) ---
+async function benchTextes() {
+    const settings = { ...DEFAULTS, repetitions: false };
+    const service = createService({
+        aria,
+        getSettings: async (defaults) => Object.fromEntries(Object.keys(defaults).map((key) => [key, key in settings ? settings[key] : defaults[key]])),
+        saveValues: async () => {},
+    });
+    const results = [];
+    for (const item of textes) {
+        const parsed = parse(item.text);
+        const { matches } = await service.check({ text: parsed.wrong, lang: item.lang });
+        const result = { ...evaluate(parsed, matches), lang: item.lang, wrong: parsed.wrong };
+        results.push(result);
+        const lines = misses(result);
+        if (lines.length) {
+            detail(`  ${parsed.wrong.replace(/\n/g, " / ")}`);
+            lines.forEach((line) => detail(line));
+        }
+    }
+    const summary = summarize(results);
+    log(report(summary));
+    const { total } = summary;
+    return { found: total.found, fixed: total.fixed, firstRank: total.first, total: total.zones, falseAlerts: total.falseAlerts, oneClick: total.oneClick };
+}
 
-const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet };
+// Pour chaque mesure : faut-il qu'elle monte (more) ou qu'elle baisse (less) ?
+const DIRECTION = { found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
+
+const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: benchTextes };
 const baselineFile = here("baseline.json");
 const baseline = fs.existsSync(baselineFile) ? JSON.parse(fs.readFileSync(baselineFile, "utf8")) : {};
 let regressions = 0;

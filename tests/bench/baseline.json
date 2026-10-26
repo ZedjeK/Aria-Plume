@@ -20,5 +20,13 @@
     "wordnet": {
         "sentences": 47478,
         "flagged": 2
+    },
+    "textes": {
+        "found": 111,
+        "fixed": 105,
+        "firstRank": 101,
+        "total": 134,
+        "falseAlerts": 9,
+        "oneClick": 77
     }
 }
