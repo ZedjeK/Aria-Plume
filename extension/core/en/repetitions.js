@@ -1,7 +1,7 @@
 // Aria Plume — répétitions en anglais : même mot plein revenu à moins de « distance » mots.
 // Pas de lemmes ici (Harper n'en fournit pas) : on compare le mot sans sa marque du pluriel
 // ou de la 3e personne (« server » / « servers »), et on propose les synonymes de WordNet.
-import { englishSynonyms } from "./thesaurus.js";
+// Les synonymes viennent du thésaurus (createEnglishThesaurus), passé en paramètre.
 
 const WORD = /[A-Za-z]+(?:['’-][A-Za-z]+)*/g;
 const MAX_SYNONYMS = 4;
@@ -22,16 +22,16 @@ function key(word) {
     return w.endsWith("s") ? w.slice(0, -1) : w;
 }
 
-async function synonymsFor(word) {
+async function synonymsFor(word, synonyms) {
     try {
-        const result = await englishSynonyms(word);
+        const result = await synonyms(word);
         return [...new Set(result.groups.flatMap((g) => g.words))].filter((w) => !/\s/.test(w)).slice(0, MAX_SYNONYMS);
     } catch {
         return [];
     }
 }
 
-export async function findEnglishRepetitions(text, distance, taken) {
+export async function findEnglishRepetitions(text, distance, taken, synonyms) {
     const words = [];
     let previousEnd = 0;
     for (const match of text.matchAll(WORD)) {
@@ -66,7 +66,7 @@ export async function findEnglishRepetitions(text, distance, taken) {
             kind: "style",
             detail: "répétition",
             message: `« ${words[before].text} » est déjà employé ${gap} mot${gap > 1 ? "s" : ""} plus tôt. Un synonyme ?`,
-            suggestions: await synonymsFor(word.text),
+            suggestions: await synonymsFor(word.text, synonyms),
             rule: "aria_repetition",
         });
     }

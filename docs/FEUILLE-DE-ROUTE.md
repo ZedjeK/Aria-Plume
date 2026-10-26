@@ -210,3 +210,4 @@ On remplace les moteurs tiers pièce par pièce, chaque pièce mesurée contre l
 |---|---|---|
 | 26/10/2026 | Feuille de route rédigée | Validée par Jérémy |
 | 26/10/2026 | 1.1 — fichiers déplacés dans `core/` | Suite Playwright au vert (19 scénarios), corpus FR 118/120 sans fausse alerte, corpus EN 20/20, tests Grammalecte inchangés (1 signalement hors zone, correct), WordNet 2 signalements sur 47 478 (deux vraies fautes). Seul changement de logique : le thésaurus anglais trouve son fichier par rapport à son propre module |
+| 26/10/2026 | 1.2 — `core/index.js` (`createAria`) et `core/platform/browser.js` ; `offscreen.js` réduit à un relais | Suite Playwright au vert (19 scénarios, du premier coup), corpus FR et EN inchangés. Le thésaurus et les répétitions anglaises reçoivent leurs données de la plateforme : ils tournent déjà sous Node. Nouvelle commande `info` (moteurs chargés, temps de chargement) |

@@ -5,25 +5,25 @@
 // « runs », on retrouve la base avec quelques règles simples et on remet le synonyme au
 // pluriel ou à la 3e personne. Pour « running » ou « faster », on montre les formes de base.
 
-// Chemin relatif à ce module, quel que soit le document qui le charge.
-const DATA_URL = new URL("../../data/thesaurus-en.json.gz", import.meta.url).href;
 const MAX_GROUPS = 8;
-let dataPromise = null;
 
-function load() {
-    dataPromise ??= (async () => {
-        const response = await fetch(DATA_URL);
-        if (!response.ok) {
-            throw new Error(`Thésaurus anglais introuvable (${response.status})`);
-        }
-        const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
-        const json = await new Response(stream).json();
-        return new Map(Object.entries(json));
-    })().catch((error) => {
-        dataPromise = null;
-        throw error;
-    });
-    return dataPromise;
+// Le fichier est lu par la plateforme (navigateur ou Node) : loadJson() renvoie le JSON décompressé.
+export function createEnglishThesaurus(loadJson) {
+    let dataPromise = null;
+    const load = () => {
+        dataPromise ??= loadJson()
+            .then((json) => new Map(Object.entries(json)))
+            .catch((error) => {
+                dataPromise = null;
+                throw error;
+            });
+        return dataPromise;
+    };
+    return {
+        async synonyms(word) {
+            return lookup(await load(), word);
+        },
+    };
 }
 
 const CONSONANT_Y = /[^aeiou]y$/;
@@ -115,8 +115,7 @@ function addGroup(groups, pos, words, word) {
     return false;
 }
 
-export async function englishSynonyms(word) {
-    const data = await load();
+function lookup(data, word) {
     const clean = word.trim().replace(/’/g, "'");
     const groups = [];
     const lemmas = [];

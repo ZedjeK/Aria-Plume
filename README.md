@@ -115,6 +115,9 @@ extension/
 ├── background.js               # service worker : menus, raccourcis, détection de langue, routage
 ├── offscreen/                  # document caché qui fait tourner le moteur (relais vers core/)
 ├── core/                       # moteur Aria : notre code, sans dépendance à Chrome (voir docs/FEUILLE-DE-ROUTE.md)
+│   ├── index.js                # interface unique : createAria(plateforme) → check, translate, conjugate, synonyms
+│   ├── platform/
+│   │   └── browser.js          # lecture des fichiers, workers et imports dans un navigateur
 │   ├── fr/
 │   │   ├── worker.js           # Grammalecte : suggestions améliorées, accords complets, synonymes, conjugaison, répétitions
 │   │   └── homophones.js       # règles d'Aria : homophones, participes, concordance, registre…
