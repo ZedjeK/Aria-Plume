@@ -214,6 +214,10 @@ export function prepareGlossary({ text, html, from, to, glossary }) {
     if (!compiled.regex.test(plain)) {
         return null;
     }
+    if (typeof document === "undefined") {
+        // Étape 1.4 de la feuille de route : version sans DOM à venir.
+        throw new Error("Le glossaire n'est pas encore disponible hors navigateur.");
+    }
     const template = document.createElement("template");
     template.innerHTML = html ? text : escapeHtml(text);
     const markers = markTerms(template.content, compiled);

@@ -1,5 +1,5 @@
 // node tests/node/smoke.mjs : le moteur Aria tourne-t-il sous Node ? Vérification, conjugaison,
-// synonymes, en français et en anglais, avec les temps de chargement.
+// synonymes, traduction, en français et en anglais, avec les temps de chargement.
 import { createAria } from "../../extension/core/index.js";
 import { nodePlatform } from "../../extension/core/platform/node.js";
 
@@ -42,6 +42,18 @@ try {
     const synEn = await aria.synonyms({ word: "servers", lang: "en" });
     show("synonyms en servers", synEn.groups?.map((g) => g.words.join(", ")).join(" ; "));
     expect("synonymes en", synEn.groups?.length > 0);
+
+    const trFr = await aria.translate({ text: "Le pare-feu bloque les connexions entrantes.", from: "fr", to: "en" });
+    show(`translate fr→en (${trFr.engineMs.toFixed(0)} ms)`, trFr.text);
+    expect("traduction fr→en", /firewall/i.test(trFr.text));
+
+    const trHtml = await aria.translate({ text: "Redémarre à <b>trois heures</b>.", from: "fr", to: "en", html: true });
+    show("translate html", trHtml.text);
+    expect("traduction html : balise conservée", trHtml.text.includes("<b>"));
+
+    const trEn = await aria.translate({ text: "Remember to check the backups.", from: "en", to: "fr" });
+    show("translate en→fr", trEn.text);
+    expect("traduction en→fr", /sauvegardes/i.test(trEn.text));
 
     show("info", JSON.stringify(aria.info()));
 } catch (error) {
