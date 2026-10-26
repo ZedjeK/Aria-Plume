@@ -155,6 +155,7 @@ extension/
 ├── data/                       # thésaurus anglais tiré de WordNet et sa licence
 ├── engines/                    # Grammalecte (et son thésaurus), Harper, Bergamot (tiers, non modifiés)
 └── models/                     # modèles de traduction Mozilla (gzip) et leurs empreintes
+app/                            # application de bureau (Electron, en construction) : voir app/README.md
 tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
