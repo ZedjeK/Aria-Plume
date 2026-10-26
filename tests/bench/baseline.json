@@ -1,10 +1,10 @@
 {
     "fr": {
-        "found": 118,
-        "firstRank": 118,
-        "total": 120,
+        "found": 128,
+        "firstRank": 128,
+        "total": 130,
         "falseAlerts": 0,
-        "correct": 212
+        "correct": 215
     },
     "en": {
         "found": 20,

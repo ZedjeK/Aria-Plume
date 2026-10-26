@@ -60,7 +60,14 @@ const Homophones = (() => {
         pallier: "« pallier » se construit sans « à » : on pallie un problème (pallier ce problème).",
         chez: "On va « chez » quelqu'un (chez le coiffeur), et « à » un lieu (au salon de coiffure).",
         doubleneg: "« pas » fait double emploi avec « personne », « rien » ou « aucun » : je n'ai vu personne.",
+        bonjour: "Pour saluer, « bonjour » reste au singulier (« des bonjours » seulement quand on en parle comme d'un nom).",
+        nombre: "Il manque une espace entre le nombre et le mot",
+        nombrePluriel: ", et le nom se met au pluriel à partir de 2",
+        nombreSingulier: ", et le nom reste au singulier pour 0 ou 1",
     };
+    // « 21an » → 21 ans : nombre collé à un nom de durée, de mesure ou de quantité courant.
+    const GLUED_NUMBER = /^(\d+)(ans?|jours?|mois|semaines?|heures?|minutes?|secondes?|euros?|fois|kilos?|mètres?|kilomètres?|personnes?|pages?|lignes?|fichiers?|serveurs?|enfants?|places?)$/iu;
+    const INVARIABLE_PLURAL = /[sx]$/;
     const VOWEL_START = /^[aeiouyhàâäéèêëîïôöùûüœæ]/;
     const BE_FORMS = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fus", "fut", "fûmes", "fûtes", "furent", "fût"]);
     const REFLEXIVES = new Set(["se", "s'", "me", "m'", "te", "t'", "nous", "vous"]);
@@ -516,6 +523,23 @@ const Homophones = (() => {
         function moreRules(tokens, i, push) {
             const token = tokens[i];
             const next = tokens[i + 1];
+            const prev = tokens[i - 1];
+            // 0a. « bonjours, Marc ! » → bonjour : salutation en début de phrase, suivie d'une
+            // ponctuation, d'un nom propre ou de la fin. « de gros bonjours » reste.
+            if ((token.lower === "bonjours" || token.lower === "bonsoirs") && (!prev || /[.!?…:;«"(]/.test(prev.text))
+                && (!next || next.punct || /^\p{Lu}/u.test(next.text))) {
+                push(token, token.end, token.text.slice(0, -1), MESSAGES.bonjour, "bonjour", "orthographe");
+            }
+            // 0b. « 21an » → 21 ans.
+            const glued = GLUED_NUMBER.exec(token.text);
+            if (glued) {
+                const count = Number(glued[1]);
+                const noun = glued[2];
+                const plural = count >= 2 && !INVARIABLE_PLURAL.test(noun);
+                const singular = count < 2 && /s$/i.test(noun) && !/^(mois|fois)$/i.test(noun);
+                const fixed = `${glued[1]} ${plural ? `${noun}s` : singular ? noun.slice(0, -1) : noun}`;
+                push(token, token.end, fixed, `${MESSAGES.nombre}${plural ? MESSAGES.nombrePluriel : singular ? MESSAGES.nombreSingulier : ""} : « ${fixed} ».`, "nombre_colle", "typographie");
+            }
             // 1. « Tant qu'à moi » → Quant à moi ; « tant qu'à faire » (+ infinitif) reste.
             if (token.lower === "tant" && next?.lower === "qu'" && tokens[i + 2]?.lower === "à") {
                 const after = tokens[i + 3];

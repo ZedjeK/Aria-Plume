@@ -74,9 +74,15 @@ function keyboardNeighbours(a, b) {
     return false;
 }
 
+// Lettres qui se prononcent pareil : fautes d'oreille plutôt que de clavier (« manje » → mange).
+const SAME_SOUND = new Set(["gj", "jg", "cs", "sc", "sz", "zs", "ck", "kc", "kq", "qk", "iy", "yi"]);
+
 function substitutionCost(a, b) {
     if (stripAccent(a) === stripAccent(b)) {
         return 0.5;  // accent oublié ou en trop
+    }
+    if (SAME_SOUND.has(a + b)) {
+        return 0.6;
     }
     if (VOWELS.has(a) && VOWELS.has(b)) {
         return 0.8;
@@ -84,8 +90,14 @@ function substitutionCost(a, b) {
     return keyboardNeighbours(a, b) ? 0.9 : 1.2;
 }
 
-function editCandidates(word) {
+// Mots du dictionnaire à une modification de la faute, du plus probable au moins probable.
+// person : personne attendue d'après le sujet juste avant (« je ne sai » → :1s), ou null.
+const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
+const RARE = (morphs) => morphs.length > 0 && morphs.every((m) => !m.endsWith("/*"));
+
+function editCandidates(word, person = null) {
     const lower = word.toLowerCase();
+    const capitalized = /^\p{Lu}/u.test(word);
     const costs = new Map();
     const add = (candidate, cost) => {
         if (candidate && candidate !== lower && !candidate.endsWith("è") && (!costs.has(candidate) || costs.get(candidate) > cost)) {
@@ -95,22 +107,58 @@ function editCandidates(word) {
     for (let i = 0; i <= lower.length; i++) {
         const left = lower.slice(0, i);
         const right = lower.slice(i);
+        // La première lettre est rarement fausse : une retouche à cet endroit coûte plus.
+        const first = i === 0 ? 0.3 : 0;
         if (right) {
-            add(left + right.slice(1), right[0] === left.at(-1) || right[0] === right[1] ? 0.6 : 1);
+            add(left + right.slice(1), (right[0] === left.at(-1) || right[0] === right[1] ? 0.6 : 1) + first);
         }
         if (right.length > 1) {
-            add(left + right[1] + right[0] + right.slice(2), 0.8);
+            add(left + right[1] + right[0] + right.slice(2), 0.8 + first);
         }
         for (const letter of LETTERS) {
             if (right) {
-                add(left + letter + right.slice(1), substitutionCost(right[0], letter));
+                add(left + letter + right.slice(1), substitutionCost(right[0], letter) + first);
             }
-            add(left + letter + right, letter === left.at(-1) || letter === right[0] ? 0.6 : 1);
+            // « Pierr » → Pierre : le e final oublié est une faute très française.
+            const forgottenE = letter === "e" && right === "" ? (left.endsWith("é") ? 0.4 : 0.8) : 1;  // « idé » → idée
+            add(left + letter + right, (letter === left.at(-1) || letter === right[0] ? 0.6 : forgottenE) + first);
         }
     }
-    const valid = [...costs].filter(([candidate]) => spellChecker.isValid(candidate));
+    const valid = [];
+    for (const [candidate, cost] of costs) {
+        // Nom propre : « Laurant » → Laurent (le dictionnaire ne le connaît qu'avec sa majuscule).
+        const form = spellChecker.isValid(candidate) ? candidate : capitalized && spellChecker.isValid(capitalize(candidate)) ? capitalize(candidate) : null;
+        if (!form) {
+            continue;
+        }
+        const morphs = spellChecker.getMorph(form);
+        let score = cost;
+        if (RARE(morphs)) {
+            score += 0.4;  // mots rares ou étrangers (« wai ») après les mots courants
+        }
+        if (person && morphs.some((m) => /:V/.test(m) && m.includes(person))) {
+            score -= 0.7;  // « je ne sai » : le verbe à la bonne personne passe devant (sais)
+            if (morphs.some((m) => /:V/.test(m) && m.includes(person) && /:Ip/.test(m))) {
+                score -= 0.2;  // présent plutôt que passé simple (sais avant osai)
+            }
+        }
+        if (capitalized && morphs.some((m) => /:M/.test(m))) {
+            score -= 0.3;  // mot avec majuscule : les noms propres d'abord
+        }
+        valid.push([candidate, score]);
+    }
     valid.sort((a, b) => a[1] - b[1]);
     return valid.map(([candidate]) => candidate);
+}
+
+// Personne attendue après un pronom sujet, éventuellement suivi de « ne » et d'un pronom
+// complément : « je ne sai », « tu le fai », « il s'apel ».
+const SUBJECT_PERSON = { "j'": ":1s", je: ":1s", tu: ":2s", il: ":3s", elle: ":3s", on: ":3s", nous: ":1p", vous: ":2p", ils: ":3p", elles: ":3p" };
+const BEFORE_VERB = /(?:^|[\s(«"])(j['’]|je|tu|il|elle|on|nous|vous|ils|elles)(?:\s+|(?<=['’]))(?:(?:ne\s+|n['’]))?(?:(?:me|te|se|le|la|les|lui|leur|y|en|nous|vous)\s+|[mtsl]['’])?$/iu;
+
+function expectedPerson(before) {
+    const subject = BEFORE_VERB.exec(before)?.[1]?.toLowerCase().replace("’", "'");
+    return subject ? SUBJECT_PERSON[subject] : null;
 }
 
 function matchCase(original, candidate) {
@@ -128,16 +176,17 @@ function matchCase(original, candidate) {
 const suggestionCache = new Map();
 const SUGGESTION_CACHE_MAX = 2000;
 
-function spellSuggestions(word) {
-    const cached = suggestionCache.get(word);
+function spellSuggestions(word, person = null) {
+    const key = `${word}|${person ?? ""}`;
+    const cached = suggestionCache.get(key);
     if (cached) {
         return cached;
     }
-    const result = computeSpellSuggestions(word);
+    const result = computeSpellSuggestions(word, person);
     if (suggestionCache.size >= SUGGESTION_CACHE_MAX) {
         suggestionCache.delete(suggestionCache.keys().next().value);
     }
-    suggestionCache.set(word, result);
+    suggestionCache.set(key, result);
     return result;
 }
 
@@ -260,7 +309,7 @@ function barbarismSuggestions(word) {
     return { list: [...new Set(found)].map((c) => matchCase(word, c)), confident };
 }
 
-function computeSpellSuggestions(word) {
+function computeSpellSuggestions(word, person = null) {
     const barbarism = barbarismSuggestions(word);
     if (barbarism.confident) {
         return barbarism.list;  // « faisez » → faites, sans « baisez » ni « taisez »
@@ -268,7 +317,7 @@ function computeSpellSuggestions(word) {
     const suggestions = barbarism.list;
     if (word.length <= 25 && editCandidatesBudget > 0) {
         editCandidatesBudget--;
-        suggestions.push(...editCandidates(word).map((c) => matchCase(word, c)));
+        suggestions.push(...editCandidates(word, person).map((c) => matchCase(word, c)));
     }
     for (const block of spellChecker.suggest(word, MAX_SUGGESTIONS + 5)) {
         suggestions.push(...block);
@@ -928,7 +977,7 @@ function check(text, formal = false, repetitionDistance = 0) {
                     kind: "orthographe",
                     detail: "spelling",
                     message: "Mot absent du dictionnaire.",
-                    suggestions: withApostrophe(spellSuggestions(err.sValue)),
+                    suggestions: withApostrophe(spellSuggestions(err.sValue, expectedPerson(line.slice(0, err.nStart)))),
                     rule: "spelling",
                 });
             }

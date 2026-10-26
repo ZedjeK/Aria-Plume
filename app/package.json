@@ -1,7 +1,7 @@
 {
     "name": "aria-plume",
     "productName": "Aria Plume",
-    "version": "0.29.0",
+    "version": "0.29.1",
     "description": "Correcteur et traducteur français ↔ anglais, 100 % local",
     "license": "GPL-3.0-only",
     "author": "ZedjeK",

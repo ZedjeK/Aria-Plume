@@ -36,6 +36,8 @@ const ARIA_RULES = [
     [/^aria_homophone_(imperatif_s|vas_y)$/, "imperatif"],
     [/^aria_homophone_adjectif_verbal$/, "adjectif"],
     [/^aria_homophone_(double_negation|se_rappeler_de|pallier_a|aller_chez)$/, "soigne"],
+    [/^aria_homophone_bonjour$/, "orthographe"],
+    [/^aria_homophone_nombre_colle$/, "groupe"],
 ];
 
 // Règles de Grammalecte : la famille suit le niveau (« gv1__ppas_… », « g2__conf_… »).
