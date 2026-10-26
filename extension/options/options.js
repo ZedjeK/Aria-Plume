@@ -1,7 +1,7 @@
 // Aria Plume — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
-import { topMistakes } from "../shared/mistakes.js";
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../shared/settings.js";
+import { topMistakes } from "../core/shared/mistakes.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../core/shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };

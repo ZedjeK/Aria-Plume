@@ -3,8 +3,8 @@
 // Aucun accès réseau : la CSP de l'extension limite connect-src à 'self'.
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
 
-import { DEFAULTS, formalFor } from "./shared/settings.js";
-import { addMistakes } from "./shared/mistakes.js";
+import { DEFAULTS, formalFor } from "./core/shared/settings.js";
+import { addMistakes } from "./core/shared/mistakes.js";
 
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";

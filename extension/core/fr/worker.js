@@ -1,7 +1,7 @@
 // Aria Plume — worker français (Grammalecte 2.3, fichiers d'origine non modifiés)
 "use strict";
 
-const BASE = new URL("../engines/grammalecte/", self.location).href;
+const BASE = new URL("../../engines/grammalecte/", self.location).href;
 
 importScripts(...[
     "graphspell/helpers.js",
@@ -22,7 +22,7 @@ importScripts(...[
     "fr/gc_rules_graph.js",
     "fr/gc_engine.js",
 ].map((file) => BASE + file));
-importScripts(new URL("fr_homophones.js", self.location).href);
+importScripts(new URL("homophones.js", self.location).href);
 
 const MAX_SUGGESTIONS = 5;
 let spellChecker = null;
@@ -830,7 +830,7 @@ function findRepetitions(text, distance, taken) {
 }
 
 // --- Homophones ---
-// Nos règles (fr_homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
+// Nos règles (homophones.js) complètent Grammalecte. Quand l'une se déclenche, la
 // phrase est réanalysée avec la correction : les fautes que Grammalecte signalait
 // à cause du mauvais homophone (« Il ces trompé » → « trompé » à mettre au pluriel)
 // disparaissent alors, et on les retire.

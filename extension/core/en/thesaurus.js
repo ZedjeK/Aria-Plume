@@ -5,7 +5,8 @@
 // « runs », on retrouve la base avec quelques règles simples et on remet le synonyme au
 // pluriel ou à la 3e personne. Pour « running » ou « faster », on montre les formes de base.
 
-const DATA_URL = "../data/thesaurus-en.json.gz";
+// Chemin relatif à ce module, quel que soit le document qui le charge.
+const DATA_URL = new URL("../../data/thesaurus-en.json.gz", import.meta.url).href;
 const MAX_GROUPS = 8;
 let dataPromise = null;
 

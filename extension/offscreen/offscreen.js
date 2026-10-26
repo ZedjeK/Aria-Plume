@@ -4,9 +4,9 @@
 //   - en : Harper (worker module, WebAssembly)
 //   - traduction : Bergamot (son propre worker, WebAssembly) + modèles Mozilla compressés en gzip
 
-import { prepareGlossary } from "./glossary.js";
-import { englishSynonyms } from "./thesaurus-en.js";
-import { findEnglishRepetitions } from "./repetitions-en.js";
+import { prepareGlossary } from "../core/translate/glossary.js";
+import { englishSynonyms } from "../core/en/thesaurus.js";
+import { findEnglishRepetitions } from "../core/en/repetitions.js";
 
 class WorkerClient {
     constructor(url, options) {
@@ -49,8 +49,8 @@ function getChecker(lang) {
         checkers[lang] = (async () => {
             const start = performance.now();
             const client = lang === "fr"
-                ? new WorkerClient("../workers/fr_worker.js")
-                : new WorkerClient("../workers/en_worker.js", { type: "module" });
+                ? new WorkerClient("../core/fr/worker.js")
+                : new WorkerClient("../core/en/worker.js", { type: "module" });
             await client.call("init");
             loadTimes[lang] = performance.now() - start;
             return client;

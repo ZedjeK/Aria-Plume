@@ -1,4 +1,4 @@
-// node tests/francais/run.js [-v] : passe le corpus dans workers/fr_worker.js (Grammalecte + règles
+// node tests/francais/run.js [-v] : passe le corpus dans core/fr/worker.js (Grammalecte + règles
 // d'Aria) et compte les fautes trouvées et les fausses alertes. Sort en erreur à la moindre fausse alerte
 // (les fautes ratées sont seulement listées).
 const fs = require("fs"), vm = require("vm"), pathm = require("path");
@@ -6,12 +6,12 @@ const root = pathm.resolve(__dirname, "../../extension") + "/";
 const toPath = (u) => root + u.replace("ext://x/", "");
 class XHR { open(m, u) { this.u = u; } overrideMimeType() {} send() { this.responseText = fs.readFileSync(toPath(this.u), "utf8"); } }
 const out = [];
-const ctx = { console: { log() {}, error: console.error, warn() {} }, XMLHttpRequest: XHR, URL, performance, location: "ext://x/workers/fr_worker.js" };
+const ctx = { console: { log() {}, error: console.error, warn() {} }, XMLHttpRequest: XHR, URL, performance, location: "ext://x/core/fr/worker.js" };
 ctx.self = ctx;
 ctx.postMessage = (m) => out.push(m);
 ctx.importScripts = (...files) => { for (const f of files) vm.runInContext(fs.readFileSync(toPath(f), "utf8"), ctx, { filename: f }); };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(root + "workers/fr_worker.js", "utf8"), ctx);
+vm.runInContext(fs.readFileSync(root + "core/fr/worker.js", "utf8"), ctx);
 ctx.self.onmessage({ data: { id: 1, cmd: "init" } });
 (async () => {
   const { corpus } = await import(pathm.join(__dirname, "corpus.mjs"));

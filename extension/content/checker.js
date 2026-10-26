@@ -31,7 +31,7 @@
     const KINDS = ["orthographe", "grammaire", "style", "typographie"];
     const CONTEXT_CHARS = 24;
     const MAX_LIVE_CHARS = 50000;
-    // Copie de shared/settings.js (ce script n'est pas un module) : à garder alignée.
+    // Copie de core/shared/settings.js (ce script n'est pas un module) : à garder alignée.
     const DEFAULT_COLORS = { orthographe: "#e5484d", grammaire: "#f59e0b", style: "#0ea5e9" };
     const DEFAULTS = {
         liveEnabled: true,

@@ -208,4 +208,5 @@ On remplace les moteurs tiers pièce par pièce, chaque pièce mesurée contre l
 
 | Date | Étape | Résultat |
 |---|---|---|
-| 26/10/2026 | Feuille de route rédigée | En attente du go sur l'étape 1.1 |
+| 26/10/2026 | Feuille de route rédigée | Validée par Jérémy |
+| 26/10/2026 | 1.1 — fichiers déplacés dans `core/` | Suite Playwright au vert (19 scénarios), corpus FR 118/120 sans fausse alerte, corpus EN 20/20, tests Grammalecte inchangés (1 signalement hors zone, correct), WordNet 2 signalements sur 47 478 (deux vraies fautes). Seul changement de logique : le thésaurus anglais trouve son fichier par rapport à son propre module |

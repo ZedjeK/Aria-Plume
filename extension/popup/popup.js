@@ -2,7 +2,7 @@
 // traduction rapide dans les deux sens entre deux bulles, et conjugueur.
 // La même page sert aussi de fenêtre séparée (popup.html?mode=window).
 
-import { DEFAULTS as ALL_DEFAULTS } from "../shared/settings.js";
+import { DEFAULTS as ALL_DEFAULTS } from "../core/shared/settings.js";
 
 const DEFAULTS = { liveEnabled: true, disabledHosts: [], formalFrench: ALL_DEFAULTS.formalFrench, formalHosts: ALL_DEFAULTS.formalHosts, casualHosts: ALL_DEFAULTS.casualHosts };
 const WINDOW_SIZE = { width: 560, height: 780 };

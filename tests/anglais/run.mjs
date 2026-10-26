@@ -1,6 +1,6 @@
 // node tests/anglais/run.mjs : passe le corpus dans les règles anglaises d'Aria. Sort en erreur
 // à la moindre fausse alerte ou faute ratée.
-import { findEnglishRules } from "../../extension/workers/en_rules.js";
+import { findEnglishRules } from "../../extension/core/en/rules.js";
 import { corpus } from "./corpus.mjs";
 
 let hit = 0, miss = 0, fa = 0, ok = 0;
