@@ -19,6 +19,7 @@
 import { prepareGlossary } from "./translate/glossary.js";
 import { createEnglishThesaurus } from "./en/thesaurus.js";
 import { findEnglishRepetitions } from "./en/repetitions.js";
+import { prepareText, filterProtected } from "./protect.js";
 
 export const LANGUAGES = ["fr", "en"];
 const TRANSLATION_WORKERS = 2;
@@ -166,13 +167,17 @@ export function createAria(platform) {
             const cold = !checkers[lang];
             const client = await getChecker(lang);
             const distance = Number(repetitions) || 0;
-            const result = await client.call("check", { text, dialect, formal: !!formal, repetitions: distance });
+            // Texte nettoyé (invisibles retirés, accents recomposés) ; positions ramenées ensuite.
+            const { clean, toOriginal } = prepareText(String(text ?? ""));
+            const result = await client.call("check", { text: clean, dialect, formal: !!formal, repetitions: distance });
             // Le worker français trouve lui-même les répétitions (il a les lemmes) ; pour l'anglais, c'est ici.
             if (lang === "en" && distance > 0) {
-                result.matches.push(...await findEnglishRepetitions(text, distance, result.matches, englishSynonyms));
-                result.matches.sort((a, b) => a.start - b.start);
+                result.matches.push(...await findEnglishRepetitions(clean, distance, result.matches, englishSynonyms));
             }
-            return { matches: result.matches, engineMs: result.ms, loadMs: cold ? loadTimes[lang] : 0, cold };
+            let matches = toOriginal ? result.matches.map((m) => ({ ...m, ...toOriginal(m.start, m.end) })) : result.matches;
+            // Code, adresses, chemins, identifiants : rien à corriger.
+            matches = filterProtected(text, matches).sort((a, b) => a.start - b.start);
+            return { matches, engineMs: result.ms, loadMs: cold ? loadTimes[lang] : 0, cold };
         },
 
         // Traduction, avec le glossaire ({ glossary, keepTerms }) appliqué s'il est fourni.
@@ -227,6 +232,12 @@ export function createAria(platform) {
         async rulesFr({ text, formal = false }) {
             const client = await getChecker("fr");
             return client.call("rules", { text, formal });
+        },
+
+        // Mise au point : étiquettes du dictionnaire français pour une liste de mots.
+        async morphFr(words) {
+            const client = await getChecker("fr");
+            return client.call("morph", { words });
         },
 
         // Arrête les workers (indispensable sous Node pour que le programme se termine).

@@ -31,6 +31,8 @@ Cherche les fautes d'un texte.
 | `formal` | booléen | Français écrit soigné : `ne` de la négation, « se rappeler de », « pallier à »… Par défaut : `false` |
 | `repetitions` | nombre | Signale un mot plein revenu à moins de *n* mots. `0` (par défaut) : pas de répétitions |
 
+Avant l'analyse, le texte est nettoyé (espaces de largeur nulle et traits d'union conditionnels retirés, accents décomposés recomposés) ; les positions renvoyées restent celles du texte d'origine. Rien n'est jamais signalé dans le code (`…` et blocs ```), les adresses web, les courriels, les chemins de fichiers et partages réseau, les identifiants techniques (`srv-fic-01`, `eth0`, `max_retry`), les noms à majuscule interne (GitLab), les mentions, hashtags et balises HTML : voir `protect.js`.
+
 Réponse :
 
 ```js

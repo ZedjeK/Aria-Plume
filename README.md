@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.32 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.33 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -105,7 +105,9 @@ Toute la logique (correction, traduction, conjugaison, synonymes) vit dans `exte
 
 ```sh
 node tests/node/smoke.mjs     # le moteur sous Node : vérification, traduction, conjugaison, synonymes
-node tests/bench/run.mjs      # banc de mesure : corpus FR et EN, tests de Grammalecte, exemples WordNet
+node tests/bench/run.mjs      # banc de mesure : corpus FR et EN, textes avec fautes, tests de Grammalecte, exemples WordNet
+node tests/bench/robustesse.mjs   # cas limites : vide, énorme, emojis, code, URL, chemins, accents décomposés…
+node tests/bench/endurance.mjs --minutes 60   # phrases générées à la volée pendant une heure
 ```
 
 Node 22 ou plus récent. Aucune dépendance npm.
@@ -164,7 +166,7 @@ app/                            # application de bureau (Electron, en constructi
 tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
-├── bench/                      # banc de mesure : node tests/bench/run.mjs (corpus FR et EN, tests Grammalecte, exemples WordNet)
+├── bench/                      # banc de mesure (run.mjs), robustesse (robustesse.mjs), endurance (endurance.mjs)
 └── node/                       # le moteur sous Node : node tests/node/smoke.mjs
 ```
 

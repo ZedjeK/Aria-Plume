@@ -1,7 +1,7 @@
 {
     "fr": {
-        "found": 128,
-        "firstRank": 128,
+        "found": 130,
+        "firstRank": 130,
         "total": 130,
         "falseAlerts": 0,
         "correct": 215
@@ -14,27 +14,43 @@
     },
     "grammalecte": {
         "sentences": 14160,
-        "outsideZone": 1,
-        "inZone": 48
+        "outsideZone": 4,
+        "inZone": 147
     },
     "wordnet": {
         "sentences": 47478,
-        "flagged": 2
+        "flagged": 5
     },
     "textes": {
-        "found": 123,
-        "fixed": 119,
-        "firstRank": 116,
+        "found": 126,
+        "fixed": 123,
+        "firstRank": 121,
         "total": 134,
-        "falseAlerts": 3,
-        "oneClick": 95
+        "falseAlerts": 1,
+        "oneClick": 102
     },
     "controle": {
-        "found": 53,
-        "fixed": 51,
-        "firstRank": 50,
+        "found": 59,
+        "fixed": 57,
+        "firstRank": 56,
         "total": 60,
+        "falseAlerts": 1,
+        "oneClick": 44
+    },
+    "textes2": {
+        "found": 176,
+        "fixed": 175,
+        "firstRank": 173,
+        "total": 182,
+        "falseAlerts": 1,
+        "oneClick": 208
+    },
+    "controle2": {
+        "found": 95,
+        "fixed": 92,
+        "firstRank": 90,
+        "total": 102,
         "falseAlerts": 2,
-        "oneClick": 39
+        "oneClick": 111
     }
 }

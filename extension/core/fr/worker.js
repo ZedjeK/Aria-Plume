@@ -95,7 +95,39 @@ function substitutionCost(a, b) {
 const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
 const RARE = (morphs) => morphs.length > 0 && morphs.every((m) => !m.endsWith("/*"));
 
-function editCandidates(word, person = null) {
+// Graphies d'un même son (« fesait » → faisait, « souvant » → souvent, « aparament » → apparemment) :
+// des fautes d'oreille de plusieurs lettres, que les retouches d'une lettre ne trouvent pas.
+const SOUND_SWAPS = [["ai", "e"], ["e", "ai"], ["ai", "è"], ["è", "ai"], ["ei", "è"], ["é", "ai"], ["ai", "é"], ["au", "o"], ["o", "au"], ["eau", "o"],
+    ["ph", "f"], ["f", "ph"], ["qu", "k"], ["k", "qu"], ["c", "qu"], ["qu", "c"], ["ss", "s"], ["s", "ss"], ["an", "en"], ["en", "an"], ["am", "em"], ["em", "am"],
+    ["in", "ain"], ["ain", "in"], ["in", "ein"], ["ein", "in"], ["g", "gu"], ["gu", "g"], ["c", "ç"], ["ç", "c"], ["s", "c"], ["c", "s"], ["ill", "y"], ["y", "ill"],
+    ["er", "é"], ["é", "er"], ["ez", "é"], ["t", "tt"], ["tt", "t"], ["l", "ll"], ["ll", "l"], ["m", "mm"], ["mm", "m"], ["n", "nn"], ["nn", "n"], ["p", "pp"], ["pp", "p"],
+    ["r", "rr"], ["rr", "r"], ["f", "ff"], ["ff", "f"], ["c", "cc"], ["cc", "c"], ["ent", "ant"], ["ant", "ent"], ["emment", "amment"], ["amment", "emment"]];
+
+// context : { person, infinitive, notFinite } d'après les mots avant (voir spellingContext).
+// « jai » → j'ai, « cest » → c'est, « daccord » → d'accord ; mais pas « sai » → s'ai.
+function elisionFits(candidate, rest) {
+    const morphs = spellChecker.getMorph(rest);
+    const has = (re) => morphs.some((m) => re.test(m));
+    switch (candidate.slice(0, candidate.indexOf("'"))) {
+        case "j": return has(/:V[^/]*:1s/) || rest === "y" || rest === "en";
+        case "n": case "m": case "t": return has(/:V/) || ["y", "en"].includes(rest);
+        case "s": return has(/:V[^/]*:3[sp]/) || ["il", "ils"].includes(rest);
+        case "c": return ["est", "était", "étaient", "eût", "a", "en"].includes(rest);
+        case "d": return has(/:[NAWY]/);
+        case "l": return has(/:[NAV]/);
+        case "qu": return ["il", "ils", "elle", "elles", "on", "un", "une", "en"].includes(rest);
+        default: return false;
+    }
+}
+
+function editCandidates(word, context = {}) {
+    return scoredEditCandidates(word, context).map(([candidate]) => candidate);
+}
+
+// Fautes de frappe : une lettre oubliée (0.75), deux lettres inversées (0.7), une touche voisine
+// (0.9), une voyelle pour une autre (0.8), un accent (0.5)… Renvoie [[mot, coût], …] trié.
+function scoredEditCandidates(word, context = {}) {
+    const person = context.person ?? null;
     const lower = word.toLowerCase();
     const capitalized = /^\p{Lu}/u.test(word);
     const costs = new Map();
@@ -112,6 +144,23 @@ function editCandidates(word, person = null) {
     if (/ées?$/.test(lower)) {
         add(lower.replace(/ée(s?)$/, "é$1"), 0.4);
     }
+    for (const [from, to] of SOUND_SWAPS) {
+        let at = lower.indexOf(from);
+        while (at !== -1) {
+            // En fin de mot, « e » → « ai » change le temps du verbe (remplire → remplirai) : plus rare.
+            add(lower.slice(0, at) + to + lower.slice(at + from.length), at === 0 || at + from.length === lower.length ? 0.8 : 0.4);
+            at = lower.indexOf(from, at + 1);
+        }
+    }
+    // « daccord », « lhomme » → d'accord, l'homme : l'apostrophe oubliée.
+    if (/^(?:[dljmtsnc]|qu)[aeiouyhâàéèêîôû]/.test(lower)) {
+        const cut = lower.startsWith("qu") ? 2 : 1;
+        add(`${lower.slice(0, cut)}'${lower.slice(cut)}`, 0.3);
+    }
+    // « remplire », « saisire » → remplir, saisir : un e final en trop.
+    if (/[^e]e$/.test(lower)) {
+        add(lower.slice(0, -1), 0.6);
+    }
     for (let i = 0; i <= lower.length; i++) {
         const left = lower.slice(0, i);
         const right = lower.slice(i);
@@ -121,25 +170,27 @@ function editCandidates(word, person = null) {
             add(left + right.slice(1), (right[0] === left.at(-1) || right[0] === right[1] ? 0.6 : 1) + first);
         }
         if (right.length > 1) {
-            add(left + right[1] + right[0] + right.slice(2), 0.8 + first);
+            add(left + right[1] + right[0] + right.slice(2), 0.7 + first);
         }
         for (const letter of LETTERS) {
             if (right) {
                 add(left + letter + right.slice(1), substitutionCost(right[0], letter) + first);
             }
             // « Pierr » → Pierre : le e final oublié est une faute très française.
-            const forgottenE = letter === "e" && right === "" ? (left.endsWith("é") ? 0.4 : 0.8) : 1;  // « idé » → idée
+            const forgottenE = letter === "e" && right === "" ? (left.endsWith("é") ? 0.4 : 0.7) : 0.75;  // « idé » → idée
             add(left + letter + right, (letter === left.at(-1) || letter === right[0] ? 0.6 : forgottenE) + first);
         }
     }
     const valid = [];
     for (const [candidate, cost] of costs) {
         // Nom propre : « Laurant » → Laurent (le dictionnaire ne le connaît qu'avec sa majuscule).
-        const form = spellChecker.isValid(candidate) ? candidate : capitalized && spellChecker.isValid(capitalize(candidate)) ? capitalize(candidate) : null;
+        const elided = /^(?:[dljmtsnc]|qu)'(.+)$/.exec(candidate)?.[1];
+        const form = elided ? (spellChecker.isValid(elided) && elisionFits(candidate, elided) ? candidate : null)
+            : spellChecker.isValid(candidate) ? candidate : capitalized && spellChecker.isValid(capitalize(candidate)) ? capitalize(candidate) : null;
         if (!form) {
             continue;
         }
-        const morphs = spellChecker.getMorph(form);
+        const morphs = spellChecker.getMorph(elided ?? form);
         let score = cost;
         if (RARE(morphs)) {
             score += 0.4;  // mots rares ou étrangers (« wai ») après les mots courants
@@ -153,10 +204,53 @@ function editCandidates(word, person = null) {
         if (capitalized && morphs.some((m) => /:M/.test(m))) {
             score -= 0.3;  // mot avec majuscule : les noms propres d'abord
         }
+        const onlyFinite = morphs.length > 0 && morphs.every((m) => /:V[^/]*:(Ip|Iq|Is|If|K|Sp|Sq|E)/.test(m) && !/:(Q|Y|P)(?=[:/]|$)/.test(m));
+        if (morphs.length > 0 && morphs.every((m) => /:S[q]/.test(m))) {
+            score += 0.8;  // imparfait du subjonctif (arrêtât) : après les formes courantes (arrêta)
+        }
+        if (context.notFinite && onlyFinite) {
+            score += 0.6;  // après un déterminant ou « est », pas un verbe conjugué (« était suvent » → souvent)
+        }
+        if (context.infinitive && morphs.some((m) => /:Y/.test(m))) {
+            score -= 0.5;  // « merci de remplire » → remplir
+        }
+        // « il faut redémaré » : le participe est à une lettre, l'infinitif à deux ; on propose l'infinitif.
+        if (context.infinitive) {
+            const participle = morphs.find((m) => /:Q/.test(m) && /er\//.test(m));
+            const infinitive = participle?.slice(1, participle.indexOf("/"));
+            if (infinitive && infinitive !== candidate && spellChecker.isValid(infinitive)) {
+                valid.push([infinitive, score - 0.3]);
+            }
+        }
         valid.push([candidate, score]);
     }
     valid.sort((a, b) => a[1] - b[1]);
-    return valid.map(([candidate]) => candidate);
+    return valid;
+}
+
+// Ce que les mots d'avant laissent attendre : un verbe à telle personne, un infinitif, ou
+// surtout pas un verbe conjugué (après un déterminant ou un auxiliaire).
+const AFTER_DETERMINER = /(?:^|[\s(«"])(?:le|la|les|un|une|des|du|ce|cet|cette|ces|mon|ton|son|ma|ta|sa|mes|tes|ses|notre|votre|nos|vos|leur|leurs|chaque|plusieurs|quelques|aucun|aucune)\s+$|(?:^|[\s(«"])l['’]$/iu;
+const AFTER_AUXILIARY = /(?:^|\s)(?:suis|es|est|sommes|êtes|sont|étais|était|étions|étiez|étaient|serai|seras|sera|serons|serez|seront|serais|serait|seraient|ai|as|a|avons|avez|ont|avais|avait|avaient|aura|aurait|auraient)\s+(?:(?:très|trop|assez|vraiment|bien|déjà|pas|plus|jamais|toujours|souvent|encore)\s+)?$/iu;
+const BEFORE_INFINITIVE = /(?:^|[\s'’])(?:de|d['’]|à|peux|peut|pouvons|pouvez|peuvent|pouvait|pouvaient|pourrait|pourrais|pourraient|dois|doit|devons|devez|doivent|devait|devaient|devrait|devrais|devraient|veux|veut|voulons|voulez|veulent|voulait|voudrait|voudrais|vais|vas|va|allons|allez|vont|allait|faut|faudra|faudrait|fallait|pour|sans|savoir|aller|vouloir|pouvoir|devoir|faire|laisser)\s*(?:(?:le|la|les|l['’]|lui|leur|me|te|se|nous|vous|y|en|m['’]|t['’]|s['’])\s*)?$/iu;
+const NOUN_SUBJECT = /(?:^|[.!?;,]\s*|^\s*)(le|la|un|une|ce|cet|cette|mon|ton|son|ma|ta|sa|notre|votre|leur|les|des|ces|mes|tes|ses|nos|vos|leurs)\s+[\p{L}-]+(?:\s+[\p{L}-]+)?\s+$|(?:^|[.!?;,]\s*)l['’][\p{L}-]+(?:\s+[\p{L}-]+)?\s+$/iu;
+
+function spellingContext(before) {
+    const person = expectedPerson(before);
+    if (person) {
+        return { person };
+    }
+    if (BEFORE_INFINITIVE.test(before)) {
+        return { infinitive: true };
+    }
+    if (AFTER_DETERMINER.test(before) || AFTER_AUXILIARY.test(before)) {
+        return { notFinite: true };
+    }
+    const subject = NOUN_SUBJECT.exec(before);
+    if (subject) {
+        return { person: /^(les|des|ces|mes|tes|ses|nos|vos|leurs)$/i.test(subject[1] ?? "") ? ":3p" : ":3s" };
+    }
+    return {};
 }
 
 // Personne attendue après un pronom sujet, éventuellement suivi de « ne » et d'un pronom
@@ -184,13 +278,13 @@ function matchCase(original, candidate) {
 const suggestionCache = new Map();
 const SUGGESTION_CACHE_MAX = 2000;
 
-function spellSuggestions(word, person = null) {
-    const key = `${word}|${person ?? ""}`;
+function spellSuggestions(word, context = {}) {
+    const key = `${word}|${context.person ?? ""}|${context.infinitive ? "Y" : ""}|${context.notFinite ? "N" : ""}`;
     const cached = suggestionCache.get(key);
     if (cached) {
         return cached;
     }
-    const result = computeSpellSuggestions(word, person);
+    const result = computeSpellSuggestions(word, context);
     if (suggestionCache.size >= SUGGESTION_CACHE_MAX) {
         suggestionCache.delete(suggestionCache.keys().next().value);
     }
@@ -317,21 +411,32 @@ function barbarismSuggestions(word) {
     return { list: [...new Set(found)].map((c) => matchCase(word, c)), confident };
 }
 
-function computeSpellSuggestions(word, person = null) {
+function computeSpellSuggestions(word, context = {}) {
     const barbarism = barbarismSuggestions(word);
-    if (barbarism.confident) {
-        return barbarism.list;  // « faisez » → faites, sans « baisez » ni « taisez »
-    }
-    const suggestions = barbarism.list;
+    const native = [...spellChecker.suggest(word, MAX_SUGGESTIONS + 5)].flat();
+    let scored = [];
     if (word.length <= 25 && editCandidatesBudget > 0) {
         editCandidatesBudget--;
-        suggestions.push(...editCandidates(word, person).map((c) => matchCase(word, c)));
+        // Les suggestions de Grammalecte départagent les ex aequo (« potres » → portes avant pitres).
+        const nativeRank = new Map(native.map((w, i) => [w.toLowerCase(), i]));
+        scored = scoredEditCandidates(word, context)
+            .map(([candidate, cost]) => [candidate, cost - (nativeRank.has(candidate) ? 0.15 - 0.02 * Math.min(nativeRank.get(candidate), 5) : 0)])
+            .sort((a, b) => a[1] - b[1]);
     }
-    for (const block of spellChecker.suggest(word, MAX_SUGGESTIONS + 5)) {
-        suggestions.push(...block);
+    if (barbarism.confident) {
+        // « faisez » → faites, sans « baisez » ni « taisez » ; sauf un simple accent oublié (« reparez » → réparez).
+        const accent = scored.find(([candidate, cost]) => cost <= 0.5 && stripAccents(candidate) === stripAccents(word.toLowerCase()));
+        return [...new Set([...(accent ? [matchCase(word, accent[0])] : []), ...barbarism.list])].slice(0, MAX_SUGGESTIONS);
     }
+    const suggestions = scored.map(([c]) => matchCase(word, c));
+    // Formes reconstruites peu sûres : à leur rang parmi les retouches, sinon juste après la première.
+    const extra = barbarism.list.filter((c) => !suggestions.includes(c));
+    suggestions.splice(Math.min(1, suggestions.length), 0, ...extra);
+    suggestions.push(...native);
     return [...new Set(suggestions)].slice(0, MAX_SUGGESTIONS);
 }
+
+const stripAccents = (text) => [...text].map(stripAccent).join("");
 
 // --- Accords liés : une seule vague, des corrections complètes ---
 // Grammalecte signale souvent un même accord en plusieurs morceaux :
@@ -480,9 +585,28 @@ function rankSolutions(original, solutions) {
 
 function buildMerged(line, parts, start, end) {
     const [from, to] = sentenceBounds(line, start, end);
-    const solutions = rankSolutions(line.slice(start, end), solveRegion(line.slice(from, to), start - from, end - from));
+    let solutions = rankSolutions(line.slice(start, end), solveRegion(line.slice(from, to), start - from, end - from));
     if (solutions.length === 0) {
         return null;
+    }
+    // « Leurs voiture est en panne » : « Leurs voitures » corrige le passage mais fâche le verbe ; on
+    // préfère les versions qui laissent toute la phrase sans faute (« Leur voiture est… »).
+    if (solutions.length > 1) {
+        const sentence = line.slice(from, to);
+        const errorsWith = (solution) => gc_engine.parse(sentence.slice(0, start - from) + solution + sentence.slice(end - from), "FR", false, null, false).length;
+        // Dans un accord, c'est plus souvent le déterminant ou l'adjectif qui est faux que le nom
+        // (« quel heure » → quelle heure, pas « quel heurt ») : on compte les noms modifiés.
+        const before = line.slice(start, end).trim().split(/\s+/);
+        const nounsChanged = (solution) => solution.trim().split(/\s+/).filter((word, k) => before[k] && word !== before[k] && word !== `${before[k]}s` && word !== `${before[k]}x`
+            && spellChecker.getMorph(before[k].replace(/^[A-ZÀ-Ý]/, (c) => c.toLowerCase())).some((m) => /:N/.test(m)) && !spellChecker.getMorph(before[k].toLowerCase()).some((m) => /:[DA]/.test(m))).length;
+        const scored = solutions.map((solution, index) => ({ solution, index, errors: errorsWith(solution), nouns: nounsChanged(solution) }));
+        solutions = scored.sort((a, b) => a.errors - b.errors || a.nouns - b.nouns || a.index - b.index).map((x) => x.solution);
+    }
+    // « Elles montre » : on corrige d'abord le verbe (Elles montrent) plutôt que le pronom (Elle montre).
+    const firstWord = line.slice(start, end).trim().split(/\s+/)[0];
+    if (/^(il|elle|ils|elles)$/i.test(firstWord)) {
+        const keeps = (solution) => (solution.trim().split(/\s+/)[0] === firstWord ? 1 : 0);
+        solutions = [...solutions].sort((a, b) => keeps(b) - keeps(a));
     }
     const words = [...new Set(parts.map((part) => quote(line.slice(part.start, part.end).trim())))];
     const list = words.length > 1 ? `${words.slice(0, -1).join(", ")} et ${words.at(-1)}` : words[0];
@@ -752,7 +876,7 @@ function conjugate(input, options = {}) {
     if (!found) {
         // Proposer des verbes proches (« conjuger » → « conjuguer »).
         const word = String(input).trim().toLowerCase();
-        const suggestions = spellSuggestions(word).filter((w) => conj.isVerb(w)).slice(0, 5);
+        const suggestions = spellSuggestions(word, { infinitive: true }).filter((w) => conj.isVerb(w)).slice(0, 5);
         return { found: false, input: String(input).trim(), suggestions };
     }
     const verb = new Verb(found.infinitive);
@@ -908,8 +1032,15 @@ function addHomophones(line, grammar) {
     // Accords de participe que nos règles jugent justes (« elles se sont parlé ») : on retire
     // la faute signalée par Grammalecte.
     const vetoes = all.vetoes ?? [];
-    grammar = grammar.filter((e) => !(/ppas/.test(e.rule) && vetoes.some((v) => e.start < v.end && e.end > v.start)));
-    const found = all.filter((h) => !grammar.some((e) => e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0])));
+    grammar = grammar.filter((e) => !vetoes.some((v) => e.start < v.end && e.end > v.start && (v.rule ?? /ppas/).test(e.rule)));
+    // Nos corrections passent toujours devant : la phrase est réanalysée avec elles, et les fautes de
+    // Grammalecte qu'elles règlent disparaissent (même quand Grammalecte proposait la même chose,
+    // pour que ses fautes liées ne soient pas regroupées autrement, « ce perd » → « ce pers »).
+    // Règles d'accord d'Aria (pluriel, attribut, sujet-verbe…) : elles complètent Grammalecte. S'il
+    // signale déjà quelque chose au même endroit, sa correction (pensée pour la phrase entière) prime ;
+    // on remonte seulement la nôtre en tête si elle figure dans ses propositions.
+    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|nous_verbe|vous_verbe|on_verbe)$/;
+    const found = all.filter((h) => !WEAK.test(h.rule) || !grammar.some((e) => e.start < h.end && e.end > h.start));
     if (found.length === 0) {
         return { grammar, extra: [] };
     }
@@ -981,20 +1112,143 @@ function resolveAOrInfinitive(line, grammar) {
 // en tête la forme qui s'accorde avec le sujet (désactivée).
 function orderParticiples(line, grammar) {
     return grammar.map((match) => {
-        if (!/ppas/.test(match.rule) || match.suggestions.length < 2) {
+        if (match.suggestions.length < 2 || !(/ppas/.test(match.rule) || /conf_a_à_verbe|infi/.test(match.rule))) {
             return match;
+        }
+        const lastWord = line.slice(match.start, match.end).trim().split(/\s+/).at(-1);
+        if (!spellChecker.getMorph(lastWord.toLowerCase()).some((m) => /:[QY]/.test(m))) {
+            return match;  // « vides » n'est pas un participe : on ne propose pas « vidé »
         }
         const agreement = homophones.agreementBefore(line, match.start);
         if (!agreement) {
             return match;
         }
         const [gender, number] = agreement.split(":");
-        const fits = (word) => spellChecker.getMorph(word).some((m) => /:Q/.test(m) && new RegExp(`:[${gender}e]:[${number}i]`).test(m));
+        const genders = gender === "?" ? "mfe" : `${gender}e`;
+        const fits = (suggestion) => {
+            const word = suggestion.trim().split(/\s+/).at(-1);
+            return spellChecker.getMorph(word).some((m) => /:Q/.test(m) && new RegExp(`:[${genders}]:[${number}i]`).test(m));
+        };
         const best = match.suggestions.findIndex(fits);
         if (best <= 0) {
             return match;
         }
         return { ...match, suggestions: [match.suggestions[best], ...match.suggestions.filter((_, i) => i !== best)] };
+    });
+}
+
+// Jargon informatique passé dans le français courant des équipes techniques : pas une faute.
+const IT_WORDS = new Set(["switch", "switchs", "switches", "firewall", "firewalls", "backup", "backups", "hotfix", "hotfixes", "release", "releases",
+    "merge", "merges", "push", "rollback", "rollbacks", "frontend", "front-end", "backend", "back-end", "debug", "debugger", "débugger", "débuggé",
+    "workflow", "workflows", "dashboard", "dashboards", "email", "emails", "reboot", "reboots", "rebooter", "rebooté", "update", "updates",
+    "ping", "pings", "pinger", "pingé", "datacenter", "datacenters", "repo", "repos", "helpdesk", "backlog", "backlogs", "scrum", "visio", "visios",
+    "webhook", "webhooks", "endpoint", "endpoints", "fullstack", "devops", "bash", "crontab", "crontabs", "cron", "crons", "laptop", "laptops",
+    "app", "apps", "checklist", "checklists", "roadmap", "roadmaps", "deadline", "deadlines", "template", "templates", "snapshot", "snapshots",
+    "alerting", "ticketing", "check", "checks", "checker", "checké", "call", "calls", "password", "passwords", "sysadmin", "sysadmins", "homelab"]);
+
+// Un mot inconnu avec une majuscule au milieu d'une phrase est presque toujours un nom propre ou
+// une marque (Elegoo, Captur, Proxmox). On ne le souligne que si un nom propre connu est tout
+// proche (« Marseile » → Marseille).
+function likelyProperNoun(word, before, context) {
+    if (!/^\p{Lu}\p{Ll}/u.test(word) || /(?:^|[.!?…:;«"“(\-•*]\s*)$/u.test(before.trimEnd()) || before.trim() === "") {
+        return false;
+    }
+    const candidates = spellSuggestions(word, context).slice(0, 3);
+    const limit = word.length >= 8 ? 2 : 1;
+    return !candidates.some((c) => spellChecker.getMorph(c).some((m) => /:M/.test(m)) && damerau(c.toLowerCase(), word.toLowerCase(), limit) <= limit);
+}
+
+// « Tu pourrai m'appeler ? », « Je serait là demain », « Je vous saurez gré » : Grammalecte corrige la
+// personne mais hésite entre futur et conditionnel. On met en tête celui que la phrase appelle :
+// conditionnel dans une question, dans « saurais gré » et avec les verbes de politesse (je voudrais,
+// tu devrais) ; futur avec un repère de temps à venir (demain, la semaine prochaine…).
+const FUTURE_MARKERS = /(?:^|[\s'’])(demain|bientôt|prochaine?s?|plus tard|tout à l'heure|ce soir|cette semaine|dans (?:une|un|deux|trois|quatre|cinq|dix|quelques|\d+)|dès que|quand|lorsque|lorsqu)(?=[\s,.!?;:]|$)/iu;
+const POLITE_VERBS = new Set(["pouvoir", "vouloir", "devoir", "aimer", "souhaiter", "préférer", "falloir", "désirer"]);
+// Souhait ou désir : conditionnel même avec un repère futur (« il souhaiterait vous voir la semaine prochaine »).
+const WISH_VERBS = new Set(["vouloir", "aimer", "souhaiter", "préférer", "désirer"]);
+
+function orderFutureConditional(line, grammar) {
+    return grammar.map((match) => {
+        const original = line.slice(match.start, match.end);
+        const first = match.suggestions[0];
+        if (!first || !/^\p{L}+$/u.test(original) || !/r(ai|ais|ait|as|a|ions|iez|aient|ons|ez|ont)$/i.test(original)) {
+            return match;
+        }
+        // Verbe : celui du mot fautif ; personne : celle de la suggestion, sinon celle du sujet.
+        const own = spellChecker.getMorph(original.toLowerCase()).find((m) => /:V[^/]*:(If|K)/.test(m));
+        const entry = spellChecker.getMorph(first.toLowerCase()).find((m) => /:V[^/]*:(If|K)/.test(m));
+        const person = (entry && /:([123][sp])/.exec(entry)?.[1]) || expectedPerson(line.slice(0, match.start))?.slice(1);
+        const source = own ?? entry;
+        if (!person || !source) {
+            return match;
+        }
+        const lemma = source.slice(1, source.indexOf("/"));
+        const future = conj.getConj(lemma, ":If", `:${person}`);
+        const conditional = conj.getConj(lemma, ":K", `:${person}`);
+        // Le mot est déjà à la bonne personne (la faute est ailleurs, « il viendra pas ») : on n'y touche pas.
+        if (!future || !conditional || [future, conditional].includes(original.toLowerCase())) {
+            return match;
+        }
+        const [from, to] = sentenceBounds(line, match.start, match.end);
+        const sentence = line.slice(from, to);
+        const after = line.slice(match.end, match.end + 8);
+        let preferConditional = null;
+        if (/\?/.test(sentence) || /^\s*gré(?!\p{L})/u.test(after) || WISH_VERBS.has(lemma)) {
+            preferConditional = true;
+        } else if (FUTURE_MARKERS.test(sentence)) {
+            preferConditional = false;
+        } else if (POLITE_VERBS.has(lemma)) {
+            preferConditional = true;
+        }
+        if (preferConditional === null) {
+            return match;
+        }
+        const best = followCase(original, preferConditional ? conditional : future);
+        const second = followCase(original, preferConditional ? future : conditional);
+        const keep = (x) => (/^\p{Lu}/u.test(original) ? x[0].toUpperCase() + x.slice(1) : x);
+        return { ...match, suggestions: [...new Set([keep(best), keep(second), ...match.suggestions])].filter((x) => x.toLowerCase() !== original.toLowerCase()) };
+    });
+}
+
+// « Les candidatures reçus après le 30 novembre ne seront pas étudiées » : Grammalecte lit « reçus »
+// comme un verbe conjugué (je reçus) et propose « reçoivent ». Si la phrase a son verbe plus loin,
+// c'est un participe à accorder avec le nom : on propose d'abord « reçues ».
+function participleAfterNoun(line, grammar) {
+    return grammar.map((match) => {
+        const word = line.slice(match.start, match.end);
+        if (!/conj/.test(match.rule) || !/^\p{L}+$/u.test(word)) {
+            return match;
+        }
+        const entry = spellChecker.getMorph(word.toLowerCase()).find((m) => /:Q/.test(m));
+        if (!entry) {
+            return match;
+        }
+        const [, to] = sentenceBounds(line, match.start, match.end);
+        const rest = homophones ? Homophones.tokenize(line.slice(match.end, to)) : [];
+        const laterVerb = rest.some((t) => spellChecker.getMorph(t.text).some((m) => /:V[^/]*:(Ip|Iq|If|K|Is)/.test(m)) && !spellChecker.getMorph(t.text).some((m) => /:[NAQ]/.test(m)));
+        const agreement = laterVerb && homophones.agreementBefore(line, match.start);
+        if (!agreement) {
+            return match;
+        }
+        const [gender, number] = agreement.split(":");
+        const form = conj.getConj(entry.slice(1, entry.indexOf("/")), ":Q", `:${gender === "?" ? "m" : gender}:${number}`);
+        if (!form || form === word.toLowerCase()) {
+            return match;
+        }
+        return { ...match, suggestions: [form, ...match.suggestions.filter((x) => x !== form)] };
+    });
+}
+
+// « Elle est très prête » : Grammalecte propose « près ». Après « être » (et un adverbe), en fin
+// de phrase ou devant « à », « pour », c'est bien l'adjectif « prêt ».
+const PRET_BEFORE = /(?:^|\s)(?:suis|es|est|sommes|êtes|sont|étais|était|étions|étiez|étaient|serai|seras|sera|serons|serez|seront|serais|serait|seraient|sois|soit|soient|fin|presque|toujours|déjà|enfin|vraiment|très|trop|assez|bien|pas|tout|toute|toutes|tous|plus)\s+$/iu;
+
+function vetoPretPres(line, grammar) {
+    return grammar.filter((m) => {
+        if (!/conf_près_prêt/.test(m.rule) || !/^prête?s?$/i.test(line.slice(m.start, m.end))) {
+            return true;
+        }
+        return !(PRET_BEFORE.test(line.slice(0, m.start)) && /^\s*(?:$|[.,;:!?)]|à\b|pour\b|au\b)/u.test(line.slice(m.end)));
     });
 }
 
@@ -1053,8 +1307,9 @@ function check(text, formal = false, repetitionDistance = 0) {
                 suggestions: (err.aSuggestions || []).map((sugg) => followCase(line.slice(err.nStart, err.nEnd), sugg)),
                 rule: err.sRuleId,
             }));
-            const { grammar: independent, extra } = addHomophones(line, orderParticiples(line, resolveAOrInfinitive(line, grammar)));
-            const grouped = groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start));
+            const { grammar: independent, extra: aria } = addHomophones(line, participleAfterNoun(line, orderParticiples(line, resolveAOrInfinitive(line, vetoPretPres(line, grammar)))));
+            const extra = orderFutureConditional(line, aria);
+            const grouped = orderFutureConditional(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start))));
             // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
             const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
             const withApostrophe = (list) => list.map((sugg) => sugg.replace(/['’]/g, apostrophe));
@@ -1077,13 +1332,21 @@ function check(text, formal = false, repetitionDistance = 0) {
                 if (capital && err.nStart === capital.start && spellChecker.isValid(capital.suggestions[0])) {
                     continue;  // « ok » au début : c'est la majuscule qui manque (Ok), pas l'orthographe
                 }
+                if (IT_WORDS.has(err.sValue.toLowerCase())) {
+                    continue;  // jargon informatique courant (switch, backup, firewall…)
+                }
+                const before = line.slice(0, err.nStart);
+                const context = spellingContext(before);
+                if (likelyProperNoun(err.sValue, before, context)) {
+                    continue;  // nom propre ou marque inconnue au milieu d'une phrase (Elegoo, Captur)
+                }
                 matches.push({
                     start: offset + err.nStart,
                     end: offset + err.nEnd,
                     kind: "orthographe",
                     detail: "spelling",
                     message: "Mot absent du dictionnaire.",
-                    suggestions: withApostrophe(spellSuggestions(err.sValue, expectedPerson(line.slice(0, err.nStart)))),
+                    suggestions: withApostrophe(spellSuggestions(err.sValue, context)),
                     rule: "spelling",
                 });
             }
@@ -1112,6 +1375,9 @@ self.onmessage = (event) => {
             result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {
             result = synonyms(payload.word);
+        } else if (cmd === "morph") {
+            // Banc et mise au point : étiquettes du dictionnaire et type de verbe.
+            result = (payload.words ?? []).map((word) => ({ word, morph: spellChecker.getMorph(word), vtyp: conj.isVerb(word) ? conj.getVtyp(word) : null }));
         } else if (cmd === "rules") {
             // Banc de mesure : les règles d'Aria seules, sans Grammalecte.
             result = [...homophones.find(payload.text, { formal: !!payload.formal })];

@@ -62,6 +62,7 @@ jobs:
               run: |
                   node tests/node/smoke.mjs
                   node tests/bench/run.mjs
+                  node tests/bench/robustesse.mjs
 
             - name: Installer les dépendances de l'application
               working-directory: app

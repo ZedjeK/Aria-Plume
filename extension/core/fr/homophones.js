@@ -23,6 +23,8 @@ const Homophones = (() => {
     const AFTER_CA = new Set(["on", "que", "qu'", "qui", "ne", "n'", "me", "m'", "te", "t'", "se", "s'", "lui", "leur", "y", "en", "a", "c'", "l'", "va", "fait"]);
     const NEGATION = new Set(["pas", "jamais", "rien"]);
     const SOFT_NEGATION = new Set(["plus", "bien", "mal"]);
+    // « Sa plante encore ! » → Ça : un adverbe puis la fin de la phrase (« sa plante encore verte » reste).
+    const CA_ADVERBS = new Set(["encore", "toujours", "souvent", "trop", "beaucoup", "vraiment", "grave", "complètement", "carrément", "aussi", "parfois"]);
     // Ce qui suit « c'est » et ne peut pas suivre le déterminant « ces » / « ses ».
     const AFTER_CEST = new Set(["moi", "toi", "lui", "eux", "ça", "cela", "le", "la", "l'", "un", "une", "mon", "ton", "son", "ma", "ta", "sa", "pour", "à", "au", "que", "qu'", "qui", "comme", "quand", "ici", "dommage", "ok", "pourquoi"]);
     // Participes rares qui sont d'abord autre chose (« lui » de luire, « été » la saison).
@@ -68,12 +70,30 @@ const Homophones = (() => {
         infinitif: "Après « aller », « pouvoir », « devoir » ou « vouloir », le verbe qui suit se met à l'infinitif (tu vas l'adorer).".replace(/« /g, "« ").replace(/ »/g, " »"),
         personne: "« personne ne… » (aucune personne) reste au singulier.".replace(/« /g, "« ").replace(/ »/g, " »"),
         personneVerbe: "Le verbe s'accorde avec le sujet",
+        sont: "« son » est un déterminant (son livre). Avec un sujet pluriel, il faut le verbe être : « sont ».",
+        se: "« ce » est un déterminant ou un pronom démonstratif. Devant un verbe pronominal, c'est « se » (il se lève).",
+        ou: "« ou » marque un choix (ceci ou cela). Pour le lieu ou le moment, c'est « où » avec un accent (là où, d'où, où est…).",
+        attribut: "L'adjectif ou le participe placé après « être » s'accorde avec le sujet",
+        relative: "Avec « avoir », le participe passé s'accorde avec le complément d'objet direct placé avant (ici « que », mis pour",
+        verbe: "Le verbe s'accorde avec son sujet",
+        pluriel: "Après un déterminant pluriel, le nom se met au pluriel",
+        prie: "Formule de politesse : « je vous prie », du verbe prier.",
+        estceque: "« est-ce que » s'écrit avec un seul trait d'union : est-ce que.",
+        toutafait: "« tout à fait » est une locution invariable.",
+        coordonnees: "Les informations pour joindre quelqu'un sont ses « coordonnées » (nom féminin pluriel).",
+        si: "« ci » s'emploie avec un trait d'union (ci-joint, celui-ci). Pour la condition, c'est « si ».",
+        infinitifA: "Après « penser à », « commencer à », « réussir à »…, le verbe se met à l'infinitif (pensez à vérifier).",
+        coordonne: "Ce verbe complète le même auxiliaire que le participe d'avant (j'ai mis à jour… et redémarré) : c'est un participe passé.",
+        quelleSubj: "Devant un verbe au subjonctif, c'est « qu'elle » (que + elle) : qu'elle vienne ou non.",
+        promis: "« se promettre de », « se permettre de » : le pronom est complément indirect, le participe reste invariable (elle s'est promis de revenir).",
     };
     // « 21an » → 21 ans : nombre collé à un nom de durée, de mesure ou de quantité courant.
     const GLUED_NUMBER = /^(\d+)(ans?|jours?|mois|semaines?|heures?|minutes?|secondes?|euros?|fois|kilos?|mètres?|kilomètres?|personnes?|pages?|lignes?|fichiers?|serveurs?|enfants?|places?)$/iu;
     const INVARIABLE_PLURAL = /[sx]$/;
     // « 12Go », « 20min » → 12 Go, 20 min : nombre collé à une unité (qui ne prend pas de s).
     const GLUED_UNIT = /^(\d+)(Ko|Mo|Go|To|ko|mo|go|to|min|km|kg|cm|mm|ms|Mbps|Gbps)$/u;
+    // « le 12novembre » → 12 novembre.
+    const GLUED_MONTH = /^(\d{1,2}|1er)(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)$/iu;
     // Verbes qui se construisent avec un infinitif : « tu vas l'adorer », « je peux le changer ».
     const INFINITIVE_VERBS = new Set(["aller", "pouvoir", "devoir", "vouloir"]);
     const PRONOUNS_BEFORE_VERB = new Set(["le", "la", "les", "l'", "me", "m'", "te", "t'", "se", "s'", "lui", "leur", "y", "en", "nous", "vous"]);
@@ -86,7 +106,7 @@ const Homophones = (() => {
     const INDIRECT_PRONOMINAL = new Set(["parler", "téléphoner", "écrire", "succéder", "plaire", "déplaire", "complaire", "rire", "sourire", "nuire", "mentir", "ressembler", "suffire", "convenir", "survivre", "demander", "répondre"]);
     // « nous » et « vous » sont laissés de côté : ils peuvent désigner une seule personne
     // (vous de politesse : « vous vous êtes retourné »).
-    const SUBJECT_AGREEMENT = { il: "m:s", elle: "f:s", ils: "m:p", elles: "f:p" };
+    const SUBJECT_AGREEMENT = { il: "m:s", elle: "f:s", ils: "m:p", elles: "f:p", nous: "?:p" };
     // Verbes souvent suivis d'un complément direct qui n'est pas le pronom (« se sont dit : … »,
     // « s'est fait mal », « se sont rendu compte ») : on ne propose pas d'accord.
     const OFTEN_INDIRECT = new Set(["dire", "donner", "faire", "laisser", "rendre", "permettre", "promettre", "offrir", "accorder", "envoyer", "acheter", "procurer", "poser", "fixer", "imposer", "partager", "échanger", "jurer", "rappeler", "imaginer", "figurer", "attribuer", "réserver", "souhaiter"]);
@@ -95,6 +115,19 @@ const Homophones = (() => {
     const OBJECT_PRONOUNS = new Set(["me", "m'", "te", "t'", "se", "s'", "le", "la", "les", "l'", "lui", "leur", "y", "en", "ne", "n'", "nous", "vous"]);
     const ETRE = new Set(["est", "était", "sera", "serait", "soit", "fut", "sont", "étaient", "seront", "seraient", "soient"]);
     const SUBJECTS = new Set(["je", "j'", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ça", "cela"]);
+    // Noms collectifs ou de quantité : l'accord peut se faire avec le complément (« la plupart sont
+    // partis ») ; noms de temps qui ouvrent une phrase sans en être le sujet (« ce soir, venez »).
+    const COLLECTIVE = new Set(["plupart", "majorité", "minorité", "moitié", "totalité", "reste", "nombre", "foule", "tas", "multitude", "ensemble", "dizaine", "douzaine", "vingtaine", "trentaine", "centaine", "millier", "quantité", "partie", "poignée", "infinité", "masse", "série", "groupe", "équipe", "peu", "personnel", "famille", "couple"]);
+    const TIME_NOUNS = new Set(["matin", "soir", "midi", "minuit", "jour", "journée", "nuit", "soirée", "matinée", "semaine", "mois", "an", "année", "fois", "week-end", "weekend", "après-midi", "veille", "lendemain", "été", "hiver", "printemps", "automne", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche", "heure", "moment", "instant", "siècle", "trimestre"]);
+    const TIME_WORDS = new Set(["hier", "aujourd'hui", "demain", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche", "tôt", "tard", "récemment", "longtemps", "ensemble", "plus", "maintenant", "ici", "là", "partout"]);
+    const ETRE_FINITE = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "étais", "était", "étions", "étiez", "étaient", "serai", "seras", "sera", "serons", "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "sois", "soit", "soyons", "soyez", "soient", "fut", "furent", "fût"]);
+    const COLORS = new Set(["noir", "blanc", "bleu", "rouge", "vert", "jaune", "gris", "brun", "rose", "violet", "orange", "marron", "beige", "doré", "argenté"]);
+    // Noms suivis d'une complétive (« l'impression que tu as compris ») : « que » n'y est pas un relatif.
+    const COMPLETIVE_NOUNS = new Set(["impression", "idée", "sentiment", "fait", "preuve", "espoir", "certitude", "peur", "crainte", "conviction", "nouvelle", "information", "hypothèse", "assurance", "garantie", "illusion", "intuition", "soupçon", "doute", "chance", "possibilité", "probabilité", "risque", "condition", "envie", "honte", "avis", "opinion", "signe", "rumeur", "promesse", "annonce", "confirmation", "constat", "affirmation", "raison", "manière", "façon"]);
+    const ATTRIBUTE_ADVERBS = new Set(["très", "trop", "assez", "vraiment", "souvent", "toujours", "si", "plus", "moins", "bien", "déjà", "encore", "pas", "jamais", "plutôt", "parfois", "aussi", "particulièrement", "complètement", "totalement", "presque", "peu", "un", "tellement", "enfin", "désormais", "maintenant", "ensuite", "point", "guère", "fort", "tous", "toutes"]);
+    const A_INFINITIVE_VERBS = new Set(["penser", "commencer", "continuer", "arriver", "aider", "apprendre", "réussir", "chercher", "servir", "tenir", "hésiter", "parvenir", "renoncer", "inviter", "encourager", "obliger", "autoriser", "consister", "viser", "tendre", "habituer", "préparer", "décider", "songer", "s'amuser", "amuser", "passer", "rester", "avoir"]);
+    const TAKES_INFINITIVE = new Set(["vouloir", "pouvoir", "devoir", "savoir", "aimer", "préférer", "oser", "décider", "essayer", "commencer", "finir", "oublier", "apprendre", "penser", "croire", "espérer", "souhaiter", "faillir", "laisser", "faire", "entendre", "voir", "regarder", "sentir", "envoyer", "emmener", "aller", "venir", "devoir", "réussir", "chercher", "accepter", "refuser", "promettre", "demander", "permettre", "proposer", "continuer", "arrêter", "cesser", "tenter", "prévoir", "choisir"]);
+    const NO_QUE_AGREEMENT = new Set(["coûter", "valoir", "peser", "mesurer", "durer", "vivre", "courir", "régner", "dormir", "marcher", "falloir", "pouvoir", "devoir", "vouloir", "savoir", "être", "faire", "laisser", "croire", "penser", "dire", "permettre", "promettre"]);
 
     function tokenize(line) {
         const tokens = [];
@@ -170,12 +203,15 @@ const Homophones = (() => {
             // Juste après un déterminant, un mot qui peut être un nom en est un (« le bus », même si
             // « bus » est aussi un participe de boire).
             const numberRe = number === "s" ? /:[si]/ : number === "p" ? /:[pi]/ : /./;
-            const nounAfterDet = head && !head.punct && dets.has(tokens[j - 1]?.lower) && morph(head).some((m) => /:N/.test(m) && numberRe.test(m));
+            // Un mot inconnu du dictionnaire juste après un déterminant est un nom (« les switchs »).
+            const unknownNoun = head && !head.punct && /^\p{Ll}[\p{L}-]{2,}$/u.test(head.text) && morph(head).length === 0;
+            const nounAfterDet = head && !head.punct && (dets.has(tokens[j - 1]?.lower) && (morph(head).some((m) => /:N/.test(m) && numberRe.test(m)) || unknownNoun)
+                || (unknownNoun && tokens[j - 1] && has(tokens[j - 1], /:A/) && dets.has(tokens[j - 2]?.lower)));
             if (!head || head.punct || !(noun(head, number) || nounAfterDet)) {
                 return -1;
             }
             let k = j - 1;
-            if (tokens[k] && !tokens[k].punct && isPureAdjective(tokens[k]) && dets.has(tokens[k - 1]?.lower)) {
+            if (tokens[k] && !tokens[k].punct && (isPureAdjective(tokens[k]) || (unknownNoun && has(tokens[k], /:A/))) && dets.has(tokens[k - 1]?.lower)) {
                 k--;
             }
             if (tokens[k] && dets.has(tokens[k].lower)) {
@@ -186,8 +222,16 @@ const Homophones = (() => {
 
         // Groupe nominal sujet qui se termine en i - 1 : « le serveur », « le vieux serveur DNS »,
         // « les serveurs de production », « Marc ». Jamais après une préposition (« Après les cours on… »).
-        function nounPhraseBefore(tokens, i, number) {
+        function nounPhraseBefore(tokens, i, number, allowAdjective = true) {
             const head = tokens[i - 1];
+            // « le technicien surpris », « les serveurs neufs » : un adjectif après le nom.
+            if (allowAdjective && head && !head.punct && has(head, /:[AQ]/) && (!noun(head, null) || noun(tokens[i - 2], null)) && i >= 3) {
+                const numberRe = number === "s" ? /:[AQ][^/]*:[si]/ : number === "p" ? /:[AQ][^/]*:[pi]/ : /:[AQ]/;
+                const inner = simpleNounPhrase(tokens, i - 1, number);
+                if (has(head, numberRe) && inner >= 0 && clauseStart(tokens, inner) && !coordinated(tokens, inner)) {
+                    return true;
+                }
+            }
             if (number === "s" && head && !head.punct && /^\p{Lu}/u.test(head.text) && has(head, /:M/) && clauseStart(tokens, i - 1)) {
                 return true;
             }
@@ -207,6 +251,9 @@ const Homophones = (() => {
         }
 
         const clauseStart = (tokens, i) => i === 0 || tokens[i - 1].punct || CLAUSE_WORDS.has(tokens[i - 1].lower);
+        // Groupe coordonné (« le chat et le chien », « son courage, son ardeur ») : l'accord se fait
+        // avec l'ensemble, pas avec le dernier groupe.
+        const coordinated = (tokens, start) => start > 0 && (["et", "ou", "ni", "comme", ",", "&"].includes(tokens[start - 1].lower) || tokens[start - 1].text === ",");
         const endOrPunct = (token) => !token || token.punct;
 
         function ruleSa(tokens, i) {
@@ -232,7 +279,7 @@ const Homophones = (() => {
                 if (after && NEGATION.has(after.lower)) {
                     return true;
                 }
-                if (after && SOFT_NEGATION.has(after.lower)) {
+                if (after && (SOFT_NEGATION.has(after.lower) || CA_ADVERBS.has(after.lower))) {
                     const third = tokens[i + 3];
                     return endOrPunct(third) || !has(third, /:A/);
                 }
@@ -252,7 +299,8 @@ const Homophones = (() => {
                 return false;
             }
             const pronoun = subject3s(tokens, i) && clauseStart(tokens, i - 1);
-            if (!pronoun && !nounPhraseBefore(tokens, i, "s")) {
+            // Sans l'extension « nom + adjectif » : « un document imprimé et signé » coordonne deux participes.
+            if (!pronoun && !nounPhraseBefore(tokens, i, "s", false)) {
                 return false;
             }
             if (isParticiple(next)) {
@@ -288,7 +336,16 @@ const Homophones = (() => {
             while (k < i + 4 && tokens[k] && isAdverb(tokens[k]) && !has(tokens[k], /:Q/) && !["pas", "plus", "point"].includes(tokens[k].lower)) {
                 k++;
             }
-            return isParticiple(tokens[k]) && !has(tokens[k], /:N/) && !["de", "d'", "du", "des"].includes(tokens[k + 1]?.lower);
+            if (tokens[k]?.lower === "été") {
+                return true;  // « la base à été migrée », « la sortie à encore été repoussée »
+            }
+            if (!isParticiple(tokens[k]) || ["de", "d'"].includes(tokens[k + 1]?.lower)) {
+                return false;
+            }
+            // Participe qui est aussi un nom (« rendu », « fait », « perdu ») : seulement suivi d'un
+            // déterminant, d'un pronom, d'un adverbe ou de la fin (« le cousin à perdu la maison »).
+            const after = tokens[k + 1];
+            return !has(tokens[k], /:N/) || (after?.punct && /^[,;:)]$/.test(after.text)) || (!endOrPunct(after) && (ALL_DETS.has(after.lower) || OBJECT_PRONOUNS.has(after.lower) || isAdverb(after) || TIME_WORDS.has(after.lower)));
         }
 
         // Après « a » (avoir) sans complément placé avant, le participe reste au masculin singulier :
@@ -392,7 +449,18 @@ const Homophones = (() => {
         function ruleNi(tokens, i) {
             const prev = tokens[i - 1];
             const next = tokens[i + 1];
-            if (!prev || !SUBJECTS.has(prev.lower) || endOrPunct(next)) {
+            if (endOrPunct(next)) {
+                return false;
+            }
+            // « Ni pense plus » → N'y : en tête de phrase, devant un verbe, sans autre « ni ».
+            if (clauseStart(tokens, i) && (!prev || prev.punct)) {
+                let end = i + 1;
+                while (end < tokens.length && !/[.!?;]/.test(tokens[end].text)) {
+                    end++;
+                }
+                return has(next, /:V[^/]*:(Ip|Iq|If|K|Sp|E)/) && !has(next, /:[NAD]/) && !tokens.slice(i + 1, end).some((t) => t.lower === "ni");
+            }
+            if (!prev || !SUBJECTS.has(prev.lower)) {
                 return false;
             }
             for (let k = i - 1; k >= 0 && !tokens[k].punct; k--) {
@@ -404,18 +472,526 @@ const Homophones = (() => {
             return has(next, /:V[^/]*:(Ip|Iq|If|K|Sp)/);
         }
 
+        // « Mes parents son arrivés », « Les supports son trop fins » → sont ; « Ce son les… » → Ce sont.
+        function ruleSon(tokens, i) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (!prev || endOrPunct(next)) {
+                return false;
+            }
+            if (prev.lower === "ce" && clauseStart(tokens, i - 1)) {
+                return DET_PLUR.has(next.lower) || ["eux", "elles"].includes(next.lower);
+            }
+            if (["ils", "elles"].includes(prev.lower) && clauseStart(tokens, i - 1)) {
+                return true;  // « ils son… » : jamais le déterminant
+            }
+            if (!nounPhraseBefore(tokens, i, "p")) {
+                return false;
+            }
+            let k = i + 1;
+            while (k < i + 3 && tokens[k] && isAdverb(tokens[k]) && !has(tokens[k], /:[NAQ]/)) {
+                k++;
+            }
+            const word = tokens[k];
+            if (endOrPunct(word)) {
+                return false;
+            }
+            // Après un adverbe, un adjectif (« son trop fins ») ; sinon un adjectif ou participe au
+            // pluriel, que le déterminant « son » ne peut pas précéder (« son arrivés »).
+            if (k > i + 1) {
+                return has(word, /:[AQ]/) && endOrPunct(tokens[k + 1]);
+            }
+            return hasPlural(word) && has(word, /:[AQ]/) && !morph(word).some((m) => /:N/.test(m) && /:[si]/.test(m));
+        }
+
+        // « Il ce lève », « Ma cliente ce couche » → se.
+        function ruleCe(tokens, i) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (!prev || endOrPunct(next) || ETRE_FINITE.has(next.lower) || !has(next, /:V[^/]*:(Ip|Iq|Is|If|K|Sp)/)) {
+                return false;
+            }
+            if (["il", "elle", "on", "ils", "elles"].includes(prev.lower) && clauseStart(tokens, i - 1)) {
+                return true;
+            }
+            if (!nounPhraseBefore(tokens, i, null)) {
+                return false;
+            }
+            // « le directeur ce soir… » : « ce » + nom ou adjectif masculin singulier est un déterminant.
+            return !morph(next).some((m) => /:[NA]/.test(m) && /:[me]:[si]/.test(m));
+        }
+
+        // « Tu sais ou j'ai mis… », « d'ou vient… », « là ou tu veux », « Ou est le chargeur ? » → où.
+        const OU_VERBS = new Set(["savoir", "demander", "ignorer", "deviner", "indiquer", "montrer", "expliquer", "comprendre", "oublier", "voir", "dire", "préciser", "découvrir", "regarder"]);
+        const OU_NOT_AFTER = new Set(["bien", "alors", "plutôt", "non", "pas", "encore", "même", "sinon", "presque", "moins", "plus"]);
+        function ruleOu(tokens, i, line) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (endOrPunct(next) || OU_NOT_AFTER.has(next.lower)) {
+                return false;
+            }
+            const subjectNext = SUBJECTS.has(next.lower) || ["c'", "se", "s'", "ce", "les", "la", "le", "l'"].includes(next.lower) || has(next, /:V[^/]*:(Ip|Iq|If|K)/);
+            if (prev && ["d'", "jusqu'"].includes(prev.lower)) {
+                return true;
+            }
+            if (prev && prev.lower === "par") {
+                return subjectNext && !ALL_DETS.has(next.lower);
+            }
+            // Une alternative « ou … ou … » dans la même phrase : on ne dit rien.
+            let end = i + 1;
+            while (end < tokens.length && !/[.!?;]/.test(tokens[end].text)) {
+                end++;
+            }
+            const sentence = tokens.slice(i + 1, end);
+            if (sentence.some((t) => t.lower === "ou")) {
+                return false;
+            }
+            if (clauseStart(tokens, i) && tokens[end]?.text === "?") {
+                return (has(next, /:V[^/]*:(Ip|If|K)/) && !has(next, /:[NA]/)) || ["se", "s'"].includes(next.lower) || /^(est|sont|va|vas|vont|était|étaient)-?/.test(next.lower);
+            }
+            // Verbe de savoir ou de question juste avant (« sais », « ne sais pas », « dis-moi »).
+            let v = i - 1;
+            if (v >= 0 && ["pas", "plus", "jamais", "vraiment", "bien", "toujours", "trop"].includes(tokens[v].lower)) {
+                v--;
+            }
+            const verbToken = tokens[v];
+            if (!verbToken || verbToken.punct) {
+                return false;
+            }
+            const base = verbToken.text.replace(/-(moi|nous|lui|leur|toi)$/i, "");
+            const lemmas = morph({ text: base, punct: false }).filter((m) => /:V/.test(m)).map(lemmaOf);
+            if (!lemmas.some((l) => OU_VERBS.has(l)) || !subjectNext) {
+                return false;
+            }
+            // « je le dis ou je me tais » : complément avant le verbe, ou même verbe répété : alternative.
+            if (["le", "la", "les", "l'"].includes(tokens[v - 1]?.lower) && base === verbToken.text) {
+                return false;
+            }
+            return !sentence.some((t) => morph(t).some((m) => /:V/.test(m) && lemmas.includes(lemmaOf(m))));
+        }
+
+        // Adjectif ou participe à la forme demandée (« content » → contentes).
+        function inflectAdjective(token, gender, number) {
+            const entry = morph(token).find((m) => /:Q/.test(m)) ?? morph(token).find((m) => /:A/.test(m));
+            if (!entry) {
+                return null;
+            }
+            const lemma = lemmaOf(entry);
+            if (/:Q/.test(entry) && hasConj) {
+                return conj.getConj(lemma, ":Q", `:${gender}:${number}`) || null;
+            }
+            if (typeof suggFemSing === "undefined") {
+                return null;
+            }
+            const first = (list) => String(list || "").split("|")[0];
+            const form = gender === "f"
+                ? first(number === "p" ? suggFemPlur(lemma) : suggFemSing(lemma))
+                : number === "p" ? first(suggMasPlur(lemma)) || (/[sx]$/.test(lemma) ? lemma : `${lemma}s`) : lemma;
+            return form && morph({ text: form, punct: false }).some((m) => /:[AQ]/.test(m) && new RegExp(`:[${gender}e]:[${number}i]`).test(m)) ? form : null;
+        }
+
+        // Sujet d'un verbe « être » placé en k : « elles », « la cliente », « les serveurs neufs ».
+        // « je », « tu », « nous » : genre inconnu (« ? »). Renvoie « f:p »… ou null.
+        function attributeSubject(tokens, k) {
+            let s = k - 1;
+            if (s >= 0 && ["m'", "t'", "lui", "leur", "y", "en"].includes(tokens[s].lower)) {
+                s--;
+            }
+            if (s >= 0 && ["ne", "n'"].includes(tokens[s].lower)) {
+                s--;
+            }
+            const subject = tokens[s];
+            if (!subject || subject.punct || subject.text.length < 2) {
+                return null;  // « la variable x est constante »
+            }
+            const pronoun = { il: "m:s", elle: "f:s", ils: "m:p", elles: "f:p", je: "?:s", "j'": "?:s", tu: "?:s", nous: "?:p" }[subject.lower];
+            if (pronoun) {
+                return clauseStart(tokens, s) && !coordinated(tokens, s) ? pronoun : null;
+            }
+            let head = s;
+            if (has(subject, /:[AQ]/) && s > 0 && noun(tokens[s - 1], null) && simpleNounPhrase(tokens, s, null) >= 0) {
+                head = s - 1;
+            }
+            if (COLLECTIVE.has(tokens[head].lower) || isAcronym(tokens[head])) {
+                return null;
+            }
+            const start = simpleNounPhrase(tokens, head + 1, null);
+            if (start < 0 || coordinated(tokens, start)) {
+                return null;
+            }
+            return subjectAgreement(tokens, head);
+        }
+
+        // « Ces portes seront trop vide », « La voisine surprise est descendu » → vides, descendue.
+        function ruleAttribute(tokens, i, push) {
+            const token = tokens[i];
+            if (NOT_PARTICIPLE.has(token.lower) || !has(token, /:[AQ]/) || /^\p{Lu}/u.test(token.text) || has(token, /:[WRGDB]/) || ["bel", "nouvel", "vieil", "fol", "mol"].includes(token.lower)) {
+                return;  // « juste », « même », « sur » (adverbe, préposition) ; « bel et bien »
+            }
+            const following = tokens[i + 1];
+            // « ils sont autre chose », « dernier cri », « bleu saphir », « noir de jais » : l'adjectif porte sur ce qui suit.
+            if (following && !following.punct && (has(following, /:N/) || (COLORS.has(token.lower) && ["de", "d'"].includes(following.lower)))) {
+                return;
+            }
+            if (["entendu", "sûr", "sûrs"].includes(token.lower) && tokens[i - 1]?.lower === "bien") {
+                return;
+            }
+            let k = i - 1;
+            while (k >= 0 && k > i - 4 && ATTRIBUTE_ADVERBS.has(tokens[k].lower)) {
+                k--;
+            }
+            if (k < 0 || !ETRE_FINITE.has(tokens[k].lower) || ["tout", "toute", "toutes"].includes(tokens[i - 1].lower)) {
+                return;
+            }
+            if (tokens.slice(k + 1, i).some((t, j, list) => t.lower === "un" && list[j + 1]?.lower !== "peu")) {
+                return;
+            }
+            const agreement = attributeSubject(tokens, k);
+            if (!agreement) {
+                return;
+            }
+            const [gender, number] = agreement.split(":");
+            // « elle sont parties » : le verbe ne va pas avec le sujet, l'accord est incertain.
+            const plural = ["sommes", "êtes", "sont", "étions", "étiez", "étaient", "serons", "serez", "seront", "serions", "seriez", "seraient", "soyons", "soyez", "soient", "furent"].includes(tokens[k].lower);
+            if (plural !== (number === "p")) {
+                return;
+            }
+            const fits = morph(token).filter((m) => /:[AQ]/.test(m)).some((m) => {
+                const genderOk = gender === "?" || new RegExp(`:[${gender}e]:`).test(m);
+                return genderOk && new RegExp(`:[mfe]:[${number}i]`).test(m);
+            });
+            if (fits) {
+                return;
+            }
+            const genders = gender === "?" ? ["m", "f"] : [gender];
+            const forms = [...new Set(genders.map((g) => inflectAdjective(token, g, number)).filter((f) => f && f !== token.lower))];
+            if (forms.length) {
+                push(token, token.end, forms, `${MESSAGES.attribut} : « ${forms[0]} ».`, "accord_attribut", "accord");
+            }
+        }
+
+        // « La figurine qu'ils m'ont offert » → offerte : nom + que + sujet + avoir + participe.
+        function ruleRelativeParticiple(tokens, i, push) {
+            const entry = participleEntry(tokens[i]);
+            if (!entry || !hasConj || NOT_PARTICIPLE.has(tokens[i].lower)) {
+                return;
+            }
+            const lemma = lemmaOf(entry);
+            if (NO_QUE_AGREEMENT.has(lemma) || !/^.{3}t/.test(conj.getVtyp(lemma) || "")) {
+                return;
+            }
+            const next = tokens[i + 1];
+            // « que » n'est complément du participe que si rien ne le remplace après : pas de complément
+            // direct (« que j'ai découvert le pot »), pas de « de/à + infinitif » (« que j'ai essayé de
+            // lire »), pas d'infinitif (« qu'il a fait construire »).
+            if (next && !next.punct && !ETRE_FINITE.has(next.lower) && !["et", "mais", "ou", "hier", "aujourd'hui", "avant", "après", "pendant", "depuis", "pour", "avec", "dans", "sur", "chez", "sans", "par", "en"].includes(next.lower) && !(isAdverb(next) && !has(next, /:[NDR]/)) && !isTimeComplement(tokens, i + 1)) {
+                return;
+            }
+            let k = i - 1;
+            while (k >= 0 && ["pas", "plus", "jamais", "bien", "déjà", "toujours", "souvent", "enfin", "finalement", "même", "aussi"].includes(tokens[k].lower)) {
+                k--;
+            }
+            if (k < 0 || !AVOIR_FORMS.has(tokens[k].lower)) {
+                return;
+            }
+            k--;
+            if (k >= 0 && ["m'", "t'", "lui", "leur"].includes(tokens[k].lower)) {
+                k--;
+            }
+            if (k >= 0 && ["ne", "n'"].includes(tokens[k].lower)) {
+                k--;
+            }
+            if (k >= 0 && ["m'", "t'", "lui", "leur"].includes(tokens[k].lower)) {
+                k--;
+            }
+            const subject = tokens[k];
+            if (!subject || subject.punct) {
+                return;
+            }
+            let subjectStart = -1;
+            if (SUBJECTS.has(subject.lower) && !["ça", "cela"].includes(subject.lower)) {
+                subjectStart = k;
+            } else if (/^\p{Lu}/u.test(subject.text) && has(subject, /:M/)) {
+                subjectStart = k;
+            } else {
+                let head = k;
+                if (has(subject, /:[AQ]/) && k > 0 && noun(tokens[k - 1], null) && simpleNounPhrase(tokens, k, null) >= 0) {
+                    head = k - 1;
+                }
+                subjectStart = simpleNounPhrase(tokens, head + 1, null);
+            }
+            if (subjectStart < 1 || !["que", "qu'"].includes(tokens[subjectStart - 1].lower)) {
+                return;
+            }
+            const nounIndex = subjectStart - 2;
+            const nounToken = tokens[nounIndex];
+            const start = nounToken ? simpleNounPhrase(tokens, nounIndex + 1, null) : -1;
+            if (start < 0 || ["de", "d'", "du", "des"].includes(tokens[start - 1]?.lower) || COLLECTIVE.has(nounToken.lower) || isAcronym(nounToken)
+                || coordinated(tokens, start) || COMPLETIVE_NOUNS.has(nounToken.lower) || TIME_NOUNS.has(nounToken.lower.replace(/s$/, ""))) {
+                return;
+            }
+            // « dis à ces femmes que tu m'as contacté » : complétive après un verbe + « à ».
+            if (tokens[start - 1]?.lower === "à" && has(tokens[start - 2], /:V/)) {
+                return;
+            }
+            const det = tokens[start].lower;
+            const nounMorph = morph(nounToken).filter((m) => /:N/.test(m));
+            const gender = nounMorph.length && nounMorph.every((m) => /:f/.test(m)) ? "f" : nounMorph.length && nounMorph.every((m) => /:m/.test(m)) ? "m" : null;
+            const number = DET_PLUR.has(det) ? "p" : DET_SING.has(det) ? "s" : null;
+            if (!number || !gender) {
+                return;
+            }
+            const [, g, n] = participleTags(tokens[i]);
+            if ((g === gender || g === "e") && (n === number || n === "i")) {
+                return;
+            }
+            const form = qForm(lemma, gender, number);
+            if (form && form !== tokens[i].lower) {
+                push(tokens[i], tokens[i].end, form, `${MESSAGES.relative} « ${tokens.slice(start, nounIndex + 1).map((t) => t.text).join(" ").replace(/' /g, "'")} »).`, "ppas_relative", "accord");
+            }
+        }
+
+        // « Le certificat SSL expirent », « Votre infirmière contente préparerez » → expire, préparera.
+        const TENSE_ORDER = ["Ip", "If", "K", "Iq", "Sp", "Is"];
+        const SUBORDINATORS = new Set(["que", "qu'", "lorsque", "lorsqu'", "puisque", "puisqu'", "quand", "si", "où"]);
+        function finiteEntry(token) {
+            // Seulement un verbe conjugué : ni nom, ni adjectif, ni participe, ni infinitif.
+            const all = morph(token);
+            const entries = all.filter((m) => /:V[^/]*:(Ip|Iq|Is|If|K|Sp)/.test(m));
+            if (!entries.length || all.some((m) => !/:V/.test(m) || /:(Q|Y|P)(?=[:/]|$)/.test(m))) {
+                return null;
+            }
+            return entries.sort((a, b) => TENSE_ORDER.indexOf(/:(Ip|Iq|Is|If|K|Sp)/.exec(a)[1]) - TENSE_ORDER.indexOf(/:(Ip|Iq|Is|If|K|Sp)/.exec(b)[1]))[0];
+        }
+
+        // Verbe conjugué qui peut aussi être un nom pluriel (« chauffes ») ou singulier : toléré
+        // seulement si ce nom ne s'accorderait pas avec le groupe sujet (voir plus bas).
+        function finiteEntryLoose(token) {
+            const all = morph(token);
+            const entries = all.filter((m) => /:V[^/]*:(Ip|Iq|Is|If|K|Sp)/.test(m));
+            if (!entries.length || all.some((m) => (!/:V/.test(m) && !/:N/.test(m)) || /:(Q|Y|P)(?=[:/]|$)/.test(m))) {
+                return null;
+            }
+            return entries.sort((a, b) => TENSE_ORDER.indexOf(/:(Ip|Iq|Is|If|K|Sp)/.exec(a)[1]) - TENSE_ORDER.indexOf(/:(Ip|Iq|Is|If|K|Sp)/.exec(b)[1]))[0];
+        }
+
+        function ruleSubjectVerb(tokens, i, push) {
+            const verb = tokens[i];
+            const entry = finiteEntryLoose(verb);
+            if (!entry || !hasConj || i < 2) {
+                return;
+            }
+            let head = i - 1;
+            if ((isParticiple(tokens[head]) || (has(tokens[head], /:A/) && !has(tokens[head], /:[GR]/))) && head > 0 && noun(tokens[head - 1], null) && simpleNounPhrase(tokens, head, null) >= 0) {
+                head--;  // « le stagiaire fatigué attendez », « le joueur content nettoyez »
+            }
+            if (isAcronym(tokens[head]) && head > 0 && noun(tokens[head - 1], null)) {
+                head--;  // « le certificat SSL »
+            }
+            const headToken = tokens[head];
+            if (!headToken || headToken.punct || headToken.text.length < 2 || COLLECTIVE.has(headToken.lower) || TIME_NOUNS.has(headToken.lower) || isAcronym(headToken) || OBJECT_PRONOUNS.has(headToken.lower) || NOT_PARTICIPLE.has(headToken.lower)) {
+                return;
+            }
+            let start = simpleNounPhrase(tokens, head + 1, null);
+            if (start < 0 && has(headToken, /:A/) && head > 1 && noun(tokens[head - 1], null)) {
+                head--;  // « la carte graphique » : « graphique » est aussi un nom
+                start = simpleNounPhrase(tokens, head + 1, null);
+            }
+            if (start < 0 || (coordinated(tokens, start) && !afterLeadingClause(tokens, start))) {
+                return;
+            }
+            const opener = tokens[start - 1];
+            if (start > 0 && !(opener.punct && opener.text !== ",") && !(CLAUSE_WORDS.has(opener.lower) && !["et", "ou"].includes(opener.lower)) && !SUBORDINATORS.has(opener.lower) && !afterLeadingClause(tokens, start)) {
+                return;
+            }
+            const det = tokens[start].lower;
+            const number = DET_PLUR.has(det) ? "p" : DET_SING.has(det) ? "s" : null;
+            if (!number || !noun(tokens[head], number)) {
+                return;
+            }
+            const person = number === "s" ? ":3s" : ":3p";
+            if (morph(verb).some((m) => m.includes(person))) {
+                return;
+            }
+            // Un nom peut suivre le groupe (« le chef cuisinier », « des talons aiguille ») : on n'accepte
+            // un mot qui est aussi un nom que s'il est au pluriel après un sujet singulier (« la carte chauffes »).
+            // Après un sujet pluriel, un nom ou un adjectif (« des créatures marines », « des talons
+            // aiguille ») ; après un sujet singulier, seulement un nom singulier (« le chef cuisinier »).
+            if (morph(verb).some((m) => /:[NA]/.test(m) && (number === "p" || /:[si]/.test(m)))) {
+                return;
+            }
+            const forms = personForms(entry, person, verb.lower, tokens, i);
+            if (forms.length) {
+                push(verb, verb.end, forms, `${MESSAGES.verbe} : « ${forms[0]} ».`, "accord_sujet_verbe", "conjugaison");
+            }
+        }
+
+        // « Vous réparent ces tâches », « Quand je terminerai, nous liront le badge » → réparez, lirons.
+        const NOUS_OPENERS = new Set(["que", "qu'", "quand", "lorsque", "lorsqu'", "si", "comme", "où", "parce", "puisque", "puisqu'", "car", "donc"]);
+        // « Quand mes directrices termineront, notre joueur choisiront… » : la virgule qui ferme une
+        // subordonnée placée en tête ouvre la principale.
+        function afterLeadingClause(tokens, start) {
+            if (tokens[start - 1]?.text !== ",") {
+                return false;
+            }
+            let first = start - 1;
+            while (first > 0 && !/[.!?;:]/.test(tokens[first - 1].text)) {
+                first--;
+            }
+            const commas = tokens.slice(first, start).filter((t) => t.text === ",").length;
+            return commas === 1 && SUBORDINATE_STARTS.has(tokens[first]?.lower);
+        }
+        const SUBORDINATE_STARTS = new Set(["quand", "si", "s'", "lorsque", "lorsqu'", "comme", "puisque", "puisqu'", "dès", "après", "avant", "pendant", "bien", "même", "une"]);
+        function ruleNousVous(tokens, i, push) {
+            const token = tokens[i];
+            const opener = tokens[i - 1];
+            if (i > 0 && !opener.punct && !NOUS_OPENERS.has(opener.lower)) {
+                return;
+            }
+            let sentenceStart = i - 1;
+            while (sentenceStart >= 0 && !/[.!?;:«"“\n]/.test(tokens[sentenceStart].text)) {
+                sentenceStart--;
+            }
+            sentenceStart++;
+            // Après une virgule, seulement au sortir d'une subordonnée en tête (« Quand je finirai,
+            // nous lirons… ») ; pas dans une incise ou une énumération (« L'espoir, il est vrai, nous soulage »).
+            if (opener && opener.text === ",") {
+                const commas = tokens.slice(sentenceStart, i).filter((t) => t.text === ",").length;
+                if (commas !== 1 || !SUBORDINATE_STARTS.has(tokens[sentenceStart]?.lower)) {
+                    return;
+                }
+            } else if (opener && opener.punct && !/[.!?;:«"“]/.test(opener.text)) {
+                return;
+            }
+            // « Nous » avec une majuscule au milieu d'une phrase : poésie ou citation.
+            if (i > 0 && /^\p{Lu}/u.test(token.text) && !/[.!?…:;«"“]/.test(opener.text)) {
+                return;
+            }
+            // Ligne qui commence en minuscule : la suite d'un texte coupé, le sujet est avant.
+            if (i === 0 && /^\p{Ll}/u.test(token.text)) {
+                return;
+            }
+            // « Que vous semble… ? » : « que » interrogatif en tête de phrase.
+            if (["que", "qu'"].includes(opener?.lower) && i - 1 === sentenceStart) {
+                return;
+            }
+            const verb = tokens[i + 1];
+            // Juste après « nous » ou « vous » sujet, un nom est impossible : « lit », « achète » sont des verbes.
+            const entry = verb && !verb.punct && finiteEntryLoose(verb);
+            if (!entry || !hasConj) {
+                return;
+            }
+            const person = token.lower === "nous" ? ":1p" : ":2p";
+            if (has(verb, new RegExp(person))) {
+                return;
+            }
+            // « ce que vous dit le médecin », « nous viennent les rêves » : sujet inversé.
+            const after = tokens[i + 2];
+            // « que » relatif (après « ce » ou un nom) ; après un verbe (« je pense que »), c'est une conjonction.
+            const relativeQue = ["que", "qu'"].includes(opener?.lower) && (tokens[i - 2]?.lower === "ce" || noun(tokens[i - 2], null));
+            if (after && !after.punct && (has(after, /:Y/) || ((relativeQue || !/^.{3}t/.test(conj.getVtyp(lemmaOf(entry)) || "")) && (ALL_DETS.has(after.lower) || /^\p{Lu}/u.test(after.text))))) {
+                return;
+            }
+            const forms = personForms(entry, person, verb.lower, tokens, i + 1);
+            if (forms.length) {
+                push(verb, verb.end, forms, `${MESSAGES.personneVerbe} : « ${token.lower} ${forms[0]} ».`, `${token.lower}_verbe`, "conjugaison");
+            }
+        }
+
+        // Formes du verbe à la personne voulue : d'abord celle qui se prononce comme le mot écrit
+        // (« vous venait » → venez, « nous liront » → lirons), puis celle du même temps.
+        const sound = (word) => word.replace(/(aient|ait|ais|ai|ez|er|ées|ée|és|é)$/, "É");
+        // Proposition au subjonctif : « il faut que », « pour que », « avant que », « bien que »…
+        const SUBJUNCTIVE_TRIGGERS = new Set(["faut", "faudrait", "fallait", "faudra", "pour", "avant", "afin", "sans", "bien", "pourvu", "veux", "voudrais", "voulait", "veut", "souhaite", "souhaiterais", "aimerais", "préfère", "exige", "demande", "attends", "doute", "crains", "quoique", "condition", "peur", "crainte", "important", "nécessaire", "possible", "temps", "essentiel", "dommage", "normal"]);
+        function subjunctiveAt(tokens, i) {
+            for (let k = i - 1; k >= 1 && !/[.!?;]/.test(tokens[k].text); k--) {
+                if (["que", "qu'"].includes(tokens[k].lower)) {
+                    return SUBJUNCTIVE_TRIGGERS.has(tokens[k - 1].lower);
+                }
+            }
+            return false;
+        }
+        // Formes du verbe à la personne voulue, au même temps (au subjonctif si la proposition
+        // l'exige) ; « vous venait » (imparfait) → venez d'abord, qui se prononce pareil.
+        function personForms(entry, person, original, tokens = null, i = 0) {
+            const lemma = lemmaOf(entry);
+            let tense = /:(Ip|Iq|Is|If|K|Sp)/.exec(entry)[1];
+            if (tokens && subjunctiveAt(tokens, i)) {
+                tense = "Sp";
+            }
+            const same = conj.getConj(lemma, `:${tense}`, person);
+            const present = tense === "Iq" ? conj.getConj(lemma, ":Ip", person) : null;
+            const sounding = present && sound(present) === sound(original) ? present : null;
+            return [...new Set([sounding, same].filter((f) => f && f !== original))];
+        }
+
+        // « Il faut qu'on apportions », « on cherchent » → apporte, cherche.
+        function ruleOn(tokens, i, push) {
+            const opener = tokens[i - 1];
+            if (i > 0 && !opener.punct && !NOUS_OPENERS.has(opener.lower) && !CLAUSE_WORDS.has(opener.lower)) {
+                return;
+            }
+            let k = i + 1;
+            if (["ne", "n'"].includes(tokens[k]?.lower)) {
+                k++;
+            }
+            const verb = tokens[k];
+            const entry = verb && !verb.punct && finiteEntry(verb);
+            if (!entry || !hasConj || has(verb, /:3s/)) {
+                return;
+            }
+            const forms = personForms(entry, ":3s", verb.lower, tokens, k);
+            if (forms.length) {
+                push(verb, verb.end, forms, `${MESSAGES.personneVerbe} : « on ${forms[0]} ».`, "on_verbe", "conjugaison");
+            }
+        }
+
+        // « Elles ne rendent pas ces photo », « réparé les facture » → photos, factures.
+        const PLURAL_DETS = new Set(["les", "des", "ces", "mes", "tes", "ses", "nos", "vos", "leurs", "plusieurs", "quelques", "certains", "certaines", "différents", "différentes", "divers", "diverses", "nombreux", "nombreuses"]);
+        const PRONOUN_LES_BEFORE = new Set(["ne", "n'", "me", "m'", "te", "t'", "se", "s'", "nous", "vous", "je", "j'", "tu", "il", "elle", "on", "ils", "elles", "ça", "cela", "qui", "pour", "de", "à", "sans"]);
+        function rulePluralNoun(tokens, i, push) {
+            const det = tokens[i];
+            const prev = tokens[i - 1];
+            const nounToken = tokens[i + 1];
+            if (!nounToken || nounToken.punct || /^\p{Lu}/u.test(nounToken.text) || /[sxz]$/i.test(nounToken.lower) || nounToken.start !== det.end + 1) {
+                return;
+            }
+            const readings = morph(nounToken);
+            if (!readings.some((m) => /:N/.test(m) && /:s/.test(m)) || readings.some((m) => /:N/.test(m) && /:[pi]/.test(m)) || has(nounToken, /:[BGD]/) || readings.some((m) => /:(Y|P)(?=[:/]|$)/.test(m))) {
+                return;
+            }
+            // « vos nom et prénom », « ses père et mère », « ces don Juan », « les bac +2 ».
+            const third = tokens[i + 2];
+            if (third && (["et", "ou", "&"].includes(third.lower) || third.text === "," || /^[\p{Lu}\d+]/u.test(third.text))) {
+                return;
+            }
+            // « les » pronom (« il les facture », « puis les glisse »).
+            if (det.lower === "les" && ((prev && PRONOUN_LES_BEFORE.has(prev.lower)) || (has(nounToken, /:V/) && !(prev && has(prev, /:Q/))))) {
+                return;
+            }
+            const plural = typeof suggPlur === "function" ? String(suggPlur(nounToken.lower, true) || "").split("|").find((f) => f && f !== nounToken.lower && morph({ text: f, punct: false }).some((m) => /:N/.test(m))) : null;
+            if (plural) {
+                push(nounToken, nounToken.end, plural, `${MESSAGES.pluriel} : « ${plural} ».`, "pluriel_nom", "accord");
+            }
+        }
+
         const hasConj = typeof conj !== "undefined";
         const participleEntry = (token) => morph(token).find((m) => /:Q/.test(m));
         const lemmaOf = (entry) => entry.slice(1, entry.indexOf("/"));
 
         // Genre et nombre attendus du sujet d'un verbe pronominal : « elles », « les filles ».
         function subjectAgreement(tokens, k) {
-            const subject = tokens[k];
+            let subject = tokens[k];
             if (!subject || subject.punct) {
                 return null;
             }
             if (SUBJECT_AGREEMENT[subject.lower]) {
                 return SUBJECT_AGREEMENT[subject.lower];
+            }
+            // « la voisine surprise » : l'adjectif après le nom.
+            if (has(subject, /:[AQ]/) && k > 0 && noun(tokens[k - 1], null) && simpleNounPhrase(tokens, k, null) >= 0) {
+                k--;  // « la voisine surprise », « le client malade » (adjectif qui peut aussi être un nom)
+                subject = tokens[k];
             }
             // Le groupe nominal doit ouvrir la proposition : dans « le bruit que Manuel avait découvert
             // une source s'était répandu », « une source » n'est pas le sujet de « s'était répandu ».
@@ -425,9 +1001,31 @@ const Homophones = (() => {
             }
             const det = tokens[start].lower;
             const nounMorph = morph(subject).filter((m) => /:N/.test(m));
-            const gender = nounMorph.every((m) => /:f/.test(m)) ? "f" : nounMorph.every((m) => /:m/.test(m)) ? "m" : null;
+            if (nounMorph.length === 0) {
+                return null;  // mot inconnu : genre inconnu
+            }
+            const gender = nounMorph.every((m) => /:f/.test(m)) ? "f" : nounMorph.every((m) => /:m/.test(m)) ? "m" : "?";  // épicène (« stagiaire »)
             const number = DET_PLUR.has(det) ? "p" : DET_SING.has(det) ? "s" : null;
-            return gender && number ? `${gender}:${number}` : null;
+            return number ? `${gender}:${number}` : null;
+        }
+
+        // Complément de temps : « hier », « lundi », « la semaine dernière », « toute la soirée », « il y a ».
+        function isTimeComplement(tokens, k) {
+            const t = tokens[k];
+            if (!t || t.punct) {
+                return false;
+            }
+            if (TIME_WORDS.has(t.lower) || TIME_NOUNS.has(t.lower)) {
+                return true;
+            }
+            if (["ce", "cet", "cette", "ces", "la", "le", "l'", "toute", "tout", "tous", "toutes", "chaque", "une", "un", "deux", "trois"].includes(t.lower)) {
+                let j = k + 1;
+                if (["la", "le", "les", "l'"].includes(tokens[j]?.lower)) {
+                    j++;
+                }
+                return !!tokens[j] && TIME_NOUNS.has(tokens[j].lower.replace(/s$/, ""));
+            }
+            return t.lower === "il" && tokens[k + 1]?.lower === "y" && ["a", "avait"].includes(tokens[k + 2]?.lower);
         }
 
         // Participe passé des verbes pronominaux : « Elles se sont lavé » → lavées.
@@ -451,6 +1049,10 @@ const Homophones = (() => {
             if (!agreement) {
                 return;
             }
+            // « nous nous sommes attaché à démontrer » : « nous » d'auteur, peut-être singulier.
+            if (tokens[s].lower === "nous" && tokens[i + 1] && !tokens[i + 1].punct && !isTimeComplement(tokens, i + 1)) {
+                return;
+            }
             const lemma = lemmaOf(entry);
             const vtyp = conj.getVtyp(lemma) || "";
             const [gender, number] = agreement.split(":");
@@ -466,6 +1068,15 @@ const Homophones = (() => {
                 }
                 return;
             }
+            // « Elle s'était promise de revenir » → promis : « se » est complément indirect.
+            if (["promettre", "permettre", "jurer", "imposer", "interdire"].includes(lemma) && ["de", "d'"].includes(tokens[i + 1]?.lower) && (formTags[1] === "f" || formTags[2] === "p")) {
+                const invariable = conj.getConj(lemma, ":Q", ":m:s");
+                vetoes.push({ start: tokens[i].start, end: tokens[i].end });
+                if (invariable && invariable !== tokens[i].lower) {
+                    push(tokens[i], tokens[i].end, invariable, MESSAGES.promis, "ppas_invariable", "accord");
+                }
+                return;
+            }
             if ((vtyp[5] !== "p" && vtyp[3] !== "t") || OFTEN_INDIRECT.has(lemma)) {
                 return;
             }
@@ -475,7 +1086,7 @@ const Homophones = (() => {
             // Un complément après le participe (« lavé les mains », « fait avoir », « rendu compte ») :
             // le pronom n'est peut-être pas complément direct. On ne dit rien.
             const next = tokens[i + 1];
-            const quiet = !next || (next.punct && !/[:«"“]/.test(next.text)) || PREPOSITIONS.has(next.lower) || (isAdverb(next) && !has(next, /:[ND]/))
+            const quiet = !next || (next.punct && !/[:«"“]/.test(next.text)) || PREPOSITIONS.has(next.lower) || (isAdverb(next) && !has(next, /:[ND]/)) || isTimeComplement(tokens, i + 1)
                 || (["tout", "toute", "tous", "toutes"].includes(next.lower) && /^seul/.test(tokens[i + 2]?.lower ?? ""));
             if (!quiet) {
                 return;
@@ -571,7 +1182,7 @@ const Homophones = (() => {
         // Accord d'un participe placé après « avoir » ; renvoie l'entrée :Q du participe.
         const participleTags = (token) => /:([mfe]):([spi])/.exec(participleEntry(token) ?? "") ?? [];
 
-        function moreRules(tokens, i, push) {
+        function moreRules(tokens, i, push, vetoes = []) {
             const token = tokens[i];
             const next = tokens[i + 1];
             const prev = tokens[i - 1];
@@ -586,6 +1197,74 @@ const Homophones = (() => {
             if (unit) {
                 const fixed = `${unit[1]} ${unit[2]}`;
                 push(token, token.end, fixed, `${MESSAGES.unite} : « ${fixed} ».`, "nombre_colle", "typographie");
+            }
+            const month = GLUED_MONTH.exec(token.text);
+            if (month) {
+                const fixed = `${month[1]} ${month[2]}`;
+                push(token, token.end, fixed, `${MESSAGES.nombre} : « ${fixed} ».`, "nombre_colle", "typographie");
+            }
+            // « Je vous prit de… », « je te pris de » → prie.
+            if (["pris", "prit", "pries", "prient"].includes(token.lower) && ["te", "vous"].includes(prev?.lower) && ["je", "j'"].includes(tokens[i - 2]?.lower) && ["de", "d'"].includes(next?.lower)) {
+                push(token, token.end, "prie", MESSAGES.prie, "je_vous_prie", "conjugaison");
+            }
+            // « Ci tu veux » → Si.
+            if (token.lower === "ci" && clauseStart(tokens, i) && next && (SUBJECTS.has(next.lower) || ["on", "c'", "ça"].includes(next.lower))) {
+                push(token, token.end, "si", MESSAGES.si, "ci_si", "homophone");
+            }
+            // « Nous somme » → sommes.
+            if (token.lower === "somme" && prev?.lower === "nous" && clauseStart(tokens, i - 1)) {
+                push(token, token.end, "sommes", `${MESSAGES.personneVerbe} : « nous sommes ».`, "nous_verbe", "conjugaison");
+            }
+            // « Pensez à vérifié » → vérifier : « à » + infinitif après penser, commencer, réussir…
+            if (token.lower === "à" && prev && next && morph(prev.text.includes("-") ? { text: prev.text.split("-")[0], punct: false } : prev).some((m) => /:V/.test(m) && A_INFINITIVE_VERBS.has(lemmaOf(m)))) {
+                let k = i + 1;
+                while (tokens[k] && PRONOUNS_BEFORE_VERB.has(tokens[k].lower) && k < i + 3) {
+                    k++;
+                }
+                const verb = tokens[k];
+                const entry = verb && participleEntry(verb);
+                if (entry && /er$/.test(lemmaOf(entry)) && /é(e|s|es)?$/.test(verb.lower) && !has(verb, /:[YN]/)) {
+                    push(verb, verb.end, lemmaOf(entry), MESSAGES.infinitifA, "infinitif_apres_a", "infinitif");
+                    vetoes.push({ start: token.start, end: verb.end, rule: /conf_a_à|infi/ });
+                }
+            }
+            // « J'ai mis à jour les règles et redémarrer le routeur » → redémarré : participe coordonné.
+            if (["et", "puis"].includes(prev?.lower) && has(token, /:Y/) && /er$/.test(token.lower) && hasConj && !has(token, /:N/)) {
+                let k = i - 2;
+                let found = null;
+                while (k >= 0 && !/[.!?;]/.test(tokens[k].text)) {
+                    if (AVOIR_FORMS.has(tokens[k].lower) && has(tokens[k + 1], /:V/) && !has(tokens[k + 1], /:Y/)) {
+                        found = tokens[k + 1];
+                        break;
+                    }
+                    if ((has(tokens[k], /:Y/) && !has(tokens[k], /:N/)) || morph(tokens[k]).some((m) => /:V/.test(m) && INFINITIVE_VERBS.has(lemmaOf(m)))) {
+                        break;  // un infinitif plus tôt : « pour vérifier et redémarrer » est juste
+                    }
+                    k--;
+                }
+                const foundLemma = found && lemmaOf(participleEntry(found) ?? morph(found).find((m) => /:V/.test(m)));
+                if (found && !TAKES_INFINITIVE.has(foundLemma)) {
+                    const pp = conj.getConj(token.lower, ":Q", ":m:s");
+                    if (pp && pp !== token.lower) {
+                        push(token, token.end, pp, MESSAGES.coordonne, "participe_coordonne", "infinitif");
+                    }
+                }
+            }
+            // « Est-ce-que » → Est-ce que.
+            if (token.lower === "est-ce-que") {
+                push(token, token.end, "est-ce que", MESSAGES.estceque, "est_ce_que", "orthographe");
+            }
+            // « tous à fait », « toute à fait » → tout à fait.
+            if (["tous", "toute", "toutes"].includes(token.lower) && next?.lower === "à" && tokens[i + 2]?.lower === "fait") {
+                push(token, token.end, "tout", MESSAGES.toutafait, "tout_a_fait", "accord");
+            }
+            // « mes coordonnés » → coordonnées.
+            if (token.lower === "coordonnés" && prev && ["les", "mes", "tes", "ses", "nos", "vos", "leurs", "vos", "des", "ces"].includes(prev.lower) && !["par", "avec", "entre"].includes(next?.lower)) {
+                push(token, token.end, "coordonnées", MESSAGES.coordonnees, "coordonnees", "orthographe");
+            }
+            // « Quelle vienne ou non » → Qu'elle : en tête de phrase, devant un subjonctif.
+            if (QUEL.has(token.lower) && clauseStart(tokens, i) && next && has(next, /:V[^/]*:Sp/) && !has(next, /:V[^/]*:(Ip|Iq)/) && !has(next, /:[NA]/)) {
+                push(token, token.end, /s$/.test(token.lower) ? "qu'elles" : "qu'elle", MESSAGES.quelleSubj, "quel_quelle");
             }
             if (/^\d+$/.test(token.text) && next?.text === "€" && next.start === token.end) {
                 push(token, next.end, `${token.text} €`, `${MESSAGES.unite} : « ${token.text} € ».`, "nombre_colle", "typographie");
@@ -772,8 +1451,20 @@ const Homophones = (() => {
                 if (token.punct) {
                     return;
                 }
-                moreRules(tokens, i, push);
+                moreRules(tokens, i, push, vetoes);
                 rulePronominalParticiple(tokens, i, push, vetoes);
+                ruleRelativeParticiple(tokens, i, push);
+                ruleAttribute(tokens, i, push);
+                ruleSubjectVerb(tokens, i, push);
+                if (token.lower === "nous" || token.lower === "vous") {
+                    ruleNousVous(tokens, i, push);
+                }
+                if (token.lower === "on") {
+                    ruleOn(tokens, i, push);
+                }
+                if (PLURAL_DETS.has(token.lower)) {
+                    rulePluralNoun(tokens, i, push);
+                }
                 if (token.lower === "tout") {
                     ruleTout(tokens, i, push);
                 }
@@ -946,6 +1637,21 @@ const Homophones = (() => {
                             push(token, token.end, "n'y", MESSAGES.ny, "ni_ny");
                         }
                         break;
+                    case "son":
+                        if (ruleSon(tokens, i)) {
+                            push(token, token.end, "sont", MESSAGES.sont, "son_sont");
+                        }
+                        break;
+                    case "ce":
+                        if (ruleCe(tokens, i)) {
+                            push(token, token.end, "se", MESSAGES.se, "ce_se");
+                        }
+                        break;
+                    case "ou":
+                        if (ruleOu(tokens, i, line)) {
+                            push(token, token.end, "où", MESSAGES.ou, "ou_ou");
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -966,6 +1672,7 @@ const Homophones = (() => {
             const tokens = tokenize(line);
             let k = tokens.findIndex((t) => t.start >= offset) - 1;
             const skippable = (t) => BE_FORMS.has(t.lower) || ["être", "été", "ne", "n'", "pas", "plus", "jamais", "toujours", "bien", "déjà", "encore"].includes(t.lower)
+                || (AVOIR_FORMS.has(t.lower.replace("à", "a")) && tokens[tokens.indexOf(t) + 1]?.lower === "été")
                 || morph(t).some((m) => /:V/.test(m) && MODALS.has(lemmaOf(m)));
             while (k >= 0 && !tokens[k].punct && skippable(tokens[k])) {
                 k--;
