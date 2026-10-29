@@ -80,6 +80,25 @@ body.app #bench {
     color: var(--ko);
 }
 
+.app-options .ext-steps {
+    margin: 10px 0 4px;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--cyan);
+    border-radius: 8px;
+}
+
+.app-options .ext-steps ol {
+    margin: 0 0 10px;
+    padding-left: 22px;
+    line-height: 1.6;
+}
+
+.app-options .ext-steps code {
+    color: var(--cyan);
+    font-family: var(--mono);
+}
+
 .app-options .mcp-config {
     width: 100%;
     padding: 10px;

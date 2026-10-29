@@ -22,6 +22,34 @@ Construire (depuis Linux ou Windows) : `npm run dist`, résultats dans `dist/`.
 `xvfb-run -a npm run test:package` (Linux) construit l'application empaquetée et y passe tout le test
 de fumée. C'est lui qui aurait attrapé l'oubli du dossier `options/` dans la 0.30.0.
 
+## Installer l'extension dans un navigateur
+
+Réglages → Application → **Extension du navigateur** : un bouton par navigateur Chromium trouvé sur le
+PC (Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Chromium), plus « Autre navigateur ».
+
+Un vrai « un clic » est impossible, et c'est voulu par les navigateurs : sous Windows, une extension
+installée de l'extérieur doit venir du Chrome Web Store, Chrome 137 a retiré `--load-extension`, et
+une adresse `chrome://…` passée au lancement n'est pas ouverte. « Charger l'extension non
+empaquetée » reste réservé à l'utilisateur. Le bouton fait donc tout le reste :
+
+1. copie l'extension (embarquée dans l'application, identique au zip de la release) dans
+   `Aria Plume - extension`, à côté du fichier de réglages : un dossier fixe, que le navigateur lit
+   à chaque démarrage (l'exe portable, lui, se décompresse ailleurs à chaque lancement) ;
+2. ouvre le navigateur et met l'adresse de sa page d'extensions (`opera://extensions`…) dans le
+   presse-papiers ;
+3. affiche les étapes : Mode développeur, « Charger l'extension non empaquetée », puis
+   « Copier le chemin du dossier » à coller dans la fenêtre de choix du dossier.
+
+**Mise à jour** : quand l'application est plus récente que la copie, le bouton devient « Mettre à
+jour dans… ». Il recopie les fichiers ; dans le navigateur, un clic sur ↻ (Recharger) sur la carte
+d'Aria Plume suffit. Seuls les fichiers posés par une copie précédente sont remplacés ou retirés
+(liste dans `.aria-plume-copie.json`), et un dossier du même nom qui ne contient pas Aria Plume est
+refusé. L'extension garde ses propres réglages : export ici, import dans les siens. Firefox n'est
+pas pris en charge (format d'extension différent, signature Mozilla obligatoire).
+
+Tests : `node tests/extension-install.mjs` (copie, mise à jour, refus) et `npm test` (le parcours
+complet avec un navigateur simulé).
+
 ## Le serveur MCP (pour les IA)
 
 `Aria Plume.exe --mcp` démarre Aria Plume en **serveur MCP** sur l'entrée et la sortie standard,
@@ -152,6 +180,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `mcp/server.js` | Serveur MCP (outils, protocole, stdio) |
 | `mcp/electron.js` | `--mcp` : le serveur dans l'application, avec ses réglages |
 | `mcp/standalone.mjs` | Le serveur avec Node seul |
+| `extension-install.js` | Installation assistée de l'extension : navigateurs détectés, copie, ouverture |
 | `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
 | `ui/app.css` | Retouches du correcteur pour la fenêtre (éléments propres au navigateur masqués) |
 | `tests/smoke.mjs` | Test de fumée (`xvfb-run -a npm test` sous Linux) |

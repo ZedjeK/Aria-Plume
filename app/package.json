@@ -1,7 +1,7 @@
 {
     "name": "aria-plume",
     "productName": "Aria Plume",
-    "version": "0.31.0",
+    "version": "0.32.0",
     "description": "Correcteur et traducteur français ↔ anglais, 100 % local",
     "license": "GPL-3.0-only",
     "author": "ZedjeK",
@@ -11,7 +11,7 @@
     "scripts": {
         "start": "electron .",
         "dist": "electron-builder --win --x64 --publish never",
-        "test": "node tests/smoke.mjs",
+        "test": "node tests/extension-install.mjs && node tests/smoke.mjs",
         "test:package": "electron-builder --linux dir --x64 --publish never && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/smoke.mjs && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/mcp.mjs --app",
         "test:mcp": "node tests/mcp.mjs && node tests/mcp.mjs --app"
     },
@@ -32,6 +32,7 @@
             "engine.js",
             "settings.js",
             "windows-input.js",
+            "extension-install.js",
             "preload.cjs",
             "mcp/**",
             "ui/**",
@@ -49,7 +50,12 @@
                     "popup/**",
                     "content/**",
                     "icons/**",
-                    "options/**"
+                    "options/**",
+                    "offscreen/**",
+                    "test/**",
+                    "manifest.json",
+                    "background.js",
+                    "THIRD_PARTY.md"
                 ]
             }
         ],

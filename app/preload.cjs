@@ -99,6 +99,10 @@ contextBridge.exposeInMainWorld("ariaApp", {
     showSettingsFile: () => ipcRenderer.invoke("app:show-settings-file"),
     saveFile: (name, text) => ipcRenderer.invoke("app:save-file", name, text),
     mcpConfig: () => ipcRenderer.invoke("app:mcp-config"),
+    extensionState: () => ipcRenderer.invoke("app:extension-state"),
+    installExtension: (id) => ipcRenderer.invoke("app:extension-install", String(id)),
+    copyExtensionPath: () => ipcRenderer.invoke("app:extension-copy-path"),
+    openExtensionFolder: () => ipcRenderer.invoke("app:extension-open-folder"),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).

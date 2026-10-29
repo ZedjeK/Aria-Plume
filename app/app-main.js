@@ -24,7 +24,8 @@ protocol.registerSchemesAsPrivileged([
 
 // Le moteur (et les réglages, qui en dépendent) ne se charge qu'une fois l'instance confirmée.
 const { aria, createService, ENGINE_ROOT } = await import("./engine.js");
-const { loadSettings, saveSettings, removeSettings, settingsFile, getValues } = await import("./settings.js");
+const { loadSettings, saveSettings, removeSettings, settingsFile, settingsDir, getValues } = await import("./settings.js");
+const { FOLDER_NAME, findBrowsers, extensionState, syncExtension, launchBrowser } = await import("./extension-install.js");
 const { createInput, captureSelection, pasteInto } = await import("./windows-input.js");
 
 // --- Réglages : enregistrés dans le fichier, et signalés aux fenêtres ouvertes ---
@@ -357,6 +358,45 @@ ipcMain.handle("app:mcp-config", () => ({
     appDir: APP_DIR,
 }));
 ipcMain.handle("app:show-settings-file", () => shell.showItemInFolder(settingsFile()));
+
+// --- Extension du navigateur : installation assistée (voir extension-install.js) ---
+const extensionPaths = () => ({
+    source: ENGINE_ROOT,
+    target: process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_EXTENSION_DIR
+        ? process.env.ARIA_TEST_EXTENSION_DIR
+        : path.join(settingsDir(), FOLDER_NAME),
+});
+// Une seule copie à la fois (deux clics rapprochés attendent la même).
+let copying = null;
+function copyExtension() {
+    copying ??= syncExtension(extensionPaths()).finally(() => {
+        copying = null;
+    });
+    return copying;
+}
+ipcMain.handle("app:extension-state", () => ({
+    ...extensionState(extensionPaths()),
+    browsers: findBrowsers().map(({ id, name, url }) => ({ id, name, url })),
+}));
+// Copie (si besoin), puis ouverture du navigateur avec l'adresse de sa page d'extensions dans le
+// presse-papiers. « other » : copie seulement, l'utilisateur ouvre lui-même son navigateur.
+ipcMain.handle("app:extension-install", async (event, id) => {
+    const copy = await copyExtension();
+    const browser = findBrowsers().find((item) => item.id === id);
+    const url = browser?.url ?? "chrome://extensions";
+    clipboard.writeText(url);
+    const launch = browser ? await launchBrowser(browser) : { ok: false };
+    return { ...copy, url, launched: launch.ok, error: launch.error ?? null };
+});
+ipcMain.handle("app:extension-copy-path", async () => {
+    const { folder } = await copyExtension();
+    clipboard.writeText(folder);
+    return folder;
+});
+ipcMain.handle("app:extension-open-folder", async () => {
+    const { folder } = await copyExtension();
+    return shell.openPath(folder);
+});
 // Enregistrement d'un fichier exporté par la page de réglages (réglages, dictionnaire) : boîte de
 // dialogue « Enregistrer sous » de Windows, puis écriture. Le téléchargement de Chromium n'est pas
 // utilisé (il perd le fichier quand la page libère son contenu juste après le clic).

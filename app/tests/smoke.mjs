@@ -21,11 +21,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
 const downloads = fs.mkdtempSync(`${os.tmpdir()}/aria-test-`);
 process.env.ARIA_TEST_DOWNLOADS = downloads;
+// Installation assistée de l'extension : dossier cible et navigateur simulé (un script qui note
+// ses arguments).
+const extensionDir = `${downloads}/Aria Plume - extension`;
+const browserArgs = `${downloads}/navigateur-args.txt`;
+fs.writeFileSync(`${downloads}/navigateur.sh`, `#!/bin/sh\necho "$@" > "${browserArgs}"\n`, { mode: 0o755 });
+const testBrowsers = JSON.stringify([{ id: "test", name: "Navigateur test", scheme: "chrome", exe: `${downloads}/navigateur.sh` }]);
+const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8")).version;
 // APP_BINARY=chemin : teste l'application empaquetée (electron-builder) au lieu des sources.
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -154,6 +161,34 @@ check("réglages : section Application", !!(await opt.$("#app-settings")));
 check("réglages : parties propres au navigateur masquées", await opt.evaluate(() => [...document.querySelectorAll('[data-scope="navigateur"]')].every((el) => el.offsetParent === null) && document.querySelector("#dictInput").offsetParent !== null));
 const mcpConfig = JSON.parse(await opt.inputValue(".mcp-config"));
 check("réglages : configuration MCP", mcpConfig.mcpServers["aria-plume"].args.includes("--mcp") && !!mcpConfig.mcpServers["aria-plume"].command, JSON.stringify(mcpConfig.mcpServers["aria-plume"].args));
+// Extension du navigateur : copie, ouverture du navigateur, presse-papiers, mise à jour.
+check("extension : état initial", (await opt.textContent("#extensionStatus")).includes("sera copiée"), await opt.textContent("#extensionStatus"));
+check("extension : bouton du navigateur détecté", (await opt.textContent('[data-browser="test"]')) === "Installer dans Navigateur test");
+await opt.click('[data-browser="test"]');
+await opt.waitForSelector("#extensionSteps:not([hidden])", { timeout: 60000 }).catch(() => {});
+const copiedManifest = JSON.parse(fs.readFileSync(`${extensionDir}/manifest.json`, "utf8"));
+check("extension : copiée, complète", copiedManifest.version === appVersion && ["background.js", "offscreen/offscreen.js", "content/checker.js", "engines", "models"].every((f) => fs.existsSync(`${extensionDir}/${f}`)), copiedManifest.version);
+await wait(300);
+check("extension : navigateur lancé sur sa page d'extensions", fs.existsSync(browserArgs) && fs.readFileSync(browserArgs, "utf8").trim() === "chrome://extensions");
+check("extension : adresse dans le presse-papiers", (await win.evaluate(() => window.ariaTest.clipboard())) === "chrome://extensions");
+check("extension : étapes affichées", (await opt.textContent("#extensionSteps")).includes("Navigateur test s'ouvre. L'adresse chrome://extensions est dans ton presse-papiers") && (await opt.textContent("#extensionStatus")).includes(`Extension ${appVersion} prête`), await opt.textContent("#extensionStatus"));
+await opt.click("#extensionCopyPath");
+await wait(300);
+check("extension : chemin du dossier copié", (await win.evaluate(() => window.ariaTest.clipboard())) === extensionDir, await win.evaluate(() => window.ariaTest.clipboard()));
+if (shots) await opt.screenshot({ path: `${shots}/app-extension.png`, fullPage: false });
+// Mise à jour : une copie plus ancienne, avec un fichier qui n'existe plus et un fichier à l'utilisateur.
+const markerFile = `${extensionDir}/.aria-plume-copie.json`;
+const oldMarker = JSON.parse(fs.readFileSync(markerFile, "utf8"));
+fs.writeFileSync(markerFile, JSON.stringify({ ...oldMarker, version: "0.0.1", files: [...oldMarker.files, "core/disparu.js"] }));
+fs.writeFileSync(`${extensionDir}/core/disparu.js`, "// ancienne version");
+fs.writeFileSync(`${extensionDir}/notes.txt`, "à moi");
+await opt.reload();
+await opt.waitForSelector("#app-settings", { timeout: 10000 }).catch(() => {});
+check("extension : mise à jour proposée", (await opt.textContent('[data-browser="test"]')) === "Mettre à jour dans Navigateur test" && (await opt.textContent("#extensionStatus")).includes("0.0.1"));
+await opt.click('[data-browser="test"]');
+await opt.waitForSelector("#extensionSteps:not([hidden])", { timeout: 60000 }).catch(() => {});
+check("extension : mise à jour faite", JSON.parse(fs.readFileSync(markerFile, "utf8")).version === appVersion && !fs.existsSync(`${extensionDir}/core/disparu.js`) && fs.existsSync(`${extensionDir}/notes.txt`));
+check("extension : message de mise à jour", (await opt.textContent("#extensionSteps")).includes(`0.0.1 → ${appVersion}`), (await opt.textContent("#extensionSteps")).slice(0, 120));
 check("réglages : raccourci affiché", (await opt.inputValue(".hotkey")) === "Alt+Maj+C", await opt.inputValue(".hotkey"));
 await opt.click(".hotkey");
 await opt.keyboard.press("Control+Alt+K");

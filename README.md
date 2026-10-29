@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.31 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.32 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -45,7 +45,7 @@ La langue est détectée toute seule. Le banc d'essai, accessible depuis la popu
 
 ## Installation
 
-L'extension n'est pas publiée sur un store : elle se charge en mode développeur.
+L'extension n'est pas publiée sur un store : elle se charge en mode développeur. Avec l'application de bureau, c'est guidé : **Réglages → Application → Extension du navigateur**, un clic sur ton navigateur, puis les trois clics que les navigateurs réservent à l'utilisateur.
 
 1. Récupère le dossier `extension` : le plus simple est `Aria-Plume-extension-<version>.zip` dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) (à décompresser), sinon **Code → Download ZIP** sur cette page, ou `git clone`.
 2. Ouvre `opera://extensions` (ou `chrome://extensions`, `edge://extensions`…) et active le **Mode développeur**.

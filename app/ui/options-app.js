@@ -59,6 +59,101 @@
         return [...mods, main].join("+");
     }
 
+    // Extension du navigateur : installation assistée. Les navigateurs interdisent à un logiciel
+    // d'installer une extension seul ; l'application copie l'extension dans un dossier fixe, ouvre
+    // le navigateur et guide les trois clics qui restent.
+    async function extensionBlock() {
+        const status = el("p", { className: "status", id: "extensionStatus" });
+        status.setAttribute("aria-live", "polite");
+        const buttons = el("div", { className: "buttons", id: "extensionButtons" });
+        const steps = el("div", { className: "ext-steps", id: "extensionSteps", hidden: true });
+
+        const copyPath = el("button", { type: "button", textContent: "Copier le chemin du dossier", id: "extensionCopyPath" });
+        copyPath.addEventListener("click", async () => {
+            await window.ariaApp.copyExtensionPath();
+            copyPath.textContent = "Chemin copié ✓";
+            setTimeout(() => {
+                copyPath.textContent = "Copier le chemin du dossier";
+            }, 1500);
+        });
+        const openFolder = el("button", { type: "button", textContent: "Ouvrir le dossier", id: "extensionOpenFolder" });
+        openFolder.addEventListener("click", () => window.ariaApp.openExtensionFolder());
+
+        function showState(state) {
+            if (!state.copied) {
+                status.textContent = `L'extension sera copiée dans « ${state.folder} ». Laisse ce dossier en place : le navigateur la lit depuis là.`;
+            } else if (state.copied !== state.version) {
+                status.textContent = `Mise à jour disponible : l'extension copiée est en version ${state.copied}, l'application en ${state.version}. Clique sur ton navigateur pour la mettre à jour.`;
+            } else {
+                status.textContent = `Extension ${state.copied} prête dans « ${state.folder} ».`;
+            }
+            status.classList.toggle("error", !!state.copied && state.copied !== state.version);
+        }
+
+        function showSteps(result, name) {
+            const update = result.updated && result.previous;
+            const step = (...content) => el("li", {}, ...content);
+            const list = el("ol", {},
+                step(result.launched ? `${name} s'ouvre. L'adresse ` : "Ouvre ton navigateur. L'adresse ",
+                    el("code", { textContent: result.url }), " est dans ton presse-papiers : colle-la (Ctrl+V) dans sa barre d'adresse, puis Entrée."),
+                step("Active le « Mode développeur » (un interrupteur en haut ou dans le coin de la page)."),
+                step("Clique sur « Charger l'extension non empaquetée » (Edge : « Charger l'extension décompressée »)."),
+                step("Clique ici sur « Copier le chemin du dossier », colle-le dans la case « Dossier » de la fenêtre qui s'est ouverte, puis « Sélectionner le dossier ». Aria Plume apparaît dans tes extensions."),
+            );
+            steps.replaceChildren(
+                ...(update ? [el("p", { className: "hint", textContent: `Fichiers mis à jour (${result.previous} → ${result.copied}). Si l'extension est déjà installée dans ce navigateur, il suffit de cliquer sur ↻ (Recharger) sur sa carte, dans la page des extensions. Sinon :` })] : []),
+                ...(result.error ? [el("p", { className: "status error", textContent: `Impossible d'ouvrir ${name} (${result.error}) : ouvre-le toi-même.` })] : []),
+                list,
+                el("div", { className: "buttons" }, copyPath),
+            );
+            steps.hidden = false;
+        }
+
+        async function install(id, name, button) {
+            const all = buttons.querySelectorAll("button");
+            all.forEach((item) => {
+                item.disabled = true;
+            });
+            const before = await window.ariaApp.extensionState();
+            status.classList.remove("error");
+            status.textContent = before.copied === before.version ? `Ouverture de ${name}…` : "Copie de l'extension…";
+            try {
+                const result = await window.ariaApp.installExtension(id);
+                showState(result);
+                showSteps({ ...result, previous: before.copied }, name);
+            } catch (error) {
+                status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+                status.classList.add("error");
+            } finally {
+                all.forEach((item) => {
+                    item.disabled = false;
+                });
+                button.focus();
+            }
+        }
+
+        const state = await window.ariaApp.extensionState();
+        const label = (name) => (state.copied && state.copied !== state.version ? `Mettre à jour dans ${name}` : `Installer dans ${name}`);
+        for (const browser of state.browsers) {
+            const button = el("button", { type: "button", textContent: label(browser.name) });
+            button.dataset.browser = browser.id;
+            button.addEventListener("click", () => install(browser.id, browser.name, button));
+            buttons.append(button);
+        }
+        const other = el("button", { type: "button", textContent: state.browsers.length ? "Autre navigateur" : "Préparer l'extension" });
+        other.dataset.browser = "other";
+        other.addEventListener("click", () => install("other", "ton navigateur", other));
+        buttons.append(other, openFolder);
+        showState(state);
+        return [
+            el("h3", { textContent: "Extension du navigateur" }),
+            el("p", { className: "hint", textContent: "La même correction directement dans les pages web (Chrome, Edge, Brave, Opera, Opera GX, Vivaldi…). Les navigateurs interdisent à un logiciel d'installer une extension tout seul : Aria Plume prépare tout, il te reste trois clics, guidés ici. L'extension garde ses propres réglages (exporte-les ici, importe-les dans les siens pour retrouver ton dictionnaire). Firefox n'est pas pris en charge." }),
+            status,
+            buttons,
+            steps,
+        ];
+    }
+
     async function build() {
         const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
@@ -113,6 +208,7 @@
             el("p", { className: "hint" }, "Tes réglages sont enregistrés dans ", el("code", { textContent: file }), ". Pour retrouver ceux de l'extension (dictionnaire, glossaire…), exporte-les depuis ses réglages, puis utilise « Importer » tout en bas de cette page."),
             el("div", { className: "buttons" }, openFolder),
         );
+        section.append(...await extensionBlock());
         // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
         const mcp = await window.ariaApp.mcpConfig();
         const args = mcp.packaged ? mcp.args : [mcp.appDir, ...mcp.args];
