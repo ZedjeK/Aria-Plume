@@ -10,9 +10,9 @@
     "private": true,
     "scripts": {
         "start": "electron .",
-        "dist": "electron-builder --win --x64",
+        "dist": "electron-builder --win --x64 --publish never",
         "test": "node tests/smoke.mjs",
-        "test:package": "electron-builder --linux dir --x64 && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/smoke.mjs"
+        "test:package": "electron-builder --linux dir --x64 --publish never && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/smoke.mjs"
     },
     "devDependencies": {
         "electron": "44.7.0",

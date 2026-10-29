@@ -22,6 +22,19 @@ Construire (depuis Linux ou Windows) : `npm run dist`, résultats dans `dist/`.
 `xvfb-run -a npm run test:package` (Linux) construit l'application empaquetée et y passe tout le test
 de fumée. C'est lui qui aurait attrapé l'oubli du dossier `options/` dans la 0.30.0.
 
+## Publier une version
+
+Une release GitHub se construit toute seule (`.github/workflows/release.yml`) :
+
+1. Mettre la même version dans `extension/manifest.json` et `app/package.json` (ex. `0.30.2`).
+2. Écrire les notes de version dans `docs/releases/v0.30.2.md` (facultatif : sinon GitHub les génère).
+3. Pousser sur `main`, puis **au choix** : onglet **Actions → Release → Run workflow** avec le tag
+   `v0.30.2`, ou `git tag v0.30.2` puis `git push origin v0.30.2`.
+
+GitHub vérifie que le tag correspond aux versions, passe le banc de mesure et le test complet de
+l'application empaquetée, construit l'exe portable, le zip Windows et le zip de l'extension, puis
+publie la release. Si une étape échoue, rien n'est publié.
+
 ## Lancer en développement
 
 Il faut Node 22 ou plus récent.

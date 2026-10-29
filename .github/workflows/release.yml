@@ -1,0 +1,104 @@
+# Aria Plume — publication d'une version.
+#
+# Déclenchement, au choix :
+#   - un tag « v<version> » poussé sur GitHub (ex. v0.30.2) ;
+#   - à la main, onglet Actions → Release → « Run workflow », en donnant le tag : la release est
+#     construite depuis la branche choisie (main) et le tag est créé par GitHub au moment de publier.
+#
+# Étapes : vérification que le tag correspond aux versions de l'extension et de l'application,
+# banc de mesure du moteur, construction de l'application Windows (exe portable et zip) et de
+# l'extension (zip), test complet de l'application empaquetée, puis publication de la release.
+# Notes de version : docs/releases/<tag>.md s'il existe, sinon notes générées par GitHub.
+
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Tag de la version (ex. v0.30.2) : doit correspondre aux versions du code"
+                required: true
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-${{ github.event.inputs.tag || github.ref_name }}
+    cancel-in-progress: false
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        env:
+            TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        steps:
+            # Sur un tag : le code du tag. À la main : la branche choisie dans « Run workflow ».
+            - name: Récupérer le code
+              uses: actions/checkout@v4
+
+            - name: Installer Node 22
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+                  cache-dependency-path: app/package-lock.json
+
+            - name: Vérifier que le tag correspond aux versions
+              run: |
+                  version="${TAG#v}"
+                  extension=$(node -p "require('./extension/manifest.json').version")
+                  application=$(node -p "require('./app/package.json').version")
+                  echo "tag : $version · extension : $extension · application : $application"
+                  if [ "$version" != "$extension" ] || [ "$version" != "$application" ]; then
+                      echo "::error::Le tag $TAG ne correspond pas aux versions (extension $extension, application $application)."
+                      exit 1
+                  fi
+
+            - name: Banc de mesure du moteur (sans recul toléré)
+              run: |
+                  node tests/node/smoke.mjs
+                  node tests/bench/run.mjs
+
+            - name: Installer les dépendances de l'application
+              working-directory: app
+              run: npm ci
+
+            - name: Tester l'application empaquetée (Linux)
+              working-directory: app
+              run: |
+                  command -v xvfb-run > /dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
+                  xvfb-run -a npm run test:package
+
+            - name: Construire l'application Windows
+              working-directory: app
+              run: npx electron-builder --win --x64 --publish never
+
+            - name: Construire l'extension
+              run: git archive --format=zip --prefix=extension/ -o "Aria-Plume-extension-${TAG#v}.zip" HEAD:extension
+
+            - name: Publier la release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  version="${TAG#v}"
+                  files=(
+                      "app/dist/Aria-Plume-${version}-portable.exe"
+                      "app/dist/Aria-Plume-${version}-win-x64.zip"
+                      "Aria-Plume-extension-${version}.zip"
+                  )
+                  ls -la "${files[@]}"
+                  if [ -f "docs/releases/${TAG}.md" ]; then
+                      notes=(--notes-file "docs/releases/${TAG}.md")
+                  else
+                      notes=(--generate-notes)
+                  fi
+                  if gh release view "$TAG" > /dev/null 2>&1; then
+                      gh release upload "$TAG" "${files[@]}" --clobber
+                  else
+                      # Sans tag existant (lancement à la main), GitHub le crée sur le commit construit.
+                      gh release create "$TAG" --target "$GITHUB_SHA" --title "Aria Plume ${version}" "${notes[@]}" "${files[@]}"
+                  fi
