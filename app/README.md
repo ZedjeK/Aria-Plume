@@ -18,6 +18,10 @@ votre ordinateur » → « Informations complémentaires » → « Exécuter qua
 
 Construire (depuis Linux ou Windows) : `npm run dist`, résultats dans `dist/`.
 
+**Avant chaque livraison**, tester le paquet lui-même et pas seulement les sources :
+`xvfb-run -a npm run test:package` (Linux) construit l'application empaquetée et y passe tout le test
+de fumée. C'est lui qui aurait attrapé l'oubli du dossier `options/` dans la 0.30.0.
+
 ## Lancer en développement
 
 Il faut Node 22 ou plus récent.
