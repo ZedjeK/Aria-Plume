@@ -70,9 +70,21 @@ const clean = (input) => ({
 });
 
 let cache = null;
+let cacheStamp = null;
+
+// Date de modification du fichier : une autre instance (l'application, le serveur MCP) peut l'avoir
+// changé, on relit alors les réglages.
+function fileStamp() {
+    try {
+        return fs.statSync(settingsFile()).mtimeMs;
+    } catch {
+        return null;
+    }
+}
 
 export function loadSettings() {
-    if (cache) {
+    const stamp = fileStamp();
+    if (cache && stamp === cacheStamp) {
         return cache;
     }
     let raw = {};
@@ -84,6 +96,7 @@ export function loadSettings() {
         }
     }
     cache = clean(raw);
+    cacheStamp = stamp;
     return cache;
 }
 
@@ -105,6 +118,7 @@ export function saveSettings(changes) {
         const temp = `${settingsFile()}.tmp`;
         fs.writeFileSync(temp, `${JSON.stringify(after, null, 4)}\n`);
         fs.renameSync(temp, settingsFile());
+        cacheStamp = fileStamp();
     }
     return diff;
 }

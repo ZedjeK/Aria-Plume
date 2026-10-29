@@ -152,6 +152,8 @@ opt.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 await opt.waitForSelector("#app-settings", { timeout: 10000 }).catch(() => {});
 check("réglages : section Application", !!(await opt.$("#app-settings")));
 check("réglages : parties propres au navigateur masquées", await opt.evaluate(() => [...document.querySelectorAll('[data-scope="navigateur"]')].every((el) => el.offsetParent === null) && document.querySelector("#dictInput").offsetParent !== null));
+const mcpConfig = JSON.parse(await opt.inputValue(".mcp-config"));
+check("réglages : configuration MCP", mcpConfig.mcpServers["aria-plume"].args.includes("--mcp") && !!mcpConfig.mcpServers["aria-plume"].command, JSON.stringify(mcpConfig.mcpServers["aria-plume"].args));
 check("réglages : raccourci affiché", (await opt.inputValue(".hotkey")) === "Alt+Maj+C", await opt.inputValue(".hotkey"));
 await opt.click(".hotkey");
 await opt.keyboard.press("Control+Alt+K");

@@ -98,6 +98,27 @@ function suggestFromDictionary(matches, text, dictionary) {
 
 const NO_DETECTION = { isReliable: false, languages: [] };
 
+// Filtre personnel, comme dans les pages (content/checker.js) : mots du dictionnaire (un mot en
+// minuscules vaut pour toutes les casses, un mot avec majuscules garde les siennes ou passe tout
+// en capitales), fautes ignorées (mot + règle) et catégories décochées.
+export function personalFilter({ dictionary = [], ignored = [], disabledKinds = [] } = {}) {
+    const lower = new Set();
+    const exact = new Set();
+    for (const word of dictionary) {
+        if (typeof word === "string" && word.trim()) {
+            const w = word.trim();
+            (w === w.toLowerCase() ? lower : exact).add(w);
+        }
+    }
+    const ignoredKeys = new Set(ignored.filter((e) => e && typeof e.word === "string").map((e) => `${e.word}|${e.rule}`));
+    const disabled = new Set(disabledKinds);
+    const inDictionary = (word) => lower.has(word.toLowerCase()) || exact.has(word) || [...exact].some((entry) => entry.toUpperCase() === word);
+    return (match, text) => {
+        const word = text.slice(match.start, match.end).trim();
+        return !ignoredKeys.has(`${word}|${match.rule}`) && !disabled.has(match.kind) && !(match.kind === "orthographe" && inDictionary(word));
+    };
+}
+
 export function createService({ aria, getSettings, saveValues, detectNative = null }) {
     async function detectLanguage(text) {
         const result = detectNative ? (await detectNative(text).catch(() => NO_DETECTION)) ?? NO_DETECTION : NO_DETECTION;
@@ -122,8 +143,10 @@ export function createService({ aria, getSettings, saveValues, detectNative = nu
         return { lang: "fr", supported: false, reliable: false, source: "langue non reconnue", raw: languages };
     }
 
-    // Vérification avec les réglages. host : site d'où vient le texte (français soigné par site).
-    async function check({ text, lang, host = "" }) {
+    // Vérification avec les réglages. host : site d'où vient le texte (français soigné par site) ;
+    // formal : impose (ou non) le français soigné ; personal : applique dictionnaire, mots ignorés
+    // et catégories décochées (les pages le font elles-mêmes, le serveur MCP le demande ici).
+    async function check({ text, lang, host = "", formal = null, personal = false }) {
         let detection = null;
         if (lang === "auto") {
             detection = await detectLanguage(text);
@@ -131,11 +154,15 @@ export function createService({ aria, getSettings, saveValues, detectNative = nu
         }
         const settings = await getSettings({ englishDialect: "american", dictionary: [], formalFrench: DEFAULTS.formalFrench, formalHosts: DEFAULTS.formalHosts, casualHosts: DEFAULTS.casualHosts, repetitions: true, repetitionDistance: 30 });
         const distance = settings.repetitions === true ? Math.min(60, Math.max(10, Number(settings.repetitionDistance) || 30)) : 0;
-        const result = await aria.check({ lang, text, dialect: settings.englishDialect, formal: formalFor(host, settings), repetitions: distance });
+        const result = await aria.check({ lang, text, dialect: settings.englishDialect, formal: typeof formal === "boolean" ? formal : formalFor(host, settings), repetitions: distance });
         // Les mots du dictionnaire personnel (Elegoo, systemd…) ne comptent pas comme répétitions.
         const known = new Set(settings.dictionary.map((w) => w.toLowerCase()));
         result.matches = result.matches.filter((m) => m.rule !== "aria_repetition" || !known.has(text.slice(m.start, m.end).toLowerCase()));
         suggestFromDictionary(result.matches, text, settings.dictionary);
+        if (personal) {
+            const keep = personalFilter(await getSettings({ dictionary: [], ignored: [], disabledKinds: [] }));
+            result.matches = result.matches.filter((m) => keep(m, text));
+        }
         return { ...result, lang, detection };
     }
 

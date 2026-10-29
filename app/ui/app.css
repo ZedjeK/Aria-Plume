@@ -79,3 +79,14 @@ body.app #bench {
 .app-options .status.error {
     color: var(--ko);
 }
+
+.app-options .mcp-config {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0f1220;
+    color: var(--text);
+    font: 13px var(--mono);
+    resize: vertical;
+}

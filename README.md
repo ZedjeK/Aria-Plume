@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.30 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.31 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -59,7 +59,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 
 ### L'application de bureau (Windows)
 
-Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison et raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ».
+Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison, raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel, et **serveur MCP** (`--mcp`) pour prêter ces outils à Claude Desktop, LM Studio ou toute IA qui parle MCP. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ».
 
 ## Premiers pas
 

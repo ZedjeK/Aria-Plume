@@ -22,6 +22,46 @@ Construire (depuis Linux ou Windows) : `npm run dist`, résultats dans `dist/`.
 `xvfb-run -a npm run test:package` (Linux) construit l'application empaquetée et y passe tout le test
 de fumée. C'est lui qui aurait attrapé l'oubli du dossier `options/` dans la 0.30.0.
 
+## Le serveur MCP (pour les IA)
+
+`Aria Plume.exe --mcp` démarre Aria Plume en **serveur MCP** sur l'entrée et la sortie standard,
+sans fenêtre : une IA qui parle MCP (Claude Desktop, LM Studio…) peut alors utiliser quatre outils.
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `corriger` | Relit un texte français ou anglais : chaque faute (extrait, position, explication, suggestions) et le texte corrigé. Option `francais_soigne`. |
+| `traduire` | Français ↔ anglais, avec ton glossaire. |
+| `conjuguer` | Tous les temps d'un verbe français (infinitif ou forme conjuguée). |
+| `synonymes` | Synonymes groupés par sens, accordés comme le mot. |
+
+Tes réglages s'appliquent (dictionnaire personnel, mots ignorés, catégories, glossaire, dialecte
+anglais, français soigné) et sont relus dès que le fichier change. Le serveur ne modifie rien.
+
+**Configuration** : Réglages → section Application → « Serveur MCP » donne le bloc à copier, avec le
+bon chemin. Il ressemble à ceci (Claude Desktop : `claude_desktop_config.json` ; LM Studio : `mcp.json`) :
+
+```json
+{
+  "mcpServers": {
+    "aria-plume": {
+      "command": "C:\\Users\\toi\\Aria Plume\\Aria Plume.exe",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+Utilise la **version zip** pour le MCP : l'exe portable se décompresse dans un dossier temporaire
+différent à chaque lancement. Avec Node 22, `node app/mcp/standalone.mjs [fichier de réglages]`
+lance le même serveur sans Electron.
+
+Le serveur parle les deux générations du protocole : la poignée de main `initialize` (versions
+2024-11-05 à 2025-11-25) et la version 2026-07-28 (sans poignée de main, `server/discover`).
+Les corrections tournent sur ton PC ; ce que l'IA fait du reste de la conversation dépend de l'IA
+que tu utilises (en ligne ou locale).
+
+Tests : `node tests/mcp.mjs` (serveur Node) et `xvfb-run -a node tests/mcp.mjs --app` (application).
+
 ## Publier une version
 
 Une release GitHub se construit toute seule (`.github/workflows/release.yml`) :
@@ -103,12 +143,15 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 
 | Fichier | Rôle |
 |---|---|
-| `main.js` | Processus principal : instance unique, icône près de l'horloge, fenêtre, protocole `aria:`, demandes de la fenêtre |
 | `engine.js` | Le moteur Aria (plateforme Node) et son service (`core/service.js`), dans le processus principal |
 | `settings.js` | Réglages dans un fichier JSON, à côté de l'exécutable (portable) |
 | `preload.cjs` | Pont sécurisé : les quelques API `chrome.*` dont le correcteur a besoin, branchées sur le processus principal |
 | `windows-input.js` | Raccourci global sous Windows : copie de la sélection, recollage, presse-papiers |
 | `ui/chrome.js` | Pose ce pont à la place de `window.chrome` avant les scripts du correcteur |
+| `app-main.js` | L'application (fenêtre, icône, raccourci) ; `main.js` choisit entre elle et le serveur MCP |
+| `mcp/server.js` | Serveur MCP (outils, protocole, stdio) |
+| `mcp/electron.js` | `--mcp` : le serveur dans l'application, avec ses réglages |
+| `mcp/standalone.mjs` | Le serveur avec Node seul |
 | `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
 | `ui/app.css` | Retouches du correcteur pour la fenêtre (éléments propres au navigateur masqués) |
 | `tests/smoke.mjs` | Test de fumée (`xvfb-run -a npm test` sous Linux) |

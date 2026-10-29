@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld("ariaApp", {
     settingsFile: () => ipcRenderer.invoke("app:settings-file"),
     showSettingsFile: () => ipcRenderer.invoke("app:show-settings-file"),
     saveFile: (name, text) => ipcRenderer.invoke("app:save-file", name, text),
+    mcpConfig: () => ipcRenderer.invoke("app:mcp-config"),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).

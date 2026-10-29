@@ -113,6 +113,32 @@
             el("p", { className: "hint" }, "Tes réglages sont enregistrés dans ", el("code", { textContent: file }), ". Pour retrouver ceux de l'extension (dictionnaire, glossaire…), exporte-les depuis ses réglages, puis utilise « Importer » tout en bas de cette page."),
             el("div", { className: "buttons" }, openFolder),
         );
+        // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
+        const mcp = await window.ariaApp.mcpConfig();
+        const args = mcp.packaged ? mcp.args : [mcp.appDir, ...mcp.args];
+        const config = JSON.stringify({ mcpServers: { "aria-plume": { command: mcp.command, args } } }, null, 2);
+        const configBox = el("textarea", { className: "mcp-config", readOnly: true, rows: 7, spellcheck: false, value: config });
+        configBox.setAttribute("aria-label", "Configuration MCP");
+        const copy = el("button", { type: "button", textContent: "Copier la configuration" });
+        copy.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(config);
+                copy.textContent = "Copiée ✓";
+            } catch {
+                configBox.select();
+                copy.textContent = "Sélectionnée : Ctrl+C";
+            }
+            setTimeout(() => {
+                copy.textContent = "Copier la configuration";
+            }, 1500);
+        });
+        section.append(
+            el("h3", { textContent: "Serveur MCP (pour les IA)" }),
+            el("p", { className: "hint", textContent: "Aria Plume peut prêter ses outils (corriger, traduire, conjuguer, synonymes) à une IA qui parle MCP : Claude Desktop, LM Studio… Ajoute cette configuration dans la sienne (Claude Desktop : fichier claude_desktop_config.json, accessible depuis ses réglages développeur ; LM Studio : mcp.json), puis redémarre-la. Les corrections tournent sur ton PC ; c'est l'IA que tu utilises qui décide où va le reste de la conversation." }),
+            ...(mcp.portable ? [el("p", { className: "status error", textContent: "Tu utilises l'exe portable, qui se décompresse ailleurs à chaque lancement : pour le MCP, télécharge plutôt la version zip et indique le chemin de son « Aria Plume.exe »." })] : []),
+            configBox,
+            el("div", { className: "buttons" }, copy),
+        );
         document.querySelector("main").prepend(section);
         await refreshStatus();
     }
