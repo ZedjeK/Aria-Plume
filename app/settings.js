@@ -109,6 +109,20 @@ export function saveSettings(changes) {
     return diff;
 }
 
+// Remet des clés à leur valeur par défaut (chrome.storage.local.remove).
+export function removeSettings(keys) {
+    const list = typeof keys === "string" ? [keys] : Array.isArray(keys) ? keys : [];
+    const current = { ...loadSettings() };
+    const defaults = clean({});
+    const changes = {};
+    for (const key of list) {
+        if (key in defaults) {
+            changes[key] = defaults[key];
+        }
+    }
+    return saveSettings({ ...current, ...changes });
+}
+
 // Lecture façon chrome.storage.local.get : rien (tout), une clé, une liste de clés,
 // ou un objet de valeurs par défaut.
 export function getValues(spec) {

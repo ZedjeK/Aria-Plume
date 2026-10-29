@@ -9,6 +9,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 const RUNTIME_ID = "aria-plume-app";
+const MANIFEST = ipcRenderer.sendSync("app:manifest");
 const storageListeners = new Set();
 const messageListeners = new Set();
 const sessionStore = new Map();
@@ -66,6 +67,7 @@ contextBridge.exposeInMainWorld("ariaChrome", {
     runtime: {
         id: RUNTIME_ID,
         getURL: (path) => `aria://app/${String(path).replace(/^\/+/, "")}`,
+        getManifest: () => ({ name: MANIFEST.name, version: MANIFEST.version }),
         sendMessage: (msg) => ipcRenderer.invoke("sw", msg),
         openOptionsPage: () => ipcRenderer.invoke("app:options"),
         onMessage: event(messageListeners),
@@ -74,6 +76,7 @@ contextBridge.exposeInMainWorld("ariaChrome", {
         local: {
             get: (spec) => ipcRenderer.invoke("storage:get", spec),
             set: (values) => ipcRenderer.invoke("storage:set", values),
+            remove: (keys) => ipcRenderer.invoke("storage:remove", keys),
         },
         session: {
             get: async (spec) => sessionGet(spec),
@@ -88,8 +91,13 @@ contextBridge.exposeInMainWorld("ariaChrome", {
 });
 
 contextBridge.exposeInMainWorld("ariaApp", {
+    platform: MANIFEST.platform,
     version: () => ipcRenderer.invoke("app:version"),
     info: () => ipcRenderer.invoke("app:info"),
+    hotkey: () => ipcRenderer.invoke("app:hotkey"),
+    settingsFile: () => ipcRenderer.invoke("app:settings-file"),
+    showSettingsFile: () => ipcRenderer.invoke("app:show-settings-file"),
+    saveFile: (name, text) => ipcRenderer.invoke("app:save-file", name, text),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).
@@ -102,4 +110,5 @@ contextBridge.exposeInMainWorld("ariaTest", {
     hotkey: (selection) => ipcRenderer.invoke("test:hotkey", selection),
     pasted: () => ipcRenderer.invoke("test:pasted"),
     clipboard: (text) => ipcRenderer.invoke("test:clipboard", text),
+    download: () => ipcRenderer.invoke("test:download"),
 });

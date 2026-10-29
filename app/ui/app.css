@@ -30,3 +30,52 @@ body.app .fix {
     flex: 1;
     min-height: 0;
 }
+
+/* Le bouton « Réglages » de la popup, discret, en haut à droite à côté de « 100 % local ». */
+body.app {
+    position: relative;
+}
+
+body.app .actions:has(#options) {
+    display: flex;
+    position: absolute;
+    top: 12px;
+    right: 112px;
+    margin: 0;
+}
+
+body.app #options {
+    padding: 3px 12px;
+    font-size: 12px;
+}
+
+body.app #bench {
+    display: none;
+}
+
+/* Page de réglages : ce qui ne concerne que l'extension du navigateur est masqué. */
+.app-options [data-scope="navigateur"] {
+    display: none;
+}
+
+.app-options .hotkey {
+    width: 14em;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--cyan);
+    font: 600 14px var(--mono);
+    text-align: center;
+    cursor: pointer;
+}
+
+.app-options .hotkey:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px rgba(62, 230, 255, 0.25);
+}
+
+.app-options .status.error {
+    color: var(--ko);
+}

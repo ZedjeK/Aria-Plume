@@ -1,4 +1,4 @@
-# Aria Plume — application (en construction)
+# Aria Plume — application
 
 Application de bureau Electron autour du moteur Aria (`../extension/core`), 100 % locale.
 Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md), phase 2.
@@ -43,6 +43,19 @@ politique de sécurité qui interdit à la page tout autre chargement.
 Sans le détecteur de langue du navigateur, le mode « Langue : auto » s'appuie sur les mots-outils
 (le, the, est, is…) : sur un texte très court, choisis la langue à la main.
 
+## Les réglages
+
+Bouton **Réglages** en haut de la fenêtre, ou menu de l'icône près de l'horloge → **Réglages…** :
+c'est la page de réglages de l'extension (catégories, répétitions, français soigné, couleurs, fautes
+récurrentes, anglais, dictionnaire, glossaire, mots ignorés, sauvegarde), avec en tête une section
+**Application** : raccourci global (clique dans la case, appuie sur la combinaison), démarrage avec
+Windows, emplacement du fichier de réglages. Ce qui ne concerne que le navigateur (correction sur les
+sites, relecture Gmail, réglages par site) est masqué.
+
+Pour avoir les mêmes réglages partout : **Exporter** dans les réglages de l'extension, puis
+**Importer** ce fichier dans ceux de l'application (et inversement). Les exports passent par la
+boîte « Enregistrer sous » de Windows.
+
 ## Le raccourci global (Windows)
 
 Sélectionne du texte dans n'importe quel logiciel (Word, Outlook, Bloc-notes, Teams…) et appuie sur
@@ -52,8 +65,8 @@ remplace la sélection d'origine par le texte corrigé, puis la fenêtre se cach
 - Le presse-papiers est sauvegardé avant et restauré après, tous formats compris.
 - Pas de module natif : un PowerShell invisible, lancé au démarrage, appelle l'API Windows
   (`windows-input.js`). Il compile sa petite aide C# en une ou deux secondes au lancement.
-- Le raccourci se change dans le fichier de réglages (`"hotkey"`, au format Electron : `Alt+Shift+C`,
-  `CommandOrControl+Alt+K`…). S'il est déjà pris, le menu de l'icône l'indique.
+- Le raccourci se change dans les réglages (section Application). S'il est déjà pris par un autre
+  logiciel, la page et le menu de l'icône l'indiquent.
 
 Limites connues : Windows interdit d'envoyer des touches à un logiciel lancé en administrateur
 (la copie échoue, Aria Plume le dit) ; l'historique du presse-papiers (Win+V) garde une trace des
@@ -79,5 +92,6 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `preload.cjs` | Pont sécurisé : les quelques API `chrome.*` dont le correcteur a besoin, branchées sur le processus principal |
 | `windows-input.js` | Raccourci global sous Windows : copie de la sélection, recollage, presse-papiers |
 | `ui/chrome.js` | Pose ce pont à la place de `window.chrome` avant les scripts du correcteur |
+| `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
 | `ui/app.css` | Retouches du correcteur pour la fenêtre (éléments propres au navigateur masqués) |
 | `tests/smoke.mjs` | Test de fumée (`xvfb-run -a npm test` sous Linux) |

@@ -5,6 +5,7 @@
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 
 const appDir = new URL("..", import.meta.url).pathname;
 const shots = process.env.SHOTS;
@@ -18,11 +19,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Réglages de test : partir d'un fichier vierge.
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
+const downloads = fs.mkdtempSync(`${os.tmpdir()}/aria-test-`);
+process.env.ARIA_TEST_DOWNLOADS = downloads;
 // APP_BINARY=chemin : teste l'application empaquetée (electron-builder) au lieu des sources.
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -136,6 +139,64 @@ check("presse-papiers restauré après le collage", (await win.evaluate(() => wi
 await win.evaluate(() => window.ariaTest.hotkey(""));
 await wait(400);
 check("rien de sélectionné : message", (await win.textContent("#fix-source")).includes("Rien de sélectionné") && await win.isDisabled("#fix-put"), await win.textContent("#fix-source"));
+
+// Page de réglages (celle de l'extension, avec la section « Application »).
+await win.evaluate(() => chrome.runtime.openOptionsPage());
+let opt;
+for (let i = 0; i < 40 && !opt; i++) {
+    opt = browser.contexts()[0].pages().find((p) => p.url().startsWith("aria://app/options/options.html"));
+    if (!opt) await wait(250);
+}
+opt.on("pageerror", (e) => errors.push(String(e)));
+opt.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+await opt.waitForSelector("#app-settings", { timeout: 10000 }).catch(() => {});
+check("réglages : section Application", !!(await opt.$("#app-settings")));
+check("réglages : parties propres au navigateur masquées", await opt.evaluate(() => [...document.querySelectorAll('[data-scope="navigateur"]')].every((el) => el.offsetParent === null) && document.querySelector("#dictInput").offsetParent !== null));
+check("réglages : raccourci affiché", (await opt.inputValue(".hotkey")) === "Alt+Maj+C", await opt.inputValue(".hotkey"));
+await opt.click(".hotkey");
+await opt.keyboard.press("Control+Alt+K");
+await wait(500);
+const hk2 = await win.evaluate(() => window.ariaTest.pasted());
+check("réglages : nouveau raccourci enregistré", hk2.hotkey.accelerator === "Ctrl+Alt+K" && hk2.hotkey.ok, JSON.stringify(hk2.hotkey));
+check("réglages : état du raccourci", (await opt.textContent("#hotkeyStatus")).includes("Ctrl+Alt+K"), await opt.textContent("#hotkeyStatus"));
+await opt.click(".hotkey");
+await opt.keyboard.press("Alt+Shift+C");
+await wait(400);
+// Dictionnaire : un mot ajouté ici n'est plus signalé dans le correcteur (le filtre est dans la page).
+await opt.fill("#dictInput", "Elegoo");
+await opt.click("#dictForm button[type=submit]");
+await wait(400);
+const dict = await win.evaluate(() => chrome.storage.local.get({ dictionary: [] }));
+check("réglages : mot ajouté au dictionnaire", dict.dictionary.includes("Elegoo"), JSON.stringify(dict.dictionary));
+await win.click("#tab-fix");
+await win.selectOption("#fix-lang", "fr");
+await win.fill("#fix-text", "J'imprime avec mon Elegoo et mon imprimante.");
+await wait(1800);
+const words = await win.$$eval("#fix-list .fix-word", (l) => l.map((x) => x.textContent));
+check("réglages : dictionnaire pris en compte dans le correcteur", !words.includes("Elegoo"), words.join(", ") || "aucune alerte");
+// Export puis import (fichier de l'extension).
+await opt.click("#export");
+let exported = null;
+for (let i = 0; i < 30 && !(exported && fs.existsSync(exported) && fs.statSync(exported).size > 0); i++) {
+    await wait(200);
+    exported = await win.evaluate(() => window.ariaTest.download());
+}
+let exportedData = null;
+try {
+    exportedData = JSON.parse(fs.readFileSync(exported, "utf8"));
+} catch {
+    // pas de fichier
+}
+check("réglages : export", exportedData?.app === "Aria Plume" && exportedData.settings.dictionary.includes("Elegoo"), exported ?? "aucun fichier");
+const importFile = `${process.env.ARIA_TEST_DOWNLOADS}/extension.json`;
+fs.writeFileSync(importFile, JSON.stringify({ app: "Aria Plume", version: "0.29.2", settings: { glossary: [{ fr: "serveur", en: "server" }], keepTerms: ["VLAN"], formalFrench: true } }));
+await opt.setInputFiles("#import", importFile);
+await wait(600);
+const imported = await win.evaluate(() => chrome.storage.local.get({ glossary: [], keepTerms: [], formalFrench: false }));
+check("réglages : import d'un fichier de l'extension", imported.glossary.length === 1 && imported.keepTerms[0] === "VLAN" && imported.formalFrench === true, JSON.stringify(imported));
+const tr = await win.evaluate(() => chrome.runtime.sendMessage({ target: "sw", cmd: "translate", from: "fr", text: "Le serveur est tombé." }));
+check("réglages : glossaire utilisé par la traduction", /server/i.test(tr.text), tr.text);
+await opt.close();
 
 // Fermer = cacher ; réafficher ; quitter.
 await win.evaluate(() => window.ariaTest.close());
