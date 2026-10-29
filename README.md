@@ -47,7 +47,7 @@ La langue est détectée toute seule. Le banc d'essai, accessible depuis la popu
 
 L'extension n'est pas publiée sur un store : elle se charge en mode développeur.
 
-1. Récupère le dossier `extension` : bouton **Code → Download ZIP** sur cette page (puis décompresse), ou `git clone`.
+1. Récupère le dossier `extension` : le plus simple est `Aria-Plume-extension-<version>.zip` dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) (à décompresser), sinon **Code → Download ZIP** sur cette page, ou `git clone`.
 2. Ouvre `opera://extensions` (ou `chrome://extensions`, `edge://extensions`…) et active le **Mode développeur**.
 3. **Charger l'extension non empaquetée** → choisis le dossier `extension`.
 4. Ouvre `opera://extensions/shortcuts` et vérifie les raccourcis : **Alt+Maj+V** (panneau complet) et **Alt+Maj+L** (traduire la sélection). Saisis-les à la main s'ils sont vides.
@@ -56,6 +56,10 @@ L'extension n'est pas publiée sur un store : elle se charge en mode développeu
 Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscreen et l'API CSS Custom Highlight : il faut un navigateur Chromium récent.
 
 **Pour mettre à jour** : remplace le dossier `extension`, puis clique sur ⟳ sur la carte d'Aria Plume et recharge tes onglets.
+
+### L'application de bureau (Windows)
+
+Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison et raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ».
 
 ## Premiers pas
 
