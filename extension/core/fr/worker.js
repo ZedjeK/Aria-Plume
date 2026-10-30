@@ -236,6 +236,9 @@ const BEFORE_INFINITIVE = /(?:^|[\s'’])(?:de|d['’]|à|peux|peut|pouvons|pouv
 const NOUN_SUBJECT = /(?:^|[.!?;,]\s*|^\s*)(le|la|un|une|ce|cet|cette|mon|ton|son|ma|ta|sa|notre|votre|leur|les|des|ces|mes|tes|ses|nos|vos|leurs)\s+[\p{L}-]+(?:\s+[\p{L}-]+)?\s+$|(?:^|[.!?;,]\s*)l['’][\p{L}-]+(?:\s+[\p{L}-]+)?\s+$/iu;
 
 function spellingContext(before) {
+    if (/(?:^|\s)mises?\s+à\s+$/iu.test(before)) {
+        return { notFinite: true };  // « mise à jur » → jour
+    }
     const person = expectedPerson(before);
     if (person) {
         return { person };
@@ -411,7 +414,20 @@ function barbarismSuggestions(word) {
     return { list: [...new Set(found)].map((c) => matchCase(word, c)), confident };
 }
 
+// Fautes d'usage très répandues (souvent calquées sur l'anglais) : la bonne forme d'abord.
+const COMMON_MISSPELLINGS = { connection: "connexion", connections: "connexions", developpement: "développement", apartement: "appartement",
+    dilemne: "dilemme", appeller: "appeler", courier: "courrier", abonement: "abonnement", éffacer: "effacer", éffacé: "effacé",
+    conaissance: "connaissance", parmis: "parmi", malgrés: "malgré", language: null, addresse: "adresse", enveloppe: null,
+    exemples: null, example: "exemple", examples: "exemples", independant: "indépendant", responsable: null, comfortable: "confortable",
+    traffic: "trafic", litterature: "littérature", mariage: null, professionel: "professionnel", professionelle: "professionnelle",
+    personnel: null, rationel: "rationnel", traditionel: "traditionnel", fonctionel: "fonctionnel", optionel: "optionnel",
+    adresser: null, hazard: "hasard", rythme: null, rhytme: "rythme", ryhtme: "rythme" };
+
 function computeSpellSuggestions(word, context = {}) {
+    const known = COMMON_MISSPELLINGS[word.toLowerCase()];
+    if (known) {
+        return [matchCase(word, known)];
+    }
     const barbarism = barbarismSuggestions(word);
     const native = [...spellChecker.suggest(word, MAX_SUGGESTIONS + 5)].flat();
     let scored = [];
@@ -1039,7 +1055,7 @@ function addHomophones(line, grammar) {
     // Règles d'accord d'Aria (pluriel, attribut, sujet-verbe…) : elles complètent Grammalecte. S'il
     // signale déjà quelque chose au même endroit, sa correction (pensée pour la phrase entière) prime ;
     // on remonte seulement la nôtre en tête si elle figure dans ses propositions.
-    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|nous_verbe|vous_verbe|on_verbe)$/;
+    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative)$/;
     const found = all.filter((h) => !WEAK.test(h.rule) || !grammar.some((e) => e.start < h.end && e.end > h.start));
     if (found.length === 0) {
         return { grammar, extra: [] };
@@ -1163,6 +1179,7 @@ function likelyProperNoun(word, before, context) {
 // conditionnel dans une question, dans « saurais gré » et avec les verbes de politesse (je voudrais,
 // tu devrais) ; futur avec un repère de temps à venir (demain, la semaine prochaine…).
 const FUTURE_MARKERS = /(?:^|[\s'’])(demain|bientôt|prochaine?s?|plus tard|tout à l'heure|ce soir|cette semaine|dans (?:une|un|deux|trois|quatre|cinq|dix|quelques|\d+)|dès que|quand|lorsque|lorsqu)(?=[\s,.!?;:]|$)/iu;
+const PAST_THEN_QUE = /(?:^|\s)(?:pensais|pensait|pensions|pensaient|croyais|croyait|croyions|savais|savait|disais|disait|espérais|espérait|imaginais|imaginait|(?:ai|as|a|avais|avait)\s+(?:dit|pensé|cru|su|promis|annoncé|juré))\s+qu/iu;
 const POLITE_VERBS = new Set(["pouvoir", "vouloir", "devoir", "aimer", "souhaiter", "préférer", "falloir", "désirer"]);
 // Souhait ou désir : conditionnel même avec un repère futur (« il souhaiterait vous voir la semaine prochaine »).
 const WISH_VERBS = new Set(["vouloir", "aimer", "souhaiter", "préférer", "désirer"]);
@@ -1195,8 +1212,14 @@ function orderFutureConditional(line, grammar) {
         let preferConditional = null;
         if (/\?/.test(sentence) || /^\s*gré(?!\p{L})/u.test(after) || WISH_VERBS.has(lemma)) {
             preferConditional = true;
+        } else if (PAST_THEN_QUE.test(line.slice(from, match.start))) {
+            preferConditional = true;  // futur dans le passé : « je pensais que tu serais là »
         } else if (FUTURE_MARKERS.test(sentence)) {
             preferConditional = false;
+        } else if (["devoir", "falloir"].includes(lemma)) {
+            preferConditional = true;  // conseil : « tu devrais essayer »
+        } else if (own) {
+            preferConditional = /:K/.test(own);  // sinon, le temps du mot écrit (« tu pourra » → pourras)
         } else if (POLITE_VERBS.has(lemma)) {
             preferConditional = true;
         }
@@ -1236,6 +1259,60 @@ function participleAfterNoun(line, grammar) {
             return match;
         }
         return { ...match, suggestions: [form, ...match.suggestions.filter((x) => x !== form)] };
+    });
+}
+
+// « Le colis a été livrer » : Grammalecte lit aussi « a été » comme « est allé » (tournure familière,
+// sans suggestion) ; la vraie faute est le participe, qu'il signale aussi. On garde celle-là.
+function dropFamiliarAvoirEte(errors) {
+    return errors.filter((e) => !(/ppas_avoir_été__b2_a3/.test(e.sRuleId) && errors.some((o) => o !== e && /ppas_avoir_été/.test(o.sRuleId) && (o.aSuggestions || []).length)));
+}
+
+// « Il faut que tu ais confiance » : Grammalecte propose « as » avant « aies ». Dans une proposition
+// au subjonctif (il faut que, bien que, avant que, pour que…), le subjonctif passe devant.
+const SUBJUNCTIVE_BEFORE = /(?:^|[\s,])(?:il\s+)?(?:faut|faudrait|fallait|faudra|pour|avant|afin|sans|bien|pourvu|veux|voudrais|voulait|veut|souhaite|souhaiterais|aimerais|préfère|exige|demande|attends|doute|crains|quoique|condition|peur|crainte|important|nécessaire|possible|essentiel|dommage|normal)\s+qu(?:e\s+|['’])\s*(?:\S+\s+){0,2}$/iu;
+
+function orderSubjunctive(line, grammar) {
+    return grammar.map((match) => {
+        const word = line.slice(match.start, match.end);
+        if (!/conj|_non_verbe|accord_sujet|_verbe$/.test(match.rule) || !match.suggestions.length || !/^\p{L}+$/u.test(word)) {
+            return match;
+        }
+        const morphsOf = (w) => spellChecker.getMorph(w.toLowerCase());
+        if (!SUBJUNCTIVE_BEFORE.test(line.slice(0, match.start))) {
+            // Hors subjonctif : on préfère le mode du mot écrit (« on peignez » → peint, pas peigne).
+            const own = morphsOf(word).filter((m) => /:V[^/]*:(Ip|Iq|If|K)/.test(m));
+            if (own.length && morphsOf(match.suggestions[0]).every((m) => !/:V[^/]*:(Ip|Iq|If|K)/.test(m))) {
+                const tenses = new Set(own.map((m) => /:(Ip|Iq|If|K)/.exec(m)[1]));
+                const best = match.suggestions.findIndex((s) => morphsOf(s).some((m) => /:V/.test(m) && tenses.has(/:(Ip|Iq|If|K)/.exec(m)?.[1])));
+                if (best > 0) {
+                    return { ...match, suggestions: [match.suggestions[best], ...match.suggestions.filter((_, k) => k !== best)] };
+                }
+            }
+            return match;
+        }
+        if (match.suggestions.length < 2 && morphsOf(match.suggestions[0]).some((m) => /:V[^/]*:Sp/.test(m))) {
+            return match;
+        }
+        // Le subjonctif à la personne du sujet (« que tu ais » → aies, pas aie).
+        const person = expectedPerson(line.slice(0, match.start));
+        const fits = (s, withPerson) => spellChecker.getMorph(s.toLowerCase()).some((m) => /:V[^/]*:Sp/.test(m) && (!withPerson || !person || m.includes(person)));
+        let best = match.suggestions.findIndex((s) => fits(s, true));
+        if (best < 0) {
+            best = match.suggestions.findIndex((s) => fits(s, false));
+        }
+        if (best < 0) {
+            // Pas de subjonctif proposé (« il faut que nos joueurs montrions » → montraient) : on le
+            // reconstruit à la personne de la première suggestion.
+            const entry = morphsOf(match.suggestions[0]).find((m) => /:V[^/]*:[123][sp]/.test(m));
+            const who = entry && /:([123][sp])/.exec(entry)?.[1];
+            const form = who && conj.getConj(entry.slice(1, entry.indexOf("/")), ":Sp", `:${who}`);
+            return form ? { ...match, suggestions: [followCase(word, form), ...match.suggestions.filter((x) => x !== form)] } : match;
+        }
+        if (best <= 0) {
+            return match;
+        }
+        return { ...match, suggestions: [match.suggestions[best], ...match.suggestions.filter((_, k) => k !== best)] };
     });
 }
 
@@ -1298,10 +1375,11 @@ function check(text, formal = false, repetitionDistance = 0) {
     let previous = null;
     for (const line of text.split("\n")) {
         if (line.trim() !== "") {
-            const grammar = gc_engine.parse(line, "FR", false, null, false).map((err) => ({
+            const grammar = dropFamiliarAvoirEte(gc_engine.parse(line, "FR", false, null, false)).map((err) => ({
                 start: err.nStart,
                 end: err.nEnd,
-                kind: "grammaire",
+                // Pléonasmes (« reporter à une date ultérieure ») : une remarque de style, pas une faute.
+                kind: /^g\d__pleo_/.test(err.sRuleId) ? "style" : "grammaire",
                 detail: /^g\d__neg_/.test(err.sRuleId) ? "français soigné" : err.sType,
                 message: err.sMessage,
                 suggestions: (err.aSuggestions || []).map((sugg) => followCase(line.slice(err.nStart, err.nEnd), sugg)),
@@ -1309,7 +1387,7 @@ function check(text, formal = false, repetitionDistance = 0) {
             }));
             const { grammar: independent, extra: aria } = addHomophones(line, participleAfterNoun(line, orderParticiples(line, resolveAOrInfinitive(line, vetoPretPres(line, grammar)))));
             const extra = orderFutureConditional(line, aria);
-            const grouped = orderFutureConditional(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start))));
+            const grouped = orderSubjunctive(line, orderFutureConditional(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start)))));
             // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
             const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
             const withApostrophe = (list) => list.map((sugg) => sugg.replace(/['’]/g, apostrophe));

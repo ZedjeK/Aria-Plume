@@ -15,7 +15,7 @@
     "grammalecte": {
         "sentences": 14160,
         "outsideZone": 4,
-        "inZone": 147
+        "inZone": 178
     },
     "wordnet": {
         "sentences": 47478,
@@ -23,11 +23,11 @@
     },
     "textes": {
         "found": 126,
-        "fixed": 123,
-        "firstRank": 121,
+        "fixed": 124,
+        "firstRank": 122,
         "total": 134,
         "falseAlerts": 1,
-        "oneClick": 102
+        "oneClick": 103
     },
     "controle": {
         "found": 59,
@@ -46,11 +46,27 @@
         "oneClick": 208
     },
     "controle2": {
-        "found": 95,
-        "fixed": 92,
-        "firstRank": 90,
+        "found": 96,
+        "fixed": 93,
+        "firstRank": 91,
         "total": 102,
-        "falseAlerts": 2,
-        "oneClick": 111
+        "falseAlerts": 1,
+        "oneClick": 113
+    },
+    "textes3": {
+        "found": 131,
+        "fixed": 131,
+        "firstRank": 130,
+        "total": 131,
+        "falseAlerts": 0,
+        "oneClick": 169
+    },
+    "controle3": {
+        "found": 60,
+        "fixed": 59,
+        "firstRank": 57,
+        "total": 69,
+        "falseAlerts": 3,
+        "oneClick": 76
     }
 }

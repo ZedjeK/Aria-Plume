@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.33 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.34 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).

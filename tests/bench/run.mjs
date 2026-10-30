@@ -20,6 +20,8 @@
 //   - textes2     deuxième série (29/10/2026), français et anglais, avec des textes justes
 //                 (jargon, code, adresses, Markdown, emojis) : série de travail
 //   - controle2   sa série de contrôle, écrite en même temps, jamais regardée pendant les correctifs
+//   - textes3     campagne 100 % français (30/10/2026) : constructions difficiles, textes justes piégeux
+//   - controle3   sa série de contrôle
 
 import fs from "node:fs";
 import zlib from "node:zlib";
@@ -34,12 +36,14 @@ import { textes } from "./textes.mjs";
 import { textes as controle } from "./textes-controle.mjs";
 import { textes as textes2 } from "./textes-2.mjs";
 import { textes as controle2 } from "./textes-controle-2.mjs";
+import { textes as textes3 } from "./textes-3.mjs";
+import { textes as controle3 } from "./textes-controle-3.mjs";
 import { parse, evaluate, summarize, report, misses } from "./textes-eval.mjs";
 
 const args = process.argv.slice(2);
 const verbose = args.includes("-v");
 const update = args.includes("--update");
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2"];
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -196,7 +200,7 @@ async function benchTextes(list = textes) {
 // Pour chaque mesure : faut-il qu'elle monte (more) ou qu'elle baisse (less) ?
 const DIRECTION = { found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
 
-const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2) };
+const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3) };
 const baselineFile = here("baseline.json");
 const baseline = fs.existsSync(baselineFile) ? JSON.parse(fs.readFileSync(baselineFile, "utf8")) : {};
 let regressions = 0;

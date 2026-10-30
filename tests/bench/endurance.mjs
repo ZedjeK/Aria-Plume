@@ -56,7 +56,7 @@ const THINGS = [
     ["machine", "machines", "f"], ["imprimante", "imprimantes", "f"], ["voiture", "voitures", "f"], ["lettre", "lettres", "f"],
     ["sauvegarde", "sauvegardes", "f"], ["porte", "portes", "f"], ["maison", "maisons", "f"], ["figurine", "figurines", "f"],
     ["clé", "clés", "f"], ["facture", "factures", "f"], ["fenêtre", "fenêtres", "f"], ["photo", "photos", "f"],
-    ["chanson", "chansons", "f"], ["tâche", "tâches", "f"], ["armoire", "armoires", "f"], ["application", "applications", "f"],
+    ["chanson", "chansons", "f"], ["armoire", "armoires", "f"], ["application", "applications", "f"],
 ];
 const PEOPLE = [
     ["technicien", "techniciens", "m"], ["voisin", "voisins", "m"], ["directeur", "directeurs", "m"], ["client", "clients", "m"],
@@ -430,6 +430,46 @@ function frComplex() {
     return { text: sentence, errors };
 }
 
+// Sujet éloigné du verbe : complément du nom, relative, sujets coordonnés.
+function frDistant() {
+    const subject = nounPhrase(PEOPLE, null, { kinds: ["def", "poss", "dem"] });
+    const verb = pick(TRANSITIVE);
+    const object = nounPhrase(THINGS, null);
+    const tense = pick(["present", "imparfait", "futur"]);
+    let middle;
+    let person = subject.person;
+    const kind = pick(["de", "que", "qui", "et"]);
+    if (kind === "de") {
+        const other = nounPhrase(THINGS, chance(0.3) ? THING_ADJ : null, { kinds: ["def"] });
+        middle = ` ${other.text.startsWith("le ") ? `du ${other.text.slice(3)}` : other.text.startsWith("les ") ? `des ${other.text.slice(4)}` : `de ${other.text}`}`;
+    } else if (kind === "que") {
+        const s2 = pick(PRONOUNS.filter((p) => !p.on));
+        const v2 = pick(TRANSITIVE);
+        const aux = AVOIR.present[s2.person];
+        const pp = ppForm(v2, subject.g, subject.n);
+        middle = ` ${elides(s2.word) ? "qu'" : "que "}${s2.word === "je" && elides(aux) ? `j'${aux}` : `${s2.word} ${aux}`} ${pp} ${pick(["hier", "ce matin", "la semaine dernière"])}`;
+    } else if (kind === "qui") {
+        const v2 = pick(TRANSITIVE);
+        middle = ` qui ${conjugations.get(v2).tenses.imparfait[subject.person]} ${nounPhrase(THINGS, null, { kinds: ["def", "indef"] }).text}`;
+    } else {
+        const other = nounPhrase(PEOPLE, null, { kinds: ["poss", "def"] });
+        middle = ` et ${other.text}`;
+        person = 5;
+    }
+    const forms = conjugations.get(verb).tenses[tense];
+    const form = forms[person];
+    const sentence = `${capitalize(subject.text)}${middle} ${form} ${object.text}.`;
+    const wrong = forms[person === 5 ? 2 : 5];
+    const errors = [];
+    if (wrong !== form) {
+        errors.push(() => {
+            const at = sentence.lastIndexOf(` ${form} `);
+            return at < 0 ? null : sentence.slice(0, at + 1) + mark(wrong, form, "conj") + sentence.slice(at + 1 + form.length);
+        });
+    }
+    return { text: sentence, errors };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Anglais
 // ---------------------------------------------------------------------------------------------
@@ -595,7 +635,7 @@ function typoError(sentence) {
 // ---------------------------------------------------------------------------------------------
 // Boucle
 // ---------------------------------------------------------------------------------------------
-const FR_TEMPLATES = { simple: frSimple, etre: frEtre, adjectif: frAdjective, pronominal: frPronominal, relative: frRelative, modal: frModal, complexe: frComplex };
+const FR_TEMPLATES = { simple: frSimple, etre: frEtre, adjectif: frAdjective, pronominal: frPronominal, relative: frRelative, modal: frModal, complexe: frComplex, eloigne: frDistant };
 const EN_TEMPLATES = { simple: enSimple, fixe: enFixed };
 
 const aria = createAria(nodePlatform);
