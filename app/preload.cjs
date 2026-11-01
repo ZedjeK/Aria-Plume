@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld("ariaApp", {
     installExtension: (id) => ipcRenderer.invoke("app:extension-install", String(id)),
     copyExtensionPath: () => ipcRenderer.invoke("app:extension-copy-path"),
     openExtensionFolder: () => ipcRenderer.invoke("app:extension-open-folder"),
+    bridgeState: () => ipcRenderer.invoke("app:bridge-state"),
+    registerBridge: () => ipcRenderer.invoke("app:bridge-register"),
+    unregisterBridge: () => ipcRenderer.invoke("app:bridge-unregister"),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).

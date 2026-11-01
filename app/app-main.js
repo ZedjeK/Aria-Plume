@@ -6,7 +6,7 @@
 import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, protocol, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ICON_DIR = path.join(APP_DIR, "build");
@@ -27,6 +27,9 @@ const { aria, createService, ENGINE_ROOT } = await import("./engine.js");
 const { loadSettings, saveSettings, removeSettings, settingsFile, settingsDir, getValues } = await import("./settings.js");
 const { FOLDER_NAME, findBrowsers, extensionState, syncExtension, launchBrowser } = await import("./extension-install.js");
 const { createInput, captureSelection, pasteInto } = await import("./windows-input.js");
+const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridge/server.js");
+const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
+const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
 
 // --- Réglages : enregistrés dans le fichier, et signalés aux fenêtres ouvertes ---
 function updateSettings(changes) {
@@ -38,6 +41,7 @@ function announceChanges(diff) {
         for (const win of BrowserWindow.getAllWindows()) {
             win.webContents.send("storage-changed", diff);
         }
+        bridge?.broadcast({ event: "settings-changed", changes: diff });
         if (diff.hotkey) {
             registerHotkey();
         }
@@ -187,6 +191,90 @@ const SERVICE_COMMANDS = {
         return { changes: 1 };
     },
 };
+
+// --- Pont avec l'extension du navigateur (messagerie native, voir bridge/) ---
+// L'extension demande ici ce que son propre moteur ferait : mêmes commandes, mêmes réglages
+// (le fichier de l'application). « Renvoyer » (exchange) reste propre à la fenêtre.
+const BRIDGE_COMMANDS = {
+    ping: async () => ({ version: app.getVersion() }),
+    check: (msg) => service.check({ text: String(msg.text ?? ""), lang: msg.lang, host: typeof msg.host === "string" ? msg.host : "" }),
+    detect: SERVICE_COMMANDS.detect,
+    translate: SERVICE_COMMANDS.translate,
+    synonyms: SERVICE_COMMANDS.synonyms,
+    conjugate: SERVICE_COMMANDS.conjugate,
+    "record-mistakes": SERVICE_COMMANDS["record-mistakes"],
+    "translate-cancel": SERVICE_COMMANDS["translate-cancel"],
+    "settings-get": async (msg) => ({ values: getValues(msg.spec ?? null) }),
+    "settings-set": async (msg) => ({ changes: updateSettings(msg.values && typeof msg.values === "object" ? msg.values : {}) }),
+    "settings-remove": async (msg) => ({ changes: announceChanges(removeSettings(msg.keys)) }),
+};
+const bridgeDir = () => path.join(settingsDir(), BRIDGE_FOLDER);
+const bridgeTokenFile = () => path.join(bridgeDir(), "jeton");
+let bridge = null;
+let bridgeError = null;
+
+async function startBridge() {
+    try {
+        bridge = await startBridgeServer({
+            pipe: bridgePipePath(),
+            token: ensureToken(bridgeTokenFile()),
+            version: app.getVersion(),
+            handle: async (msg) => {
+                const run = BRIDGE_COMMANDS[msg?.cmd];
+                if (!run) {
+                    throw new Error(`Commande inconnue : ${String(msg?.cmd)}`);
+                }
+                return run(msg);
+            },
+            log: (text) => console.warn(text),
+        });
+    } catch (error) {
+        bridgeError = String(error?.message ?? error);
+        console.error("Pont :", bridgeError);
+    }
+}
+
+// Commande qui démarre l'application cachée (utilisée par le relais).
+function appCommand() {
+    return app.isPackaged
+        ? { command: process.execPath, args: ["--hidden"] }
+        : { command: process.execPath, args: [APP_DIR, "--hidden"] };
+}
+
+const bridgeOptions = () => ({
+    dir: bridgeDir(),
+    exe: process.execPath,
+    appCommand: appCommand(),
+    pipe: bridgePipePath(),
+    tokenFile: bridgeTokenFile(),
+    extensionId: EXTENSION_ID,
+    hostName: NATIVE_HOST,
+});
+
+async function bridgeState() {
+    const support = bridgeSupport();
+    const registration = support.ok ? await bridgeRegistration(bridgeOptions()) : { registered: false, browsers: [] };
+    return {
+        supported: support.ok,
+        reason: support.reason,
+        ...registration,
+        listening: !!bridge,
+        error: bridgeError,
+        clients: bridge?.clients() ?? 0,
+    };
+}
+
+// Application déplacée ou mise à jour : l'inscription existante est réécrite avec les bons chemins.
+async function refreshBridgeRegistration() {
+    if (!bridgeSupport().ok || !fs.existsSync(path.join(bridgeDir(), `${NATIVE_HOST}.json`))) {
+        return;
+    }
+    try {
+        await registerBridge(bridgeOptions());
+    } catch (error) {
+        console.error("Pont : réinscription impossible :", error);
+    }
+}
 
 let tray = null;
 let mainWindow = null;
@@ -397,6 +485,24 @@ ipcMain.handle("app:extension-open-folder", async () => {
     const { folder } = await copyExtension();
     return shell.openPath(folder);
 });
+// --- Pont : inscription auprès des navigateurs (Réglages → Connecter les navigateurs) ---
+ipcMain.handle("app:bridge-state", () => bridgeState());
+ipcMain.handle("app:bridge-register", async () => {
+    const support = bridgeSupport();
+    if (!support.ok) {
+        throw new Error(support.reason === "portable"
+            ? "L'exe portable se décompresse ailleurs à chaque lancement : utilise la version zip pour connecter les navigateurs."
+            : "La connexion avec les navigateurs n'est prévue que sous Windows.");
+    }
+    const result = await registerBridge(bridgeOptions());
+    return { ...result, state: await bridgeState() };
+});
+ipcMain.handle("app:bridge-unregister", async () => {
+    if (bridgeSupport().ok) {
+        await unregisterBridge(bridgeOptions());
+    }
+    return bridgeState();
+});
 // Enregistrement d'un fichier exporté par la page de réglages (réglages, dictionnaire) : boîte de
 // dialogue « Enregistrer sous » de Windows, puis écriture. Le téléchargement de Chromium n'est pas
 // utilisé (il perd le fichier quand la page libère son contenu juste après le clic).
@@ -461,13 +567,19 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
     });
 }
 
-app.on("second-instance", showWindow);
+// Une deuxième instance lancée par le relais (--hidden) ne doit pas faire apparaître la fenêtre.
+app.on("second-instance", (event, argv) => {
+    if (!argv.includes("--hidden")) {
+        showWindow();
+    }
+});
 app.on("before-quit", () => {
     quitting = true;
 });
 app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     input.stop();
+    bridge?.close().catch(() => {});
     // Arrêt des workers du moteur. Sans attendre : retarder la fermeture (preventDefault puis
     // nouvel app.quit()) empêche Electron de se terminer quand une fenêtre a existé.
     aria.close().catch(() => {});
@@ -482,6 +594,8 @@ app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
     createTray();
     registerHotkey();
+    startBridge();
+    refreshBridgeRegistration();
     // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
     input.warmUp();
     createWindow();

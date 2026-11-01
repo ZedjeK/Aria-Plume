@@ -154,6 +154,64 @@
         ];
     }
 
+    // Pont avec l'extension : le navigateur fait corriger et traduire par l'application (mêmes
+    // réglages, même dictionnaire). L'inscription se fait dans HKEY_CURRENT_USER, sans droit administrateur.
+    async function bridgeBlock() {
+        const status = el("p", { className: "status", id: "bridgeStatus" });
+        status.setAttribute("aria-live", "polite");
+        const connect = el("button", { type: "button", id: "bridgeRegister" });
+        const disconnect = el("button", { type: "button", textContent: "Déconnecter", id: "bridgeUnregister" });
+
+        function showState(state, extra = "") {
+            connect.hidden = !state.supported;
+            disconnect.hidden = !state.registered;
+            connect.textContent = state.registered ? "Reconnecter les navigateurs" : "Connecter les navigateurs";
+            let text;
+            if (!state.supported) {
+                text = state.reason === "portable"
+                    ? "Tu utilises l'exe portable, qui se décompresse ailleurs à chaque lancement : pour connecter les navigateurs, utilise la version zip."
+                    : "La connexion avec les navigateurs n'est prévue que sous Windows.";
+            } else if (!state.registered) {
+                text = "Navigateurs non connectés : l'extension utilise son propre moteur et ses propres réglages.";
+            } else {
+                const clients = state.clients ? ` ${state.clients} connexion${state.clients > 1 ? "s" : ""} en cours.` : "";
+                text = `Navigateurs connectés (${state.browsers.join(", ")}).${clients}`;
+            }
+            if (state.error) {
+                text += ` Le canal de l'application n'a pas pu s'ouvrir : ${state.error}`;
+            }
+            status.textContent = `${text}${extra}`;
+            status.classList.toggle("error", !state.supported || !!state.error);
+        }
+
+        async function act(button, action) {
+            connect.disabled = true;
+            disconnect.disabled = true;
+            try {
+                const result = await action();
+                const state = result.state ?? result;
+                const failed = result.failed?.length ? ` Échec pour : ${result.failed.map(({ name }) => name).join(", ")}.` : "";
+                showState(state, failed);
+            } catch (error) {
+                status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+                status.classList.add("error");
+            } finally {
+                connect.disabled = false;
+                disconnect.disabled = false;
+                button.focus();
+            }
+        }
+        connect.addEventListener("click", () => act(connect, () => window.ariaApp.registerBridge()));
+        disconnect.addEventListener("click", () => act(disconnect, () => window.ariaApp.unregisterBridge()));
+        showState(await window.ariaApp.bridgeState());
+        return [
+            el("h3", { textContent: "Connexion avec l'extension" }),
+            el("p", { className: "hint", textContent: "Une fois connectée, l'extension fait corriger et traduire par l'application : un seul moteur, les mêmes réglages et le même dictionnaire partout. Si l'application est fermée, l'extension la démarre en arrière-plan ; si elle ne répond pas, l'extension reprend son propre moteur. Rien ne sort de ton PC : le navigateur et l'application se parlent par un canal réservé à ta session Windows." }),
+            status,
+            el("div", { className: "buttons" }, connect, disconnect),
+        ];
+    }
+
     async function build() {
         const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
@@ -209,6 +267,7 @@
             el("div", { className: "buttons" }, openFolder),
         );
         section.append(...await extensionBlock());
+        section.append(...await bridgeBlock());
         // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
         const mcp = await window.ariaApp.mcpConfig();
         const args = mcp.packaged ? mcp.args : [mcp.appDir, ...mcp.args];

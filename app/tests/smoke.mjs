@@ -27,12 +27,15 @@ const extensionDir = `${downloads}/Aria Plume - extension`;
 const browserArgs = `${downloads}/navigateur-args.txt`;
 fs.writeFileSync(`${downloads}/navigateur.sh`, `#!/bin/sh\necho "$@" > "${browserArgs}"\n`, { mode: 0o755 });
 const testBrowsers = JSON.stringify([{ id: "test", name: "Navigateur test", scheme: "chrome", exe: `${downloads}/navigateur.sh` }]);
+// Pont avec l'extension : canal et dossier « NativeMessagingHosts » de test.
+const bridgePipe = `${downloads}/pont.sock`;
+const nativeDir = `${downloads}/navigateur/NativeMessagingHosts`;
 const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8")).version;
 // APP_BINARY=chemin : teste l'application empaquetée (electron-builder) au lieu des sources.
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -233,6 +236,64 @@ const imported = await win.evaluate(() => chrome.storage.local.get({ glossary: [
 check("réglages : import d'un fichier de l'extension", imported.glossary.length === 1 && imported.keepTerms[0] === "VLAN" && imported.formalFrench === true, JSON.stringify(imported));
 const tr = await win.evaluate(() => chrome.runtime.sendMessage({ target: "sw", cmd: "translate", from: "fr", text: "Le serveur est tombé." }));
 check("réglages : glossaire utilisé par la traduction", /server/i.test(tr.text), tr.text);
+
+// Pont : inscription, puis un relais lancé comme par le navigateur parle à l'application.
+check("pont : état initial", (await opt.textContent("#bridgeStatus")).includes("non connectés"), await opt.textContent("#bridgeStatus"));
+await opt.click("#bridgeRegister");
+await opt.waitForFunction(() => document.querySelector("#bridgeStatus").textContent.startsWith("Navigateurs connectés"), null, { timeout: 5000 }).catch(() => {});
+check("pont : navigateurs connectés", (await opt.textContent("#bridgeStatus")).startsWith("Navigateurs connectés") && await opt.isVisible("#bridgeUnregister"), await opt.textContent("#bridgeStatus"));
+const hostManifest = JSON.parse(fs.readFileSync(`${nativeDir}/fr.aria_plume.app.json`, "utf8"));
+check("pont : manifeste pour l'extension", hostManifest.allowed_origins[0] === "chrome-extension://fpgalamdbelhkacggnnglgcljhdcioca/", hostManifest.path);
+const relay = spawn(hostManifest.path, ["chrome-extension://fpgalamdbelhkacggnnglgcljhdcioca/"], { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, NODE_OPTIONS: "" } });
+relay.stderr.on("data", (d) => errors.push(`relais : ${d}`));
+const relayMessages = [];
+let relayBuffer = Buffer.alloc(0);
+relay.stdout.on("data", (chunk) => {
+    relayBuffer = Buffer.concat([relayBuffer, chunk]);
+    while (relayBuffer.length >= 4 && relayBuffer.length >= 4 + relayBuffer.readUInt32LE(0)) {
+        const size = relayBuffer.readUInt32LE(0);
+        relayMessages.push(JSON.parse(relayBuffer.subarray(4, 4 + size).toString("utf8")));
+        relayBuffer = relayBuffer.subarray(4 + size);
+    }
+});
+const toRelay = (message) => {
+    const body = Buffer.from(JSON.stringify(message), "utf8");
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(body.length, 0);
+    relay.stdin.write(Buffer.concat([header, body]));
+};
+const fromRelay = async (test, ms = 20000) => {
+    for (let t = 0; t < ms; t += 100) {
+        const found = relayMessages.find(test);
+        if (found) return found;
+        await wait(100);
+    }
+    return null;
+};
+toRelay({ id: 1, cmd: "check", text: "Les enfant sont partit a la plage.", lang: "auto", host: "mail.google.com" });
+const ready = await fromRelay((m) => m.event === "ready");
+check("pont : relais accepté par l'application", ready?.version === appVersion, JSON.stringify(ready));
+const viaBridge = await fromRelay((m) => m.id === 1);
+const bridgeWords = (viaBridge?.matches ?? []).map((m) => "Les enfant sont partit a la plage.".slice(m.start, m.end));
+check("pont : correction par l'application", viaBridge?.ok && bridgeWords.includes("a") && viaBridge.lang === "fr", bridgeWords.join(", "));
+toRelay({ id: 2, cmd: "translate", from: "fr", text: "Le serveur est tombé." });
+check("pont : traduction (glossaire de l'application)", /server/i.test((await fromRelay((m) => m.id === 2))?.text ?? ""));
+toRelay({ id: 3, cmd: "settings-get", spec: { dictionary: [] } });
+check("pont : réglages partagés (lecture)", (await fromRelay((m) => m.id === 3))?.values?.dictionary?.includes("Elegoo"));
+await win.evaluate(() => chrome.storage.local.set({ repetitionDistance: 25 }));
+const pushed = await fromRelay((m) => m.event === "settings-changed" && m.changes.repetitionDistance);
+check("pont : réglage changé dans l'application → extension prévenue", pushed?.changes.repetitionDistance.newValue === 25, JSON.stringify(pushed));
+toRelay({ id: 4, cmd: "settings-set", values: { repetitionDistance: 40 } });
+await fromRelay((m) => m.id === 4);
+check("pont : réglage changé par l'extension → application", (await win.evaluate(() => chrome.storage.local.get("repetitionDistance"))).repetitionDistance === 40);
+toRelay({ id: 5, cmd: "exchange", op: "put-text", text: "x" });
+check("pont : commandes de la fenêtre refusées", (await fromRelay((m) => m.id === 5))?.ok === false);
+const relayExit = new Promise((r) => relay.on("exit", r));
+relay.stdin.end();
+check("pont : relais arrêté à la fermeture du port", (await Promise.race([relayExit, wait(3000).then(() => "toujours en vie")])) === 0);
+await opt.click("#bridgeUnregister");
+await opt.waitForFunction(() => document.querySelector("#bridgeStatus").textContent.includes("non connectés"), null, { timeout: 5000 }).catch(() => {});
+check("pont : déconnexion", !fs.existsSync(`${nativeDir}/fr.aria_plume.app.json`) && (await opt.textContent("#bridgeStatus")).includes("non connectés"), await opt.textContent("#bridgeStatus"));
 await opt.close();
 
 // Fermer = cacher ; réafficher ; quitter.
