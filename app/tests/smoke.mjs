@@ -30,12 +30,14 @@ const testBrowsers = JSON.stringify([{ id: "test", name: "Navigateur test", sche
 // Pont avec l'extension : canal et dossier « NativeMessagingHosts » de test.
 const bridgePipe = `${downloads}/pont.sock`;
 const nativeDir = `${downloads}/navigateur/NativeMessagingHosts`;
+// Complément Office : port de test.
+const officePort = 47950;
 const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8")).version;
 // APP_BINARY=chemin : teste l'application empaquetée (electron-builder) au lieu des sources.
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), ARIA_TEST_OFFICE_PORT: String(officePort), NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -294,6 +296,39 @@ check("pont : relais arrêté à la fermeture du port", (await Promise.race([rel
 await opt.click("#bridgeUnregister");
 await opt.waitForFunction(() => document.querySelector("#bridgeStatus").textContent.includes("non connectés"), null, { timeout: 5000 }).catch(() => {});
 check("pont : déconnexion", !fs.existsSync(`${nativeDir}/fr.aria_plume.app.json`) && (await opt.textContent("#bridgeStatus")).includes("non connectés"), await opt.textContent("#bridgeStatus"));
+
+// Complément Office : installation (pas de certificat à approuver hors Windows), page de test
+// ouverte dans Chromium avec le certificat du serveur reconnu, moteur réel derrière.
+check("Office : état initial", (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
+await opt.click("#officeInstall");
+await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent.startsWith("Serveur du complément prêt"), null, { timeout: 10000 }).catch(() => {});
+check("Office : serveur prêt", (await opt.textContent("#officeStatus")).includes(`https://localhost:${officePort}/office/`) && await opt.isVisible("#officeTest"), await opt.textContent("#officeStatus"));
+const officeDir = `${(await win.evaluate(() => window.ariaTest.state())).settingsFile.replace(/[\\/][^\\/]+$/, "")}/Aria Plume - Office`;
+const leafPem = fs.readFileSync(`${officeDir}/serveur.pem`, "utf8");
+const { X509Certificate, createHash } = await import("node:crypto");
+const spki = createHash("sha256").update(new X509Certificate(leafPem).publicKey.export({ type: "spki", format: "der" })).digest("base64");
+const officeBrowser = await chromium.launch({ args: [`--ignore-certificate-errors-spki-list=${spki}`, "--no-sandbox"] });
+try {
+    const officePage = await officeBrowser.newPage();
+    const officeErrors = [];
+    officePage.on("console", (m) => m.type() === "error" && officeErrors.push(m.text()));
+    await officePage.goto(`https://localhost:${officePort}/office/`);
+    await officePage.waitForFunction(() => !document.querySelector("#result").textContent.startsWith("Analyse"), null, { timeout: 20000 }).catch(() => {});
+    const officeResult = await officePage.textContent("#result");
+    check("Office : page de test, moteur réel par l'API", /Le moteur répond/.test(officeResult) && /« a » → à/.test(officeResult), officeResult);
+    check("Office : aucune erreur dans la page", officeErrors.length === 0, officeErrors.join(" | "));
+    // Un autre site ne peut pas utiliser l'API (origine refusée).
+    const foreign = await officePage.evaluate(async (port) => fetch(`https://localhost:${port}/api/check`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.status).catch(() => "bloqué"), officePort);
+    check("Office : même page, API joignable", foreign === 200, String(foreign));
+    await officePage.goto("about:blank");
+    const fromElsewhere = await officePage.evaluate(async (port) => fetch(`https://localhost:${port}/api/check`, { method: "POST", mode: "no-cors", headers: { "content-type": "text/plain" }, body: "{}" }).then((r) => r.type).catch(() => "bloqué"), officePort);
+    check("Office : autre page, aucune réponse lisible", fromElsewhere === "opaque" || fromElsewhere === "bloqué", String(fromElsewhere));
+} finally {
+    await officeBrowser.close();
+}
+await opt.click("#officeUninstall");
+await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Complément non installé.", null, { timeout: 5000 }).catch(() => {});
+check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
 await opt.close();
 
 // Fermer = cacher ; réafficher ; quitter.

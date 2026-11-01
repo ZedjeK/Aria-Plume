@@ -73,6 +73,7 @@ jobs:
               run: |
                   command -v xvfb-run > /dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
                   node tests/bridge.mjs
+                  node tests/office.mjs
                   xvfb-run -a npm run test:package
 
             - name: Construire l'application Windows

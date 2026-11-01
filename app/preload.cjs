@@ -106,6 +106,10 @@ contextBridge.exposeInMainWorld("ariaApp", {
     bridgeState: () => ipcRenderer.invoke("app:bridge-state"),
     registerBridge: () => ipcRenderer.invoke("app:bridge-register"),
     unregisterBridge: () => ipcRenderer.invoke("app:bridge-unregister"),
+    officeState: () => ipcRenderer.invoke("app:office-state"),
+    installOffice: () => ipcRenderer.invoke("app:office-install"),
+    uninstallOffice: () => ipcRenderer.invoke("app:office-uninstall"),
+    openOfficeTest: () => ipcRenderer.invoke("app:office-open-test"),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).

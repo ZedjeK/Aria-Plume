@@ -29,6 +29,8 @@ const { FOLDER_NAME, findBrowsers, extensionState, syncExtension, launchBrowser 
 const { createInput, captureSelection, pasteInto } = await import("./windows-input.js");
 const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridge/server.js");
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
+const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
+const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
 
 // --- Réglages : enregistrés dans le fichier, et signalés aux fenêtres ouvertes ---
@@ -288,6 +290,58 @@ async function refreshBridgeRegistration() {
     }
 }
 
+// --- Complément Office : serveur HTTPS local (voir office/) ---
+// Les pages du complément et le même moteur que le pont, sur https://localhost:47823.
+const officeDir = () => path.join(settingsDir(), OFFICE_FOLDER);
+const officePort = () => (process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_OFFICE_PORT ? Number(process.env.ARIA_TEST_OFFICE_PORT) : OFFICE_PORT);
+let officeServer = null;
+let officeError = null;
+
+async function startOffice() {
+    const certificates = loadCertificates(officeDir());
+    if (!certificates || officeServer) {
+        return;
+    }
+    try {
+        officeServer = await startOfficeServer({
+            port: officePort(),
+            cert: certificates.cert,
+            key: certificates.key,
+            version: app.getVersion(),
+            roots: [
+                { prefix: "icons/", root: ICON_DIR },
+                { prefix: "", root: path.join(APP_DIR, "office", "pages") },
+            ],
+            handle: async (msg) => {
+                const run = BRIDGE_COMMANDS[msg?.cmd];
+                if (!run) {
+                    throw new Error(`Commande inconnue : ${String(msg?.cmd)}`);
+                }
+                return run(msg);
+            },
+            log: (text) => console.warn(text),
+        });
+        officeError = null;
+    } catch (error) {
+        officeError = error?.code === "EADDRINUSE"
+            ? `le port ${officePort()} est déjà pris par un autre logiciel`
+            : String(error?.message ?? error);
+        console.error("Complément Office :", officeError);
+    }
+}
+
+async function officeState() {
+    const certificates = loadCertificates(officeDir());
+    return {
+        installed: !!certificates,
+        trusted: await isTrusted(certificates),
+        listening: !!officeServer,
+        error: officeError,
+        url: `https://localhost:${officePort()}/office/`,
+        platform: process.platform,
+    };
+}
+
 let tray = null;
 let mainWindow = null;
 let optionsWindow = null;
@@ -515,6 +569,35 @@ ipcMain.handle("app:bridge-unregister", async () => {
     }
     return bridgeState();
 });
+// --- Complément Office : installation (certificat approuvé par Windows, serveur démarré) ---
+ipcMain.handle("app:office-state", () => officeState());
+ipcMain.handle("app:office-install", async () => {
+    const certificates = ensureCertificates(officeDir());
+    let trusted = await isTrusted(certificates);
+    let refused = false;
+    if (trusted === false) {
+        // Windows affiche son avertissement : la réponse de l'utilisateur décide.
+        const result = await trust(certificates);
+        trusted = result.ok;
+        refused = result.refused;
+    }
+    await startOffice();
+    return { ...(await officeState()), refused };
+});
+ipcMain.handle("app:office-uninstall", async () => {
+    await officeServer?.close();
+    officeServer = null;
+    await removeCertificates(officeDir());
+    return officeState();
+});
+ipcMain.handle("app:office-open-test", async () => {
+    const state = await officeState();
+    if (!state.listening) {
+        throw new Error("Le serveur du complément n'est pas démarré.");
+    }
+    await shell.openExternal(state.url);
+    return state.url;
+});
 // Enregistrement d'un fichier exporté par la page de réglages (réglages, dictionnaire) : boîte de
 // dialogue « Enregistrer sous » de Windows, puis écriture. Le téléchargement de Chromium n'est pas
 // utilisé (il perd le fichier quand la page libère son contenu juste après le clic).
@@ -592,6 +675,7 @@ app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     input.stop();
     bridge?.close().catch(() => {});
+    officeServer?.close().catch(() => {});
     // Arrêt des workers du moteur. Sans attendre : retarder la fermeture (preventDefault puis
     // nouvel app.quit()) empêche Electron de se terminer quand une fenêtre a existé.
     aria.close().catch(() => {});
@@ -608,6 +692,7 @@ app.whenReady().then(() => {
     registerHotkey();
     startBridge();
     refreshBridgeRegistration();
+    startOffice();
     // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
     input.warmUp();
     createWindow();

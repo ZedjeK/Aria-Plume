@@ -212,6 +212,66 @@
         ];
     }
 
+    // Complément Office (Word, Outlook) : serveur HTTPS local et son certificat.
+    async function officeBlock() {
+        const status = el("p", { className: "status", id: "officeStatus" });
+        status.setAttribute("aria-live", "polite");
+        const install = el("button", { type: "button", id: "officeInstall" });
+        const test = el("button", { type: "button", textContent: "Tester dans le navigateur", id: "officeTest" });
+        const remove = el("button", { type: "button", textContent: "Désinstaller", id: "officeUninstall" });
+
+        function showState(state, extra = "") {
+            install.textContent = state.installed ? "Réparer le complément Office" : "Installer le complément Office";
+            test.hidden = !state.listening;
+            remove.hidden = !state.installed;
+            let text;
+            if (!state.installed) {
+                text = "Complément non installé.";
+            } else if (state.trusted === false) {
+                text = "Certificat pas encore approuvé par Windows : clique sur « Réparer le complément Office » et réponds « Oui » à l'avertissement de Windows.";
+            } else if (state.error) {
+                text = `Le serveur du complément n'a pas pu démarrer : ${state.error}.`;
+            } else {
+                text = `Serveur du complément prêt sur ${state.url}${state.trusted ? ", certificat approuvé par Windows" : ""}.`;
+            }
+            status.textContent = `${text}${extra}`;
+            status.classList.toggle("error", state.installed && (state.trusted === false || !!state.error));
+        }
+
+        async function act(button, action) {
+            [install, test, remove].forEach((item) => {
+                item.disabled = true;
+            });
+            try {
+                const state = await action();
+                if (state?.installed !== undefined) {
+                    showState(state, state.refused ? " (Tu as répondu « Non » à Windows : rien n'a été approuvé.)" : "");
+                }
+            } catch (error) {
+                status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+                status.classList.add("error");
+            } finally {
+                [install, test, remove].forEach((item) => {
+                    item.disabled = false;
+                });
+                button.focus();
+            }
+        }
+        install.addEventListener("click", () => act(install, () => window.ariaApp.installOffice()));
+        test.addEventListener("click", () => act(test, async () => {
+            await window.ariaApp.openOfficeTest();
+            return null;
+        }));
+        remove.addEventListener("click", () => act(remove, () => window.ariaApp.uninstallOffice()));
+        showState(await window.ariaApp.officeState());
+        return [
+            el("h3", { textContent: "Complément Office (Word, Outlook)" }),
+            el("p", { className: "hint", textContent: "Word et Outlook n'affichent un complément que servi en HTTPS, avec un certificat approuvé par Windows. Aria Plume crée un certificat valable uniquement pour localhost, puis détruit la clé qui l'a signé : il ne peut servir à rien d'autre. Windows te demandera une fois de l'approuver, pour ta session seulement (« Oui » dans son avertissement). Le serveur n'écoute que ton PC. « Tester dans le navigateur » ouvre une page qui doit s'afficher sans avertissement." }),
+            status,
+            el("div", { className: "buttons" }, install, test, remove),
+        ];
+    }
+
     async function build() {
         const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
@@ -268,6 +328,7 @@
         );
         section.append(...await extensionBlock());
         section.append(...await bridgeBlock());
+        section.append(...await officeBlock());
         // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
         const mcp = await window.ariaApp.mcpConfig();
         const args = mcp.packaged ? mcp.args : [mcp.appDir, ...mcp.args];
