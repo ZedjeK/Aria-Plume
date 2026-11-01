@@ -252,6 +252,12 @@ textarea {
     border-left-color: var(--gram);
 }
 
+/* Remarque d'un souligné cliqué dans le document. */
+.item.focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .goto {
     display: flex;
     justify-content: space-between;

@@ -3,7 +3,8 @@
 // l'application (api.js) ; ce qui touche au document passe par l'adaptateur de l'hôte :
 //   host.name, host.scopes [{ id, label }], host.readBlocks(scope) → [{ index, text }],
 //   host.select(block, match), host.replace(block, edits) → { text, done },
-//   host.selectionText(), host.selectionContext(), host.writeSelection(text, "Replace" | "After")
+//   host.selectionText(), host.selectionContext(), host.writeSelection(text, "Replace" | "After"),
+//   host.annotations (facultatif : soulignés dans le texte), host.readAll() (vérification en direct)
 
 import { call } from "./api.js";
 
@@ -15,6 +16,8 @@ const KINDS = {
 };
 const FIXABLE = new Set(["orthographe", "grammaire"]);
 const CONCURRENCY = 4;
+const LIVE_DELAY_MS = 900;
+const UNDERLINE_KEY = "aria-plume.souligner";
 const MAX_LISTED = 300;
 
 const el = (tag, props = {}, ...children) => {
@@ -115,7 +118,20 @@ export async function createPanel({ host, root }) {
     const summary = el("p", { className: "summary", id: "fix-summary", textContent: "Lance une vérification." });
     summary.setAttribute("aria-live", "polite");
     const list = el("ol", { className: "items", id: "fix-list" });
-    panels.fix.append(el("div", { className: "row" }, ...scopeButtons), el("div", { className: "row" }, lang, fixAll), summary, list);
+    // Soulignés dans le texte (Word avec Microsoft 365) : préférence gardée par cet ordinateur.
+    let underlineWanted = true;
+    try {
+        underlineWanted = localStorage.getItem(UNDERLINE_KEY) !== "non";
+    } catch {
+        // Stockage indisponible : soulignés activés.
+    }
+    let annotations = host.annotations ?? null;
+    const underlineBox = el("input", { type: "checkbox", id: "fix-underline", checked: underlineWanted });
+    const underlineRow = annotations
+        ? el("label", { className: "check", title: "Les fautes sont soulignées dans le document et chaque paragraphe modifié est revérifié." }, underlineBox, "Souligner dans le texte, vérifier pendant la frappe")
+        : null;
+    panels.fix.append(el("div", { className: "row" }, ...scopeButtons), el("div", { className: "row" }, lang, fixAll), underlineRow, summary, list);
+    const underlining = () => !!annotations && underlineBox.checked;
 
     const setBusy = (value) => {
         busy = value;
@@ -126,10 +142,50 @@ export async function createPanel({ host, root }) {
     const fixable = (item) => FIXABLE.has(item.match.kind) && item.match.suggestions.length > 0;
     const wordOf = (item) => item.block.text.slice(item.match.start, item.match.end);
 
+    // Dernier texte analysé de chaque paragraphe (vérification en direct : un paragraphe signalé par
+    // Word mais inchangé n'est pas revérifié, ce qui évite toute boucle).
+    const knownText = new Map();
+
     async function checkBlock(block) {
         const result = await call("check", { text: block.text, lang: lang.value, personal: true });
+        if (block.id) {
+            knownText.set(block.id, block.text);
+        }
         return result.matches.map((match) => ({ block, match, lang: result.lang }));
     }
+
+    // Soulignés des paragraphes donnés (all : tout le document, les autres perdent les leurs).
+    async function underline(blocks, { all = false } = {}) {
+        if (!underlining()) {
+            return;
+        }
+        const groups = blocks.filter((block) => block.id).map((block) => ({ block, items: items.filter((item) => item.block === block) }));
+        try {
+            await annotations.show(groups, { all });
+        } catch (error) {
+            // Sans abonnement Microsoft 365, Word refuse les annotations : on garde la liste seule.
+            console.warn("Aria Plume : soulignés indisponibles", error);
+            annotations = null;
+            underlineRow?.remove();
+            say("Les soulignés dans le texte demandent Word avec un abonnement Microsoft 365 : la liste du panneau reste disponible.", "warn");
+        }
+    }
+
+    underlineBox.addEventListener("change", async () => {
+        try {
+            localStorage.setItem(UNDERLINE_KEY, underlineBox.checked ? "oui" : "non");
+        } catch {
+            // Préférence non gardée : sans conséquence.
+        }
+        if (!annotations) {
+            return;
+        }
+        if (underlineBox.checked) {
+            await underline([...new Set(items.map((item) => item.block))], { all: true });
+        } else {
+            await annotations.clear().catch(() => {});
+        }
+    });
 
     // keepNotice : garder le message affiché (nouvelle vérification après un document modifié).
     async function runCheck(scope, { keepNotice = false } = {}) {
@@ -164,6 +220,7 @@ export async function createPanel({ host, root }) {
             await Promise.all(Array.from({ length: Math.min(CONCURRENCY, blocks.length) }, worker));
             items = found.flat();
             render();
+            await underline(blocks, { all: scope === "document" });
         } catch (error) {
             summary.textContent = "";
             fail(error);
@@ -185,6 +242,7 @@ export async function createPanel({ host, root }) {
         fixAll.disabled = busy || fixes === 0;
     }
 
+    const rows = new WeakMap();
     function renderItem(item) {
         const { match } = item;
         const word = wordOf(item);
@@ -203,11 +261,13 @@ export async function createPanel({ host, root }) {
             ? el("button", { type: "button", className: "link", textContent: "Ajouter au dictionnaire" })
             : null;
         learn?.addEventListener("click", () => learnWord(item));
-        return el("li", { className: `item kind-${match.kind}` },
+        const row = el("li", { className: `item kind-${match.kind}` },
             goto,
             el("p", { className: "msg", textContent: match.message }),
             suggestions.length ? el("div", { className: "suggs" }, ...suggestions) : null,
             el("div", { className: "actions" }, ignore, learn));
+        rows.set(item, row);
+        return row;
     }
 
     async function show(item) {
@@ -254,11 +314,12 @@ export async function createPanel({ host, root }) {
                 const result = await host.replace(block, kept);
                 done += result.done;
                 mistakes.push(...kept.map(({ item, replacement }) => ({ rule: item.match.rule, kind: item.match.kind, lang: item.lang, word: wordOf(item), suggestion: replacement })));
-                const fresh = { index: block.index, text: result.text };
+                const fresh = { index: block.index, text: result.text, id: block.id };
                 const rechecked = fresh.text.trim() ? await checkBlock(fresh) : [];
                 const position = items.findIndex((item) => item.block === block);
                 items = items.filter((item) => item.block !== block);
                 items.splice(position < 0 ? items.length : position, 0, ...rechecked);
+                await underline([fresh]);
             }
             call("record-mistakes", { items: mistakes }).catch(() => {});
             render();
@@ -284,8 +345,10 @@ export async function createPanel({ host, root }) {
         try {
             const { values } = await call("settings-get", { spec: { ignored: [] } });
             await call("settings-set", { values: { ignored: [...values.ignored, { word, rule: item.match.rule, kind: item.match.kind }] } });
+            const touched = new Set(items.filter((other) => wordOf(other) === word && other.match.rule === item.match.rule).map((other) => other.block));
             items = items.filter((other) => !(wordOf(other) === word && other.match.rule === item.match.rule));
             render();
+            await underline([...touched]);
         } catch (error) {
             fail(error);
         }
@@ -298,12 +361,91 @@ export async function createPanel({ host, root }) {
             if (!values.dictionary.includes(word)) {
                 await call("settings-set", { values: { dictionary: [...values.dictionary, word] } });
             }
+            const touched = new Set(items.filter((other) => other.match.kind === "orthographe" && wordOf(other).trim() === word).map((other) => other.block));
             items = items.filter((other) => !(other.match.kind === "orthographe" && wordOf(other).trim() === word));
             render();
+            await underline([...touched]);
             say(`« ${word} » ajouté au dictionnaire.`, "ok");
         } catch (error) {
             fail(error);
         }
+    }
+
+    // --- Vérification en direct (Word avec Microsoft 365) ---
+    // Word signale les paragraphes modifiés, ajoutés ou supprimés ; un peu après la dernière frappe,
+    // les paragraphes dont le texte a vraiment changé sont revérifiés et soulignés.
+    const pending = new Set();
+    let liveTimer = null;
+    function scheduleLive(ids) {
+        if (!underlining()) {
+            return;
+        }
+        ids.forEach((id) => pending.add(id));
+        clearTimeout(liveTimer);
+        liveTimer = setTimeout(liveRefresh, LIVE_DELAY_MS);
+    }
+
+    async function liveRefresh() {
+        if (busy) {
+            liveTimer = setTimeout(liveRefresh, LIVE_DELAY_MS);
+            return;
+        }
+        const ids = [...pending];
+        pending.clear();
+        if (!ids.length || !underlining()) {
+            return;
+        }
+        try {
+            const all = await host.readAll();
+            const byId = new Map(all.filter((block) => block.id).map((block) => [block.id, block]));
+            // Positions à jour (paragraphes ajoutés ou supprimés plus haut) ; paragraphes disparus retirés.
+            items = items.filter((item) => !item.block.id || byId.has(item.block.id));
+            for (const item of items) {
+                if (item.block.id) {
+                    item.block.index = byId.get(item.block.id).index;
+                }
+            }
+            const changed = ids.map((id) => byId.get(id)).filter((block) => block && block.text !== knownText.get(block.id));
+            for (const block of changed) {
+                const rechecked = block.text.trim() ? await checkBlock(block) : [];
+                items = items.filter((item) => item.block.id !== block.id).concat(rechecked);
+            }
+            items.sort((a, b) => a.block.index - b.block.index || a.match.start - b.match.start);
+            render();
+            await underline(changed);
+        } catch (error) {
+            fail(error);
+        }
+    }
+
+    if (annotations) {
+        annotations.listen({
+            // Bulle de Word : suggestion acceptée (Word corrige le texte, la frappe est revérifiée)
+            // ou remarque écartée.
+            onPopup: async (args, item) => {
+                if (!item) {
+                    return;
+                }
+                if (args.action === "Accept") {
+                    call("record-mistakes", { items: [{ rule: item.match.rule, kind: item.match.kind, lang: item.lang, word: wordOf(item), suggestion: args.critiqueSuggestion ?? "" }] }).catch(() => {});
+                } else {
+                    items = items.filter((other) => other !== item);
+                    render();
+                }
+            },
+            // Clic sur un souligné : la remarque correspondante dans le panneau.
+            onClick: (item) => {
+                const row = item ? rows.get(item) : null;
+                if (!row) {
+                    return;
+                }
+                showTab("fix");
+                list.querySelectorAll(".item.focus").forEach((other) => other.classList.remove("focus"));
+                row.classList.add("focus");
+                row.scrollIntoView({ block: "nearest" });
+            },
+            onParagraphs: (ids) => scheduleLive(ids),
+        }).catch((error) => console.warn("Aria Plume : événements de Word indisponibles", error));
     }
 
     // --- Traduction ---
@@ -516,5 +658,9 @@ export async function createPanel({ host, root }) {
     });
 
     showTab("fix");
+    // Avec les soulignés, le document est vérifié dès l'ouverture du panneau.
+    if (underlining()) {
+        runCheck("document");
+    }
     return { runCheck, showTab };
 }

@@ -101,6 +101,12 @@ export function wordManifest({ origin, version }) {
                 <bt:String id="Group.Label" DefaultValue="Aria Plume"/>
                 <bt:String id="Button.Label" DefaultValue="Aria Plume"/>
                 <bt:String id="GetStarted.Title" DefaultValue="Aria Plume est prêt"/>
+                <!-- Bulle des soulignés dans le texte (Word avec Microsoft 365). -->
+                <bt:String id="Critique.Brand" DefaultValue="Aria Plume"/>
+                <bt:String id="Critique.Ortho" DefaultValue="Orthographe"/>
+                <bt:String id="Critique.Gram" DefaultValue="Grammaire"/>
+                <bt:String id="Critique.Style" DefaultValue="Style"/>
+                <bt:String id="Critique.Sub" DefaultValue="Suggestion d'Aria Plume"/>
             </bt:ShortStrings>
             <bt:LongStrings>
                 <bt:String id="Button.Tooltip" DefaultValue="Corriger, traduire, trouver un synonyme ou conjuguer, sans que ton texte quitte ton PC."/>

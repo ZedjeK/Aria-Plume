@@ -92,6 +92,29 @@ Tests : `node tests/bridge.mjs` (relais, jeton, démarrage automatique, limites,
 4. « Quitter Aria Plume », puis écrire une faute dans une page : elle est soulignée, et l'icône
    d'Aria Plume revient près de l'horloge quelques secondes plus tard.
 
+## Le complément Word
+
+Réglages → Application → **Complément Office** → « Installer le complément Office » : certificat
+local (Windows demande une fois de l'approuver), serveur `https://localhost:47823` et inscription
+dans Word. Ensuite, dans Word : onglet **Accueil → Aria Plume**.
+
+- **Correction** : document entier ou sélection ; un clic sur une remarque sélectionne le passage,
+  un clic sur une suggestion corrige, « Tout corriger » applique l'orthographe et la grammaire ;
+  « Ignorer » et « Ajouter au dictionnaire » vont dans les réglages de l'application (partagés avec
+  l'extension). Si le texte a changé depuis l'analyse, rien n'est touché : nouvelle vérification.
+- **Soulignés dans le texte et vérification pendant la frappe** (Word avec un abonnement Microsoft
+  365) : les fautes sont soulignées comme celles de l'Éditeur (rouge pour l'orthographe, bleu pour
+  la grammaire, lavande pour le style), la bulle de Word propose les suggestions d'Aria Plume, et
+  chaque paragraphe modifié est revérifié une seconde après la frappe. Case « Souligner dans le
+  texte » pour couper. Sans abonnement (Office 2021 ou 2024 acheté une fois), Microsoft refuse ces
+  annotations : le panneau le dit et garde la liste.
+- **Traduction**, **Synonymes**, **Conjugaison** : comme dans l'extension, avec « Remplacer la
+  sélection » et « Insérer après ».
+
+L'application doit tourner pendant que tu utilises le complément (« Démarrer avec Windows »).
+Tests : `node tests/office-word.mjs` (faux Word strict sur load/sync, vrai moteur, Word ancien,
+Microsoft 365 et sans abonnement).
+
 ## Le serveur MCP (pour les IA)
 
 `Aria Plume.exe --mcp` démarre Aria Plume en **serveur MCP** sur l'entrée et la sortie standard,

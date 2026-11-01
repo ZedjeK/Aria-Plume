@@ -264,6 +264,122 @@ try {
     }
     await dark.close();
 
+    // --- Word avec Microsoft 365 : soulignés dans le texte et vérification en direct ---
+    const live = await browser.newPage({ viewport: { width: 340, height: 760 } });
+    live.on("console", (m) => m.type() === "error" && errors.push(`[direct] ${m.text()}`));
+    live.on("pageerror", (e) => errors.push(`[direct] ${e}`));
+    await live.route("https://appsforoffice.microsoft.com/**", (route) => route.fulfill({ contentType: "text/javascript", body: fakeOffice }));
+    await live.addInitScript(() => {
+        window.__fakeWord = {
+            wordApi: "1.8",
+            paragraphs: [
+                "Les enfant sont partit a la plage.",
+                "Il a mangé une pomme et il à aimé.",
+                "Le serveur est tombé en panne cette nuit.",
+                "J'ai acheté une imprimente hier.",
+            ],
+            selection: { p: 0, start: 0, end: 0 },
+        };
+    });
+    await live.goto(`https://localhost:${port}/office/word.html`);
+    const liveDoc = () => live.evaluate(() => ({ paragraphs: window.__fakeWord.paragraphs, annotations: window.__fakeWord.annotations, ids: window.__fakeWord.ids }));
+    const liveWords = () => live.$$eval("#fix-list .item .word", (list) => list.map((x) => x.textContent));
+    const settle = async () => {
+        await live.waitForFunction(() => !/Analyse|Lecture/.test(document.querySelector("#fix-summary").textContent), null, { timeout: 30000 });
+        await wait(1600);
+    };
+    await live.waitForSelector("#fix-underline");
+    await settle();
+    let state = await liveDoc();
+    const listed = await liveWords();
+    check("M365 : document vérifié et souligné dès l'ouverture", listed.length >= 5 && state.annotations.length === listed.length, `${listed.length} remarques, ${state.annotations.length} soulignés`);
+    const annotationOf = (st, word) => st.annotations.find((a) => st.paragraphs[st.ids.indexOf(a.pid)].slice(a.start, a.start + a.length) === word);
+    const spelling = annotationOf(state, "imprimente");
+    const grammar = annotationOf(state, "à");
+    check("M365 : couleurs (orthographe en rouge, grammaire en bleu), suggestions dans la bulle", spelling?.colorScheme === "Red" && grammar?.colorScheme === "Blue" && spelling.suggestions.includes("imprimante")
+        && spelling.popupOptions.brandingTextResourceId === "Critique.Brand" && spelling.popupOptions.titleResourceId === "Critique.Ortho", JSON.stringify(spelling));
+
+    // Clic sur un souligné : la remarque est montrée dans le panneau.
+    await live.evaluate((id) => window.__fakeWord.click(id), grammar.id);
+    await wait(300);
+    check("M365 : clic sur un souligné → remarque mise en avant", (await live.textContent("#fix-list .item.focus .word")) === "à");
+
+    // Suggestion acceptée dans la bulle de Word.
+    const recordedBefore = JSON.stringify(settings.mistakeStats);
+    await live.evaluate((id) => window.__fakeWord.accept(id, "a"), grammar.id);
+    await settle();
+    state = await liveDoc();
+    check("M365 : suggestion acceptée dans la bulle → paragraphe revérifié", state.paragraphs[1] === "Il a mangé une pomme et il a aimé." && !(await liveWords()).includes("à"), (await liveWords()).join(" | "));
+    check("M365 : faute acceptée comptée dans les fautes récurrentes", JSON.stringify(settings.mistakeStats) !== recordedBefore);
+
+    // Frappe : une nouvelle faute apparaît soulignée.
+    await live.evaluate(() => window.__fakeWord.edit(2, "Le serveur et tombé en panne cette nuit."));
+    await settle();
+    state = await liveDoc();
+    check("M365 : faute tapée → soulignée et listée", (await liveWords()).includes("et") && !!annotationOf(state, "et"), (await liveWords()).join(" | "));
+
+    // Pas de boucle : sans frappe, plus aucune analyse.
+    const checksBefore = calls.filter((cmd) => cmd === "check").length;
+    await wait(2500);
+    check("M365 : au repos, aucune analyse en boucle", calls.filter((cmd) => cmd === "check").length === checksBefore);
+
+    // Paragraphe ajouté plus haut : les remarques suivent leur paragraphe.
+    await live.evaluate(() => window.__fakeWord.insertParagraph(0, "Un nouveau paragraphe tout à fait correct."));
+    await settle();
+    await live.click('#fix-list .item:has(.word:text-is("imprimente")) .goto');
+    await wait(300);
+    const moved = await live.evaluate(() => {
+        const { selection, paragraphs } = window.__fakeWord;
+        return paragraphs[selection.p].slice(selection.start, selection.end);
+    });
+    check("M365 : paragraphe ajouté au-dessus → « aller à la faute » toujours juste", moved === "imprimente", moved);
+
+    // Correction depuis le panneau : soulignés refaits pour ce paragraphe, sans boucle.
+    await live.click('#fix-list .item:has(.word:text-is("imprimente")) .sugg >> nth=0');
+    await settle();
+    state = await liveDoc();
+    check("M365 : correction depuis le panneau, souligné retiré", state.paragraphs[4] === "J'ai acheté une imprimante hier." && !annotationOf(state, "imprimente") && !(await liveWords()).includes("imprimente"), state.paragraphs[4]);
+
+    // Remarque écartée dans la bulle.
+    const toReject = annotationOf(await liveDoc(), "et");
+    await live.evaluate((id) => window.__fakeWord.reject(id), toReject.id);
+    await wait(400);
+    check("M365 : remarque écartée dans la bulle → retirée du panneau", !(await liveWords()).includes("et"));
+
+    // Paragraphe supprimé : ses remarques disparaissent.
+    await live.evaluate(() => window.__fakeWord.deleteParagraph(1));
+    await settle();
+    check("M365 : paragraphe supprimé → ses remarques retirées", !(await liveWords()).some((w) => ["enfant", "partit", "a"].includes(w)), (await liveWords()).join(" | "));
+
+    // Case décochée : soulignés retirés, plus de vérification pendant la frappe.
+    await live.uncheck("#fix-underline");
+    await wait(400);
+    check("M365 : case décochée → soulignés retirés", (await liveDoc()).annotations.length === 0);
+    const quietBefore = calls.filter((cmd) => cmd === "check").length;
+    await live.evaluate(() => window.__fakeWord.edit(0, "Une fote ici."));
+    await wait(2000);
+    check("M365 : case décochée → pas de vérification pendant la frappe", calls.filter((cmd) => cmd === "check").length === quietBefore);
+    if (shots) {
+        await live.screenshot({ path: path.join(shots, "word-direct.png") });
+    }
+    await live.close();
+
+    // --- Word 2021/2024 sans abonnement : annotations refusées, liste seule ---
+    const plain = await browser.newPage({ viewport: { width: 340, height: 600 } });
+    plain.on("pageerror", (e) => errors.push(`[sans abonnement] ${e}`));
+    await plain.route("https://appsforoffice.microsoft.com/**", (route) => route.fulfill({ contentType: "text/javascript", body: fakeOffice }));
+    await plain.addInitScript(() => {
+        window.__fakeWord = { wordApi: "1.8", noSubscription: true, paragraphs: ["Il à fini."], selection: { p: 0, start: 0, end: 0 } };
+    });
+    await plain.goto(`https://localhost:${port}/office/word.html`);
+    await plain.waitForFunction(() => /Microsoft 365/.test(document.querySelector("#notice")?.textContent ?? ""), null, { timeout: 20000 }).catch(() => {});
+    check("sans abonnement : message clair, case retirée, liste disponible", /abonnement Microsoft 365/.test(await plain.textContent("#notice")) && !(await plain.$("#fix-underline"))
+        && (await plain.$$eval("#fix-list .item .word", (l) => l.map((x) => x.textContent))).includes("à"), await plain.textContent("#notice"));
+    await plain.close();
+
+    // Word plus ancien (sans annotations) : pas de case, pas de vérification automatique.
+    check("Word sans annotations : ni case ni vérification à l'ouverture", !(await page.$("#fix-underline")));
+
     check("aucune erreur dans la page", errors.length === 0, errors.join(" | ").slice(0, 400));
 } finally {
     await browser.close();
