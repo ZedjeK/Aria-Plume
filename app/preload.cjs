@@ -110,6 +110,12 @@ contextBridge.exposeInMainWorld("ariaApp", {
     installOffice: () => ipcRenderer.invoke("app:office-install"),
     uninstallOffice: () => ipcRenderer.invoke("app:office-uninstall"),
     openOfficeTest: () => ipcRenderer.invoke("app:office-open-test"),
+    updateState: () => ipcRenderer.invoke("app:update-state"),
+    checkUpdate: () => ipcRenderer.invoke("app:update-check"),
+    openUpdate: () => ipcRenderer.invoke("app:update-open"),
+    onUpdateResult: (listener) => {
+        ipcRenderer.on("update-result", (event, result) => listener(result));
+    },
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).
@@ -123,4 +129,6 @@ contextBridge.exposeInMainWorld("ariaTest", {
     pasted: () => ipcRenderer.invoke("test:pasted"),
     clipboard: (text) => ipcRenderer.invoke("test:clipboard", text),
     download: () => ipcRenderer.invoke("test:download"),
+    opened: () => ipcRenderer.invoke("test:opened"),
+    notified: () => ipcRenderer.invoke("test:notified"),
 });

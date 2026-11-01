@@ -30,6 +30,22 @@ const testBrowsers = JSON.stringify([{ id: "test", name: "Navigateur test", sche
 // Pont avec l'extension : canal et dossier « NativeMessagingHosts » de test.
 const bridgePipe = `${downloads}/pont.sock`;
 const nativeDir = `${downloads}/navigateur/NativeMessagingHosts`;
+// Mises à jour : un faux GitHub local qui annonce une version 99.0.0.
+const http = await import("node:http");
+let updateRequests = 0;
+const fakeGithub = http.createServer((req, res) => {
+    updateRequests++;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+        tag_name: "v99.0.0",
+        html_url: "https://github.com/ZedjeK/Aria-Plume/releases/tag/v99.0.0",
+        published_at: "2026-11-02T10:00:00Z",
+        body: "### Ce qui change\n- **Nouveauté** de test.\n- Deuxième point.",
+        assets: [{ name: "Aria-Plume-99.0.0-portable.exe" }, { name: "Aria-Plume-99.0.0-win-x64.zip" }],
+    }));
+});
+await new Promise((resolve) => fakeGithub.listen(0, "127.0.0.1", resolve));
+const updateUrl = `http://127.0.0.1:${fakeGithub.address().port}/latest`;
 // Complément Office : port de test.
 const officePort = 47950;
 const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8")).version;
@@ -37,7 +53,7 @@ const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8"))
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), ARIA_TEST_OFFICE_PORT: String(officePort), NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), ARIA_TEST_OFFICE_PORT: String(officePort), ARIA_TEST_UPDATE_URL: updateUrl, NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -297,6 +313,22 @@ await opt.click("#bridgeUnregister");
 await opt.waitForFunction(() => document.querySelector("#bridgeStatus").textContent.includes("non connectés"), null, { timeout: 5000 }).catch(() => {});
 check("pont : déconnexion", !fs.existsSync(`${nativeDir}/fr.aria_plume.app.json`) && (await opt.textContent("#bridgeStatus")).includes("non connectés"), await opt.textContent("#bridgeStatus"));
 
+// Mises à jour : vérification automatique au démarrage (case cochée d'office), puis à la demande.
+const autoNotice = await win.evaluate(() => window.ariaTest.notified());
+check("mises à jour : vérifiées au démarrage, nouvelle version signalée", updateRequests >= 1 && /99\.0\.0 est disponible/.test(autoNotice?.title ?? ""), JSON.stringify(autoNotice));
+check("mises à jour : menu de l'icône", (await win.evaluate(() => window.ariaTest.state())).trayMenu.includes("Mise à jour disponible : 99.0.0…"));
+check("mises à jour : section des réglages", (await opt.textContent("#updateStatus")).startsWith("Version 99.0.0 disponible, publiée le 2 novembre 2026") && (await opt.$$eval("#updateNotes li", (l) => l.map((x) => x.textContent))).join("|") === "Nouveauté de test.|Deuxième point." && await opt.isChecked("#checkUpdates"), await opt.textContent("#updateStatus"));
+await opt.click("#updateOpen");
+check("mises à jour : bouton vers la page de la version", (await win.evaluate(() => window.ariaTest.opened())) === "https://github.com/ZedjeK/Aria-Plume/releases/tag/v99.0.0");
+const requestsBefore = updateRequests;
+await opt.click("#updateCheck");
+await opt.waitForFunction(() => !/Vérification…/.test(document.querySelector("#updateStatus").textContent), null, { timeout: 15000 }).catch(() => {});
+check("mises à jour : « Vérifier maintenant »", updateRequests === requestsBefore + 1 && (await opt.textContent("#updateStatus")).startsWith("Version 99.0.0 disponible"));
+await opt.uncheck("#checkUpdates");
+await wait(300);
+const updateSettingsSaved = await win.evaluate(() => chrome.storage.local.get({ checkUpdates: true, updateCheckedAt: null, updateNotified: null }));
+check("mises à jour : réglages enregistrés", updateSettingsSaved.checkUpdates === false && !!updateSettingsSaved.updateCheckedAt && updateSettingsSaved.updateNotified === "99.0.0", JSON.stringify(updateSettingsSaved));
+
 // Complément Office : installation (pas de certificat à approuver hors Windows), page de test
 // ouverte dans Chromium avec le certificat du serveur reconnu, moteur réel derrière.
 check("Office : état initial", (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
@@ -334,6 +366,8 @@ await opt.click("#officeUninstall");
 await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Complément non installé.", null, { timeout: 5000 }).catch(() => {});
 check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
 await opt.close();
+
+fakeGithub.close();
 
 // Fermer = cacher ; réafficher ; quitter.
 await win.evaluate(() => window.ariaTest.close());

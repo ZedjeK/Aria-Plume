@@ -3,7 +3,7 @@
 // au lieu de se fermer. Le moteur Aria tourne ici même (engine.js), sans fenêtre cachée.
 // La fenêtre affiche le correcteur de l'extension (popup.html), servi par le protocole aria:.
 
-import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, protocol, shell } from "electron";
+import { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, protocol, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -30,6 +30,7 @@ const { createInput, captureSelection, pasteInto } = await import("./windows-inp
 const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridge/server.js");
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
+const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
 const { WORD_MANIFEST, registerWord, unregisterWord, wordRegistered } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
@@ -360,6 +361,95 @@ async function officeState() {
     };
 }
 
+// --- Mises à jour (voir updates.js) : seul accès à internet de l'application ---
+// Au démarrage puis toutes les 6 heures, une vérification au plus par jour si la case est cochée ;
+// ou à la demande (réglages, menu de l'icône). Une nouvelle version n'est signalée qu'une fois.
+let lastUpdate = null;
+let updateTimer = null;
+
+// Sorte d'application : exe portable, zip Windows ou autre (développement, Linux).
+const appKind = () => (process.env.PORTABLE_EXECUTABLE_FILE ? "portable" : app.isPackaged && process.platform === "win32" ? "zip" : "dev");
+
+// Banc automatique : adresse de test, et aucune vérification automatique sans elle.
+const testUpdateUrl = () => (process.env.ARIA_TEST_HOOKS === "1" ? process.env.ARIA_TEST_UPDATE_URL ?? null : undefined);
+
+async function runUpdateCheck({ manual = false } = {}) {
+    const testUrl = testUpdateUrl();
+    if (testUrl === null) {
+        return { status: "error", current: app.getVersion(), error: "Vérification désactivée pendant les tests.", notes: [] };
+    }
+    const result = await checkForUpdate({
+        current: app.getVersion(),
+        kind: appKind(),
+        fetchImpl: (url, options) => net.fetch(url, options),
+        ...(testUrl ? { url: testUrl } : {}),
+    });
+    lastUpdate = { ...result, checkedAt: new Date().toISOString(), kind: appKind() };
+    const changes = { updateCheckedAt: lastUpdate.checkedAt };
+    if (result.status === "available" && (manual || loadSettings().updateNotified !== result.latest)) {
+        notifyUpdate(result);
+        changes.updateNotified = result.latest;
+    } else if (manual && result.status === "up-to-date") {
+        notify("Aria Plume est à jour", `Version ${result.current}, la plus récente.`);
+    } else if (manual && result.status === "error") {
+        notify("Vérification impossible", result.error);
+    }
+    updateSettings(changes);
+    tray?.setContextMenu(buildTrayMenu());
+    for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send("update-result", lastUpdate);
+    }
+    return lastUpdate;
+}
+
+// Notification près de l'horloge (bulle de l'icône sous Windows, la plus fiable pour une
+// application portable). Un clic ouvre la page de la version.
+let notificationUrl = null;
+let lastNotification = null;
+function notify(title, content, url = null) {
+    notificationUrl = url;
+    lastNotification = { title, content, url };
+    if (process.env.ARIA_TEST_HOOKS === "1") {
+        return;
+    }
+    if (process.platform === "win32" && tray) {
+        tray.displayBalloon({ title, content, iconType: "info" });
+    } else if (Notification.isSupported()) {
+        const notification = new Notification({ title, body: content });
+        notification.on("click", () => openReleasePage(url));
+        notification.show();
+    }
+}
+
+function notifyUpdate(result) {
+    notify(`Aria Plume ${result.latest} est disponible`, `Tu as la ${result.current}. Clique ici pour ouvrir la page de téléchargement.`, result.url);
+}
+
+let openedUrl = null;
+function openReleasePage(url = lastUpdate?.url) {
+    if (!isReleaseUrl(url)) {
+        return false;
+    }
+    openedUrl = url;
+    if (process.env.ARIA_TEST_HOOKS !== "1") {
+        shell.openExternal(url);
+    }
+    return true;
+}
+
+function scheduleUpdateChecks() {
+    const tick = () => {
+        const settings = loadSettings();
+        if (settings.checkUpdates && testUpdateUrl() !== null && isDue(settings.updateCheckedAt)) {
+            runUpdateCheck().catch((error) => console.error("Mises à jour :", error));
+        }
+    };
+    // Pas pendant le démarrage : quelques secondes après, puis toutes les 6 heures.
+    setTimeout(tick, process.env.ARIA_TEST_HOOKS === "1" ? 1000 : 20000);
+    updateTimer = setInterval(tick, 6 * 3600 * 1000);
+    updateTimer.unref?.();
+}
+
 let tray = null;
 let mainWindow = null;
 let optionsWindow = null;
@@ -483,6 +573,9 @@ function buildTrayMenu() {
         });
     }
     template.push(
+        lastUpdate?.status === "available"
+            ? { label: `Mise à jour disponible : ${lastUpdate.latest}…`, click: () => openReleasePage() }
+            : { label: "Rechercher une mise à jour", click: () => runUpdateCheck({ manual: true }).catch(() => {}) },
         { label: "Réglages…", click: openOptions },
         { label: "Ouvrir le dossier des réglages", click: () => shell.showItemInFolder(settingsFile()) },
         { type: "separator" },
@@ -497,6 +590,7 @@ function createTray() {
     tray.setToolTip("Aria Plume");
     tray.setContextMenu(buildTrayMenu());
     tray.on("click", showWindow);
+    tray.on("balloon-click", () => openReleasePage(notificationUrl));
 }
 
 ipcMain.handle("sw", async (event, msg) => {
@@ -618,6 +712,10 @@ ipcMain.handle("app:office-open-test", async () => {
     await shell.openExternal(state.url);
     return state.url;
 });
+// --- Mises à jour : réglages ---
+ipcMain.handle("app:update-state", () => ({ last: lastUpdate, kind: appKind(), version: app.getVersion() }));
+ipcMain.handle("app:update-check", () => runUpdateCheck({ manual: false }));
+ipcMain.handle("app:update-open", () => openReleasePage());
 // Enregistrement d'un fichier exporté par la page de réglages (réglages, dictionnaire) : boîte de
 // dialogue « Enregistrer sous » de Windows, puis écriture. Le téléchargement de Chromium n'est pas
 // utilisé (il perd le fichier quand la page libère son contenu juste après le clic).
@@ -677,6 +775,8 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
         return clipboard.readText();
     });
     ipcMain.handle("test:download", () => lastSaved);
+    ipcMain.handle("test:opened", () => openedUrl);
+    ipcMain.handle("test:notified", () => lastNotification);
     ipcMain.handle("test:show", () => {
         showWindow();
     });
@@ -714,6 +814,7 @@ app.whenReady().then(() => {
     refreshBridgeRegistration();
     startOffice();
     refreshWordRegistration();
+    scheduleUpdateChecks();
     // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
     input.warmUp();
     createWindow();

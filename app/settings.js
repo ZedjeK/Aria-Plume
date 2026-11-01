@@ -18,6 +18,11 @@ const FILE_NAME = "aria-plume-reglages.json";
 export const APP_DEFAULTS = {
     hotkey: "Alt+Shift+C",
     startWithWindows: false,
+    // Mises à jour : vérification au démarrage (une fois par jour au plus), dernière vérification,
+    // dernière version signalée (on ne prévient qu'une fois par version).
+    checkUpdates: true,
+    updateCheckedAt: null,
+    updateNotified: null,
 };
 // Données que l'extension garde aussi dans son stockage (fautes récurrentes).
 const EXTRA_DEFAULTS = {
@@ -48,6 +53,14 @@ function sanitizeApp(input) {
     }
     if (typeof input?.startWithWindows === "boolean") {
         out.startWithWindows = input.startWithWindows;
+    }
+    if (typeof input?.checkUpdates === "boolean") {
+        out.checkUpdates = input.checkUpdates;
+    }
+    for (const key of ["updateCheckedAt", "updateNotified"]) {
+        if (input?.[key] === null || (typeof input?.[key] === "string" && input[key].length <= 40)) {
+            out[key] = input[key];
+        }
     }
     return out;
 }

@@ -278,8 +278,61 @@
         ];
     }
 
+    // Mises à jour : vérification au démarrage (une fois par jour) ou à la demande.
+    async function updateBlock(settings) {
+        const status = el("p", { className: "status", id: "updateStatus" });
+        status.setAttribute("aria-live", "polite");
+        const notes = el("ul", { className: "update-notes", id: "updateNotes", hidden: true });
+        const checkNow = el("button", { type: "button", textContent: "Vérifier maintenant", id: "updateCheck" });
+        const open = el("button", { type: "button", textContent: "Ouvrir la page de téléchargement", id: "updateOpen", hidden: true });
+        const auto = el("input", { type: "checkbox", className: "toggle", id: "checkUpdates", checked: settings.checkUpdates });
+        auto.addEventListener("change", () => chrome.storage.local.set({ checkUpdates: auto.checked }));
+        const date = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+        const FILES = { portable: "l'exe portable", zip: "le zip Windows" };
+
+        function show({ last, kind, version }) {
+            open.hidden = last?.status !== "available";
+            notes.hidden = !last?.notes?.length;
+            notes.replaceChildren(...(last?.notes ?? []).map((line) => el("li", { textContent: line })));
+            status.classList.toggle("error", last?.status === "error");
+            status.classList.toggle("available", last?.status === "available");
+            if (!last) {
+                status.textContent = `Version installée : ${version}.`;
+            } else if (last.status === "available") {
+                const file = last.asset ? ` Fichier à prendre : ${last.asset.name} (${FILES[kind] ?? "ta version"}).` : "";
+                status.textContent = `Version ${last.latest} disponible${last.publishedAt ? `, publiée le ${date(last.publishedAt)}` : ""} (tu as la ${version}).${file}`;
+            } else if (last.status === "up-to-date") {
+                status.textContent = last.error ? `${last.error} Version installée : ${version}.` : `À jour ✓ — version ${version}, la plus récente.`;
+            } else {
+                status.textContent = `Vérification impossible : ${last.error}`;
+            }
+        }
+        checkNow.addEventListener("click", async () => {
+            checkNow.disabled = true;
+            status.classList.remove("error", "available");
+            status.textContent = "Vérification…";
+            try {
+                const last = await window.ariaApp.checkUpdate();
+                show({ ...(await window.ariaApp.updateState()), last });
+            } finally {
+                checkNow.disabled = false;
+                checkNow.focus();
+            }
+        });
+        open.addEventListener("click", () => window.ariaApp.openUpdate());
+        window.ariaApp.onUpdateResult(async () => show(await window.ariaApp.updateState()));
+        show(await window.ariaApp.updateState());
+        return [
+            el("h3", { textContent: "Mises à jour" }),
+            row("Vérifier au démarrage", "Une fois par jour au plus, Aria Plume demande à GitHub la dernière version publiée et te prévient près de l'horloge si elle est plus récente. C'est le seul accès à internet de l'application : aucun texte ni réglage n'est envoyé. Rien n'est téléchargé tout seul.", auto),
+            status,
+            notes,
+            el("div", { className: "buttons" }, checkNow, open),
+        ];
+    }
+
     async function build() {
-        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false });
+        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false, checkUpdates: true });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
         hotkeyInput.setAttribute("aria-label", "Raccourci global");
         const hotkeyStatus = el("p", { className: "status", id: "hotkeyStatus" });
@@ -335,6 +388,7 @@
         section.append(...await extensionBlock());
         section.append(...await bridgeBlock());
         section.append(...await officeBlock());
+        section.append(...await updateBlock(settings));
         // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
         const mcp = await window.ariaApp.mcpConfig();
         const args = mcp.packaged ? mcp.args : [mcp.appDir, ...mcp.args];

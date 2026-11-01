@@ -145,6 +145,23 @@ GitHub vérifie que le tag correspond aux versions, passe le banc de mesure et l
 l'application empaquetée, construit l'exe portable, le zip Windows et le zip de l'extension, puis
 publie la release. Si une étape échoue, rien n'est publié.
 
+## Mises à jour
+
+Réglages → Application → **Mises à jour** : « Vérifier au démarrage » (cochée d'office) demande à
+GitHub, une fois par jour au plus, la dernière version publiée. Si elle est plus récente, une bulle
+s'affiche près de l'horloge, le menu de l'icône propose « Mise à jour disponible : … », et les
+réglages montrent les nouveautés et le fichier à prendre (exe portable ou zip, selon celui que tu
+utilises). « Ouvrir la page de téléchargement » ouvre la page de la version dans ton navigateur :
+rien n'est téléchargé ni installé tout seul. « Vérifier maintenant » et « Rechercher une mise à
+jour » (menu de l'icône) vérifient à la demande.
+
+C'est le **seul accès à internet de l'application** : une demande à
+`https://api.github.com/repos/ZedjeK/Aria-Plume/releases/latest`, sans texte, sans réglage, sans
+identifiant (GitHub voit ton adresse IP). Décocher la case le coupe.
+
+Tests : `node tests/updates.mjs` (GitHub simulé) et `npm test` (vérification au démarrage, bulle,
+menu, réglages, avec un faux GitHub local).
+
 ## Lancer en développement
 
 Il faut Node 22 ou plus récent.
@@ -223,6 +240,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `mcp/electron.js` | `--mcp` : le serveur dans l'application, avec ses réglages |
 | `mcp/standalone.mjs` | Le serveur avec Node seul |
 | `extension-install.js` | Installation assistée de l'extension : navigateurs détectés, copie, ouverture |
+| `updates.js` | Vérification des mises à jour (API de GitHub), comparaison des versions, nouveautés |
 | `bridge/server.js` | Pont avec l'extension : canal local de la session, jeton, messages |
 | `bridge/relay.cjs` | Relais lancé par le navigateur (messagerie native), démarre l'application au besoin |
 | `bridge/register.js` | Inscription du relais auprès des navigateurs (registre de Windows, dossiers sous Linux) |

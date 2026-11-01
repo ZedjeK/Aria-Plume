@@ -109,3 +109,13 @@ body.app #bench {
     font: 13px var(--mono);
     resize: vertical;
 }
+
+.app-options .status.available {
+    color: var(--cyan, #3ee6ff);
+    font-weight: 600;
+}
+
+.app-options .update-notes {
+    margin: 4px 0 8px;
+    padding-left: 20px;
+}
