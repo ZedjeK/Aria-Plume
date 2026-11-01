@@ -26,6 +26,10 @@ const EXTRA_DEFAULTS = {
 };
 
 export function settingsDir() {
+    // Banc automatique : dossier de réglages à part (jamais actif sans ARIA_TEST_HOOKS=1).
+    if (process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_SETTINGS_DIR) {
+        return process.env.ARIA_TEST_SETTINGS_DIR;
+    }
     if (process.env.PORTABLE_EXECUTABLE_DIR) {
         return process.env.PORTABLE_EXECUTABLE_DIR;
     }

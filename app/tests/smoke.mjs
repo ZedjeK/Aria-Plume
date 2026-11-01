@@ -170,7 +170,7 @@ check("extension : bouton du navigateur détecté", (await opt.textContent('[dat
 await opt.click('[data-browser="test"]');
 await opt.waitForSelector("#extensionSteps:not([hidden])", { timeout: 60000 }).catch(() => {});
 const copiedManifest = JSON.parse(fs.readFileSync(`${extensionDir}/manifest.json`, "utf8"));
-check("extension : copiée, complète", copiedManifest.version === appVersion && ["background.js", "offscreen/offscreen.js", "content/checker.js", "engines", "models"].every((f) => fs.existsSync(`${extensionDir}/${f}`)), copiedManifest.version);
+check("extension : copiée, complète", copiedManifest.version === appVersion && ["background.js", "bridge-client.js", "offscreen/offscreen.js", "content/checker.js", "engines", "models"].every((f) => fs.existsSync(`${extensionDir}/${f}`)), copiedManifest.version);
 await wait(300);
 check("extension : navigateur lancé sur sa page d'extensions", fs.existsSync(browserArgs) && fs.readFileSync(browserArgs, "utf8").trim() === "chrome://extensions");
 check("extension : adresse dans le presse-papiers", (await win.evaluate(() => window.ariaTest.clipboard())) === "chrome://extensions");

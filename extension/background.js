@@ -1,9 +1,11 @@
 // Aria Plume — service worker
-// Rôle : router les demandes des pages vers le document offscreen, qui héberge les moteurs.
+// Rôle : router les demandes des pages vers le moteur : celui de l'application Aria Plume quand
+// elle est connectée (messagerie native, voir bridge-client.js), sinon le document offscreen.
 // Aucun accès réseau : la CSP de l'extension limite connect-src à 'self'.
 // Les pages ne sont que lues localement par le script de contenu ; rien n'est envoyé à l'extérieur.
 
 import { createService } from "./core/service.js";
+import { BridgeError, createBridge, createSettingsSync } from "./bridge-client.js";
 
 const OFFSCREEN_PATH = "offscreen/offscreen.html";
 const CONTENT_SCRIPT = "content/checker.js";
@@ -157,17 +159,68 @@ function browserDetect(text) {
     return new Promise((resolve) => chrome.i18n.detectLanguage(text, (result) => resolve(result ?? { isReliable: false, languages: [] })));
 }
 
-// Le moteur vit dans le document offscreen : le service lui parle par messages.
-const offscreenAria = {
-    check: (args) => toOffscreen({ cmd: "check", ...args }),
-    translate: (args) => toOffscreen({ cmd: "translate", ...args }),
-    conjugate: (args) => toOffscreen({ cmd: "conjugate", ...args }),
-    synonyms: (args) => toOffscreen({ cmd: "synonyms", ...args }),
-    cancelTranslation: (jobId) => toOffscreen({ cmd: "translate-cancel", jobId }),
+// Moteur de l'extension : il vit dans le document offscreen, créé à la première demande.
+async function viaOffscreen(payload) {
+    const offscreenCreated = await ensureOffscreen();
+    const { ok, ...result } = await toOffscreen(payload);
+    return { ...result, offscreenCreated, engine: "extension" };
+}
+
+// Pont avec l'application. Les réglages sont partagés dès que la connexion est prête.
+const settingsSync = createSettingsSync({
+    request: (...args) => bridge.request(...args),
+    isReady: () => bridge.isReady(),
+});
+const bridge = createBridge({
+    onReady: () => settingsSync.sync(),
+    onSettingsChanged: (changes) => settingsSync.fromApp(changes),
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local") {
+        settingsSync.fromExtension(changes).catch(() => {});
+    }
+});
+
+// Délais au-delà desquels le moteur de l'extension prend le relais.
+const BRIDGE_TIMEOUTS = { check: 20000, translate: 120000, conjugate: 20000, synonyms: 20000 };
+
+// L'application si elle est prête (sa connexion est lancée au passage), sinon l'extension.
+// Une erreur de transport (application quittée, trop lente) se rattrape ici ; une erreur
+// renvoyée par l'application elle-même est transmise telle quelle.
+function routed(name) {
+    return async (args) => {
+        bridge.connect();
+        if (bridge.isReady()) {
+            try {
+                return { ...(await bridge.request(`engine-${name}`, args, BRIDGE_TIMEOUTS[name])), engine: "application" };
+            } catch (error) {
+                if (!(error instanceof BridgeError)) {
+                    throw error;
+                }
+            }
+        }
+        return viaOffscreen({ cmd: name, ...args });
+    };
+}
+
+const routedAria = {
+    check: routed("check"),
+    translate: routed("translate"),
+    conjugate: routed("conjugate"),
+    synonyms: routed("synonyms"),
+    // Une traduction de page a pu partir d'un côté ou de l'autre : on annule des deux.
+    cancelTranslation: async (jobId) => {
+        if (bridge.isReady()) {
+            await bridge.request("engine-cancel", { jobId }, 5000).catch(() => {});
+        }
+        if (chrome.offscreen && await hasOffscreen()) {
+            await toOffscreen({ cmd: "translate-cancel", jobId });
+        }
+    },
 };
 
 const service = createService({
-    aria: offscreenAria,
+    aria: routedAria,
     getSettings: (defaults) => chrome.storage.local.get(defaults),
     saveValues: (values) => chrome.storage.local.set(values),
     detectNative: browserDetect,
@@ -191,18 +244,13 @@ async function handle(msg, sender) {
                 detectLanguage: !!chrome.i18n?.detectLanguage,
                 offscreenActive: chrome.offscreen ? await hasOffscreen() : false,
             };
-        case "check": {
-            const offscreenCreated = await ensureOffscreen();
-            return { ...(await service.check({ text: msg.text, lang: msg.lang, host: senderHost(sender) })), offscreenCreated };
-        }
+        case "check":
+            return service.check({ text: msg.text, lang: msg.lang, host: senderHost(sender) });
         case "detect":
             return service.detectLanguage(msg.text);
-        case "translate": {
-            const offscreenCreated = await ensureOffscreen();
-            return { ...(await service.translate(msg)), offscreenCreated };
-        }
+        case "translate":
+            return service.translate(msg);
         case "synonyms":
-            await ensureOffscreen();
             return service.synonyms(msg);
         case "exchange": {
             // Aller-retour du correcteur de la popup : « grab-text » ou « put-text » dans l'onglet.
@@ -225,13 +273,14 @@ async function handle(msg, sender) {
             await service.recordMistakes(msg.items);
             return {};
         case "conjugate":
-            await ensureOffscreen();
             return service.conjugate(msg);
         case "translate-cancel":
-            if (chrome.offscreen && await hasOffscreen()) {
-                await toOffscreen({ cmd: "translate-cancel", jobId: msg.jobId });
-            }
+            await routedAria.cancelTranslation(msg.jobId);
             return {};
+        // État de la connexion avec l'application (popup) ; lance la connexion au passage.
+        case "bridge-status":
+            bridge.connect();
+            return { ...bridge.status(), synced: settingsSync.synced() };
         case "open-panel":
         case "translate-page":
             await sendToContent(msg.tabId, 0, msg.cmd);

@@ -805,3 +805,31 @@ if (document.readyState === "complete") {
 if (conjInput.value.trim()) {
     runConj();
 }
+
+// Moteur utilisé : l'application Aria Plume quand elle est connectée (voir bridge-client.js).
+// Rien n'est affiché sans l'application ; pendant son démarrage, on revient voir toutes les demi-secondes.
+async function showEngine(tries = 0) {
+    if (isApp) {
+        return;
+    }
+    const badge = $("#engine");
+    const status = await chrome.runtime.sendMessage({ target: "sw", cmd: "bridge-status" }).catch(() => null);
+    if (status?.state === "ready") {
+        badge.textContent = "Moteur : application ✓";
+        badge.title = `Corrections et traductions faites par l'application Aria Plume ${status.version ?? ""}, réglages partagés avec elle.`.replace("  ", " ");
+        badge.classList.remove("waiting");
+        badge.hidden = false;
+    } else if (status?.state === "connecting" && tries >= 2) {
+        // Seulement après une seconde : sans application, Chrome répond « absente » aussitôt.
+        badge.textContent = "Application…";
+        badge.title = "Connexion à l'application Aria Plume (elle démarre peut-être) : en attendant, le moteur de l'extension travaille.";
+        badge.classList.add("waiting");
+        badge.hidden = false;
+    } else {
+        badge.hidden = true;
+    }
+    if (status?.state === "connecting" && tries < 50) {
+        setTimeout(() => showEngine(tries + 1), 500);
+    }
+}
+showEngine();

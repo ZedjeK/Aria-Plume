@@ -204,6 +204,16 @@ const BRIDGE_COMMANDS = {
     conjugate: SERVICE_COMMANDS.conjugate,
     "record-mistakes": SERVICE_COMMANDS["record-mistakes"],
     "translate-cancel": SERVICE_COMMANDS["translate-cancel"],
+    // Le moteur seul : l'extension garde son service (détection de langue du navigateur, français
+    // soigné selon le site, dictionnaire) et ne demande à l'application que l'analyse elle-même.
+    "engine-check": async (msg) => aria.check({ text: String(msg.text ?? ""), lang: msg.lang, dialect: msg.dialect, formal: !!msg.formal, repetitions: Number(msg.repetitions) || 0 }),
+    "engine-translate": async (msg) => aria.translate({ text: String(msg.text ?? ""), from: msg.from, to: msg.to, html: !!msg.html, glossary: msg.glossary ?? null, priority: Number(msg.priority) || 0, jobId: msg.jobId ?? null }),
+    "engine-conjugate": async (msg) => aria.conjugate({ verb: String(msg.verb ?? ""), options: msg.options ?? {} }),
+    "engine-synonyms": async (msg) => aria.synonyms({ word: String(msg.word ?? ""), lang: msg.lang }),
+    "engine-cancel": async (msg) => {
+        await aria.cancelTranslation(msg.jobId);
+        return {};
+    },
     "settings-get": async (msg) => ({ values: getValues(msg.spec ?? null) }),
     "settings-set": async (msg) => ({ changes: updateSettings(msg.values && typeof msg.values === "object" ? msg.values : {}) }),
     "settings-remove": async (msg) => ({ changes: announceChanges(removeSettings(msg.keys)) }),
@@ -236,9 +246,11 @@ async function startBridge() {
 
 // Commande qui démarre l'application cachée (utilisée par le relais).
 function appCommand() {
+    // Banc automatique : arguments en plus (--no-sandbox sous Linux en root…).
+    const extra = process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_EXTRA_ARGS ? JSON.parse(process.env.ARIA_TEST_EXTRA_ARGS) : [];
     return app.isPackaged
-        ? { command: process.execPath, args: ["--hidden"] }
-        : { command: process.execPath, args: [APP_DIR, "--hidden"] };
+        ? { command: process.execPath, args: ["--hidden", ...extra] }
+        : { command: process.execPath, args: [APP_DIR, "--hidden", ...extra] };
 }
 
 const bridgeOptions = () => ({
