@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.34 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.35 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -40,6 +40,7 @@ La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O*
 | **Réglages** | Délai avant analyse, variante d'anglais, catégories signalées, répétitions et leur distance, français écrit soigné, couleurs des vagues, correcteur du navigateur masqué, mots ignorés, dictionnaire, glossaire et sites désactivés, export et import dans un fichier | — |
 | **Correcteur dans la popup** | Onglet *Correction* de la popup et de la fenêtre séparée : écris ou colle un texte, les fautes se soulignent comme dans les pages (clic droit pour corriger, *Tout corriger*, Copier). Langue automatique, ou imposée en français ou en anglais. **Récupérer** prend le texte sélectionné dans la page, **Renvoyer** l'y remet corrigé ; **Traduire** l'envoie dans l'onglet Traduction ; un compteur donne fautes, répétitions, mots et temps de lecture ; dans la fenêtre séparée assez large, la liste des fautes s'affiche à droite du texte. Marche même si la correction en direct est coupée | Grammalecte, Harper |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
+| **Avec l'application** | Si l'application de bureau est installée (version zip) et les navigateurs connectés, l'extension lui confie l'analyse, la traduction, la conjugaison et les synonymes, et partage ses réglages avec elle : un seul dictionnaire, un seul glossaire partout. La popup affiche « Moteur : application ✓ ». L'application démarre toute seule en arrière-plan quand l'extension en a besoin ; si elle ne répond pas, l'extension reprend son propre moteur | Le moteur de l'application, par la messagerie native du navigateur |
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.
 
@@ -57,9 +58,11 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 
 **Pour mettre à jour** : remplace le dossier `extension`, puis clique sur ⟳ sur la carte d'Aria Plume et recharge tes onglets.
 
+**Passage à la 0.35** : l'extension a désormais un identifiant fixe (nécessaire pour parler à l'application). Le navigateur la voit comme une nouvelle extension : exporte d'abord tes réglages (Réglages → Sauvegarde), retire l'ancienne carte, charge le dossier de la 0.35, puis importe tes réglages. Cette manipulation ne se fera qu'une fois.
+
 ### L'application de bureau (Windows)
 
-Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison, raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel, et **serveur MCP** (`--mcp`) pour prêter ces outils à Claude Desktop, LM Studio ou toute IA qui parle MCP. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ».
+Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison, raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel, **pont avec l'extension** (Réglages → « Connecter les navigateurs », version zip) et **serveur MCP** (`--mcp`) pour prêter ces outils à Claude Desktop, LM Studio ou toute IA qui parle MCP. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ».
 
 ## Premiers pas
 
@@ -75,7 +78,8 @@ Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume
 - **Aucun accès réseau** : la politique de sécurité de l'extension (`connect-src 'self'`) bride le service worker, le document offscreen et les moteurs : même en cas de bug, ils ne peuvent rien envoyer à l'extérieur. Le script injecté dans les pages n'est pas couvert par cette politique, mais il ne fait aucun appel réseau et ne communique qu'avec l'extension. Les moteurs et les modèles sont dans le dossier `extension`.
 - **Champs ignorés** : les champs de mot de passe, ceux que le site déclare comme numéro de carte bancaire ou code à usage unique (attribut `autocomplete`) et les éditeurs de code ne sont jamais lus. Un champ sensible mal balisé par le site peut être analysé, mais toujours en local.
 - **Modèles vérifiés** : l'empreinte SHA-256 publiée par Mozilla est contrôlée à chaque chargement d'un modèle.
-- **Rien d'envoyé** : les réglages, les mots ignorés, le dictionnaire personnel, le glossaire et le décompte de tes fautes restent dans le stockage local du navigateur ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
+- **Pont avec l'application** : l'extension ne parle qu'à l'application Aria Plume de ton PC, par la messagerie native du navigateur (un programme local que le navigateur lance lui-même), jamais par le réseau. Le navigateur n'autorise que l'identifiant de l'extension Aria Plume, et l'application exige un jeton stocké dans un fichier lisible par toi seul. Sans l'application, cette permission ne sert à rien et l'extension fonctionne seule.
+- **Rien d'envoyé** : les réglages, les mots ignorés, le dictionnaire personnel, le glossaire et le décompte de tes fautes restent dans le stockage local du navigateur (et, si tu as connecté les navigateurs, dans le fichier de réglages de l'application) ; les textes de la traduction rapide dans le stockage de session, effacé à la fermeture du navigateur. L'export des réglages crée un fichier sur ton PC, rien de plus.
 
 | Permission | Pourquoi |
 | --- | --- |
@@ -84,6 +88,7 @@ Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume
 | `scripting` | Réinjecter le script dans un onglet ouvert avant une mise à jour de l'extension |
 | `contextMenus` | Entrées du clic droit |
 | `storage` | Réglages, mots ignorés, dictionnaire personnel, glossaire et textes de la traduction rapide |
+| `nativeMessaging` | Parler à l'application Aria Plume installée sur ton PC, si tu as connecté les navigateurs |
 
 ### Limites à connaître
 
@@ -130,6 +135,7 @@ Les fichiers des moteurs sont copiés sans modification depuis leur source offic
 extension/
 ├── manifest.json               # Manifest V3 : permissions, raccourcis, CSP sans réseau
 ├── background.js               # service worker : menus, raccourcis, détection de langue, routage
+├── bridge-client.js            # pont avec l'application : connexion native, bascule, réglages partagés
 ├── offscreen/                  # document caché qui fait tourner le moteur (relais vers core/)
 ├── core/                       # moteur Aria : notre code, sans dépendance à Chrome (voir docs/FEUILLE-DE-ROUTE.md)
 │   ├── api.md                  # contrat de l'interface
@@ -150,6 +156,7 @@ extension/
 │   ├── translate/
 │   │   └── glossary.js         # glossaire de traduction
 │   └── shared/
+│       ├── ids.js              # identifiant fixe de l'extension et nom du relais de l'application
 │       ├── settings.js         # réglages par défaut et contrôle des valeurs importées
 │       └── mistakes.js         # familles de fautes récurrentes
 ├── content/
@@ -162,11 +169,12 @@ extension/
 ├── data/                       # thésaurus anglais tiré de WordNet et sa licence
 ├── engines/                    # Grammalecte (et son thésaurus), Harper, Bergamot (tiers, non modifiés)
 └── models/                     # modèles de traduction Mozilla (gzip) et leurs empreintes
-app/                            # application de bureau (Electron, en construction) : voir app/README.md
+app/                            # application de bureau (Electron) : fenêtre, raccourci global, pont, MCP — voir app/README.md
 tools/
 └── build-thesaurus-en.mjs      # conversion de WordNet en thésaurus anglais
 tests/
 ├── bench/                      # banc de mesure (run.mjs), robustesse (robustesse.mjs), endurance (endurance.mjs)
+├── extension/                  # l'extension dans Chromium : identifiant (id.mjs), pont de bout en bout (pont.mjs)
 └── node/                       # le moteur sous Node : node tests/node/smoke.mjs
 ```
 

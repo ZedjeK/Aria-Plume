@@ -151,3 +151,58 @@ Une plateforme fournit ce qui dépend de l'environnement :
 
 Le moteur utilise aussi les objets standard présents dans les navigateurs récents et dans Node 22 :
 `fetch`, `Response`, `Blob`, `DecompressionStream`, `crypto.subtle`, `TextDecoder`, `performance`.
+
+---
+
+## Pont avec l'application (`app/bridge/`, `extension/bridge-client.js`)
+
+L'application Aria Plume prête son moteur et ses réglages à l'extension par la messagerie native
+des navigateurs Chromium. Rien ne passe par le réseau.
+
+```text
+extension ──connectNative("fr.aria_plume.app")──▶ relais (relay.cjs) ──canal local──▶ application
+             trames : longueur sur 4 octets + JSON          une ligne JSON par message
+```
+
+- **Inscription** : Réglages de l'application → « Connecter les navigateurs ». Dans le dossier
+  `Aria Plume - pont` (à côté des réglages) : `relay.cjs`, `relay-config.json`, `relay.cmd` (ou
+  `relay.sh`), le manifeste `fr.aria_plume.app.json` et le jeton `jeton`. Sous Windows, une clé
+  `HKCU\Software\<navigateur>\NativeMessagingHosts\fr.aria_plume.app` pour Google\Chrome (lue aussi
+  par Opera et Vivaldi), Microsoft\Edge, BraveSoftware\Brave-Browser et Chromium. Seule l'extension
+  `chrome-extension://fpgalamdbelhkacggnnglgcljhdcioca/` est autorisée (identifiant fixé par la clé
+  publique du manifeste, `core/shared/ids.js`). L'exe portable ne peut pas être inscrit.
+- **Relais** : lancé par le navigateur avec l'exécutable d'Aria Plume en mode Node
+  (`ELECTRON_RUN_AS_NODE=1`). Si l'application ne répond pas, il la démarre (`--hidden`) et réessaie
+  pendant 20 s. Il refuse de transmettre au navigateur un message de plus de 1 Mo (réponse d'erreur
+  à la place).
+- **Canal** : `\\.\pipe\aria-plume-<utilisateur>` sous Windows, socket Unix
+  `$XDG_RUNTIME_DIR/aria-plume-<uid>.sock` ailleurs. Premier message obligatoire :
+  `{ id: 0, cmd: "hello", token }`, avec le jeton du fichier `jeton` (lisible par l'utilisateur seul) ;
+  sinon la connexion est fermée.
+
+Messages de l'application :
+
+| Message | Quand |
+|---|---|
+| `{ event: "ready", version }` | Jeton accepté : les demandes peuvent partir |
+| `{ id, ok: true, ... }` / `{ id, ok: false, error }` | Réponse à une demande |
+| `{ event: "settings-changed", changes }` | Réglages modifiés (format de `chrome.storage.onChanged`), à toutes les connexions |
+
+Messages du relais lui-même : `{ event: "starting" }` (il démarre l'application) et
+`{ event: "unavailable", error }` (application injoignable, le relais s'arrête).
+
+Demandes (`{ id, cmd, ... }`) :
+
+| `cmd` | Rôle |
+|---|---|
+| `engine-check`, `engine-translate`, `engine-conjugate`, `engine-synonyms`, `engine-cancel` | Le moteur seul : mêmes entrées que `check`, `translate`, `conjugate`, `synonyms`, `cancelTranslation` ci-dessus. C'est ce qu'utilise l'extension, qui garde son service (détection de langue du navigateur, français soigné selon le site) |
+| `check`, `detect`, `translate`, `synonyms`, `conjugate`, `record-mistakes`, `translate-cancel` | Le service de l'application, avec ses réglages (comme sa fenêtre). `check` accepte `host` |
+| `settings-get` (`spec`), `settings-set` (`values`), `settings-remove` (`keys`) | Réglages de l'application, comme `chrome.storage.local` ; `settings-set` et `settings-remove` renvoient `changes` |
+| `ping` | `{ version }` |
+
+Côté extension (`background.js`), une demande passe par l'application si la connexion est prête, et
+par le document offscreen sinon ; une coupure en cours de route se rattrape avec le moteur de
+l'extension. Les réponses portent `engine: "application"` ou `"extension"`. Les réglages de
+l'application sont recopiés dans `chrome.storage.local` (les pages de l'extension lisent leur
+stockage habituel) : fusion à la première connexion, puis changements dans les deux sens, et ceux
+faits pendant une coupure sont envoyés à la reconnexion.

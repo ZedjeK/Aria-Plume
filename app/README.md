@@ -1,7 +1,7 @@
 # Aria Plume — application
 
 Application de bureau Electron autour du moteur Aria (`../extension/core`), 100 % locale.
-Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md), phase 2.
+Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md), phases 2 à 4.
 
 ## Version portable (Windows)
 
@@ -44,11 +44,53 @@ empaquetée » reste réservé à l'utilisateur. Le bouton fait donc tout le res
 jour dans… ». Il recopie les fichiers ; dans le navigateur, un clic sur ↻ (Recharger) sur la carte
 d'Aria Plume suffit. Seuls les fichiers posés par une copie précédente sont remplacés ou retirés
 (liste dans `.aria-plume-copie.json`), et un dossier du même nom qui ne contient pas Aria Plume est
-refusé. L'extension garde ses propres réglages : export ici, import dans les siens. Firefox n'est
-pas pris en charge (format d'extension différent, signature Mozilla obligatoire).
+refusé. Pour que l'extension partage les réglages de l'application, connecte les navigateurs
+(ci-dessous). Firefox n'est pas pris en charge (format d'extension différent, signature Mozilla
+obligatoire).
 
 Tests : `node tests/extension-install.mjs` (copie, mise à jour, refus) et `npm test` (le parcours
 complet avec un navigateur simulé).
+
+## Connecter les navigateurs (pont avec l'extension)
+
+Réglages → Application → **Connexion avec l'extension** → « Connecter les navigateurs ». Ensuite,
+l'extension confie l'analyse, la traduction, la conjugaison et les synonymes à l'application, et les
+deux partagent les mêmes réglages (dictionnaire, glossaire, mots ignorés, catégories…). La popup de
+l'extension affiche « Moteur : application ✓ ».
+
+- **Sans droits administrateur** : l'inscription se fait dans `HKEY_CURRENT_USER`, pour Chrome (lue
+  aussi par Opera, Opera GX et Vivaldi), Edge, Brave et Chromium. « Déconnecter » retire tout.
+- **Application fermée** : l'extension la démarre en arrière-plan, près de l'horloge, sans ouvrir
+  de fenêtre. En attendant, et si elle ne répond pas, l'extension travaille avec son propre moteur.
+  Quitter l'application pendant que le navigateur tourne : elle revient à la demande suivante.
+- **Première connexion** : les deux côtés sont réunis. Dictionnaire, glossaire, termes gardés, mots
+  ignorés et sites exclus sont fusionnés ; pour les autres réglages, c'est celui de l'application
+  qui compte, sauf s'il est encore à sa valeur par défaut (alors celui de l'extension gagne).
+- **Sécurité** : seul l'identifiant de l'extension Aria Plume est autorisé par le navigateur, et le
+  canal entre le relais et l'application (`\\.\pipe\aria-plume-<utilisateur>`) exige un jeton
+  stocké dans un fichier lisible par toi seul. Aucun port réseau n'est ouvert.
+- **Version zip uniquement** : l'exe portable se décompresse ailleurs à chaque lancement, le
+  navigateur ne saurait pas où le trouver. Si tu déplaces le dossier de l'application, elle met
+  l'inscription à jour à son prochain démarrage.
+- **Extension 0.35 ou plus récente**, chargée une nouvelle fois depuis la 0.35 : son identifiant est
+  désormais fixe (voir les notes de version).
+
+Détails du protocole : [`../extension/core/api.md`](../extension/core/api.md#pont-avec-lapplication-appbridge-extensionbridge-clientjs).
+
+Tests : `node tests/bridge.mjs` (relais, jeton, démarrage automatique, limites, inscription),
+`npm test` (un vrai relais parle à l'application) et, depuis `app/`,
+`xvfb-run -a node ../tests/extension/pont.mjs` (Chromium + extension + relais + application).
+
+### À vérifier sur Windows
+
+1. Version zip : Réglages → « Connecter les navigateurs » → « Navigateurs connectés (Google Chrome,
+   Opera, Vivaldi, Microsoft Edge, Brave, Chromium) ».
+2. Recharger l'extension 0.35 (voir les notes de version), ouvrir sa popup : « Application… » puis
+   « Moteur : application ✓ ».
+3. Ajouter un mot au dictionnaire dans l'extension : il apparaît dans les réglages de l'application,
+   et inversement.
+4. « Quitter Aria Plume », puis écrire une faute dans une page : elle est soulignée, et l'icône
+   d'Aria Plume revient près de l'horloge quelques secondes plus tard.
 
 ## Le serveur MCP (pour les IA)
 
@@ -137,9 +179,9 @@ récurrentes, anglais, dictionnaire, glossaire, mots ignorés, sauvegarde), avec
 Windows, emplacement du fichier de réglages. Ce qui ne concerne que le navigateur (correction sur les
 sites, relecture Gmail, réglages par site) est masqué.
 
-Pour avoir les mêmes réglages partout : **Exporter** dans les réglages de l'extension, puis
-**Importer** ce fichier dans ceux de l'application (et inversement). Les exports passent par la
-boîte « Enregistrer sous » de Windows.
+Pour avoir les mêmes réglages partout : **Connecter les navigateurs** (voir plus haut), ou
+**Exporter** dans les réglages de l'extension puis **Importer** ce fichier dans ceux de
+l'application. Les exports passent par la boîte « Enregistrer sous » de Windows.
 
 ## Le raccourci global (Windows)
 
@@ -181,6 +223,10 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `mcp/electron.js` | `--mcp` : le serveur dans l'application, avec ses réglages |
 | `mcp/standalone.mjs` | Le serveur avec Node seul |
 | `extension-install.js` | Installation assistée de l'extension : navigateurs détectés, copie, ouverture |
+| `bridge/server.js` | Pont avec l'extension : canal local de la session, jeton, messages |
+| `bridge/relay.cjs` | Relais lancé par le navigateur (messagerie native), démarre l'application au besoin |
+| `bridge/register.js` | Inscription du relais auprès des navigateurs (registre de Windows, dossiers sous Linux) |
 | `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
 | `ui/app.css` | Retouches du correcteur pour la fenêtre (éléments propres au navigateur masqués) |
 | `tests/smoke.mjs` | Test de fumée (`xvfb-run -a npm test` sous Linux) |
+| `tests/bridge.mjs` | Test du pont sans Electron |

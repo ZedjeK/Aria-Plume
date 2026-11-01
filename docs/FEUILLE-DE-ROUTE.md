@@ -4,7 +4,7 @@
 > et les met à disposition de partout : navigateur, mails, n'importe quel logiciel, et les IA via MCP.
 > Ensuite, remplacer pas à pas les moteurs tiers par le nôtre, mesuré à chaque étape.
 
-Dernière mise à jour : 29 octobre 2026 — version 0.34.0. **Phases 1, 2 et 4 terminées** (4.2 à confirmer sous Windows).
+Dernière mise à jour : 1er novembre 2026 — version 0.35.0. **Phases 1 à 4 terminées** (4.2 et le pont à confirmer sous Windows). Prochaine : phase 6 (complément Office complet), puis la phase 7 en commençant par « la main sur les règles ».
 
 ## Règles du chantier
 
@@ -36,7 +36,7 @@ Le réglage d'effort dit à Claude combien réfléchir avant d'agir : plus c'est
 |---|---|---|
 | 1 | Socle `core/` : une interface unique, utilisable dans le navigateur et sous Node | `high` |
 | 2 | Application portable (Electron) : fenêtre, icône près de l'horloge, raccourci global | `medium` → `high` |
-| 3 | Pont extension ↔ application (localhost sécurisé) | `high` |
+| 3 | Pont extension ↔ application (messagerie native) | `high` |
 | 4 | Serveur MCP (`aria-plume --mcp`) | `medium` |
 | 5 | Thunderbird | `medium` → `high` |
 | 6 | Outlook et Word (compléments Office) | `high` |
@@ -140,13 +140,18 @@ Les moteurs restent chargés à la demande, comme aujourd'hui.
 
 ## Phase 3 — Le pont extension ↔ application
 
-Quand l'application tourne, l'extension lui confie le travail (moteurs déjà chargés, mémoire économisée). Sinon, elle continue seule.
+Quand l'application tourne, l'extension lui confie le travail (un seul moteur chargé, mêmes réglages partout). Sinon, elle continue seule.
 
-| # | Tâche | Effort |
-|---|---|---|
-| 3.1 | Serveur local dans l'application (`127.0.0.1` uniquement, port fixe configurable) | `medium` |
-| 3.2 | Sécurité : n'importe quel site web peut appeler `localhost`, donc jeton partagé + vérification de l'origine (`chrome-extension://<id>`). Aucun accès sans jeton | `high` |
-| 3.3 | Côté extension : détection de l'application, bascule automatique, retour au mode autonome si elle disparaît | `high` |
+**Choix de Jérémy (31/10/2026) : la messagerie native** plutôt qu'un serveur `localhost`. Aucun port ouvert : le navigateur lance lui-même un petit relais, n'autorise que l'identifiant de l'extension, et le relais parle à l'application par un canal nommé réservé à la session Windows, protégé par un jeton. Réglages partagés : oui. Démarrage automatique de l'application par l'extension : oui.
+
+| # | Tâche | Effort | État |
+|---|---|---|---|
+| 3.1 | Identifiant fixe de l'extension (clé publique dans le manifeste) et permission `nativeMessaging` | `medium` | Fait (0.35.0) |
+| 3.2 | Côté application : canal nommé + jeton (`bridge/server.js`), relais (`bridge/relay.cjs`, exécutable d'Aria Plume en mode Node), inscription dans `HKCU` (`bridge/register.js`), bouton « Connecter les navigateurs », exe portable refusé, démarrage caché | `high` | Fait (0.35.0) |
+| 3.3 | Côté extension : bascule application ↔ moteur de l'extension, repli sur coupure, réglages partagés (fusion, deux sens, rattrapage après coupure), pastille dans la popup | `high` | Fait (0.35.0) |
+| 3.4 | Tests de bout en bout (Chromium + extension + relais + application), documentation | `medium` | Fait (0.35.0) ; reste la vérification sous Windows |
+
+Contrat du pont : [`extension/core/api.md`](../extension/core/api.md). La clé privée qui a servi à fixer l'identifiant n'est pas dans le dépôt (inutile au fonctionnement ; elle ne servirait qu'à une publication sur le Chrome Web Store).
 
 ---
 
@@ -232,3 +237,7 @@ On remplace les moteurs tiers pièce par pièce, chaque pièce mesurée contre l
 | 29/10/2026 | Installation assistée de l'extension (0.32.0) | Demande de Jérémy : installer l'extension depuis l'application. Le « un clic » est impossible (Windows : installations externes réservées au Chrome Web Store ; Chrome 137 : plus de `--load-extension` ; vérifié ici : Chromium n'ouvre pas `chrome://extensions` passé au lancement). Réglages → Application → Extension du navigateur : détection de Chrome, Edge, Brave, Opera, Opera GX, Vivaldi et Chromium, copie de l'extension complète (désormais embarquée) dans un dossier fixe à côté des réglages, lancement du navigateur, adresse de sa page d'extensions puis chemin du dossier dans le presse-papiers, étapes guidées ; mise à jour qui ne touche qu'aux fichiers posés par la copie précédente. Tests : `tests/extension-install.mjs` (14) et 10 vérifications de plus dans `smoke.mjs`. **À confirmer par Jérémy** : chemins des navigateurs chez lui, et si Opera GX ouvre directement sa page d'extensions |
 | 30/10/2026 | Grande révision des règles (0.33.0) | Demande de Jérémy : « perfectionner au maximum les règles », tests dans tous les sens. Nouveaux bancs écrits avant tout correctif : `textes2` (série de travail, 218 textes FR/EN dont des textes justes techniques) et `controle2` (125 textes jamais regardés pendant les correctifs) ; `robustesse.mjs` (cas limites) ; `endurance.mjs` (phrases générées à la volée, justes ou fautives, en continu ; essais de 2 à 3 min, 36 000 à 46 000 phrases sans plantage ; le passage d'une heure a été arrêté à la demande de Jérémy). Bugs trouvés : positions anglaises décalées d'un cran par emoji (Harper renvoie déjà des positions UTF-16) ; code, URL, chemins, identifiants soulignés ; espaces invisibles et accents décomposés qui cassaient les mots. Ajouts français : son/sont, ce/se, où, ci/si, « nous somme », accord sujet-verbe (nom, nous, vous, on), attribut après être, participe avec « que » avant, pluriel après déterminant, « penser à » + infinitif, participe coordonné, subjonctif, futur ou conditionnel selon le contexte, noms propres et jargon informatique, suggestions d'orthographe (sons, apostrophe oubliée, contexte, clavier). Ajouts anglais : participes irréguliers, accords (pronom, groupe nominal, sujet composé, one of), there are, too, loose, your, then, who's, they're, choose, won't, fautes courantes, tri des suggestions selon le clavier QWERTY, fausses alertes de Harper retirées. Contrôle : FR 85 → 90 % trouvées, 77 → 85 % en tête ; EN 80 → 98 % et 73 → 93 % ; fausses alertes 8 → 2. Endurance : FR 94 → 98 % trouvées, EN 71 → 94 %, fausses alertes sur phrases justes FR 0,4 → 0,1 %, EN 1,8 → 1,1 % |
 | 30/10/2026 | Campagne 100 % français (0.34.0) | Nouveaux bancs écrits avant les correctifs : `textes3` (170 textes, constructions difficiles et textes justes piégeux) et `controle3` (89 textes jamais regardés). Nouvelles règles : sujet éloigné du verbe (complément du nom, relative, « chacun des », « l'un des », « la plupart des », « le nombre de », sujets coordonnés), sujet inversé dans une question, « c'est nous qui », participe avec « que », « l' » ou « quel » placé avant, participe pronominal avec complément après (« elle s'est coupé les cheveux »), sans/s'en, voire/voir, tout/toute, plutôt/plus tôt, quel que, ma/m'a, ta/t'a, mais/mes, c'est/ses, si/s'y, l'ai, passé simple ou imparfait, futur ou conditionnel (« je viendrai demain », « j'aimerais bien », « tu devrais », « je pensais que tu serais »), subjonctif à la bonne personne, adjectif après un adverbe, nous-mêmes, aucune, langues en minuscule ; pléonasmes rangés en style. Contrôle : 71 → 87 % trouvées, 64 → 83 % en tête, fausses alertes 5 → 3. Endurance (gabarit « sujet éloigné » ajouté) : 99,0 % trouvées, 96,1 % en tête, 0,0 % de fausses alertes sur 18 000 phrases justes |
+| 31/10/2026 | 3.1 — identifiant fixe | Clé publique RSA 2048 dans le manifeste : l'extension s'appelle désormais `fpgalamdbelhkacggnnglgcljhdcioca` quel que soit son dossier ; permission `nativeMessaging`. Vérifié dans Chromium (`tests/extension/id.mjs`). Conséquence : une réinstallation unique de l'extension (exporter puis importer ses réglages) |
+| 01/11/2026 | 3.2 — pont côté application | Canal `\\.\pipe\aria-plume-<utilisateur>` (socket Unix ailleurs), jeton de 256 bits dans un fichier privé, une ligne JSON par message, réglages poussés à toutes les connexions. Relais autonome copié à l'inscription, lancé par `relay.cmd` avec `ELECTRON_RUN_AS_NODE=1` : démarre l'application cachée et attend 20 s, refuse les messages de plus de 1 Mo vers le navigateur. Inscription pour Chrome (Opera, Vivaldi), Edge, Brave, Chromium ; réécrite au démarrage si l'application a bougé. Une instance lancée avec `--hidden` ne fait plus apparaître la fenêtre. `tests/bridge.mjs` (24 vérifications), test de fumée avec un vrai relais, sur les sources et sur l'application empaquetée (relais extrait d'`app.asar`) ; un vrai Chromium parle au relais du premier coup |
+| 01/11/2026 | 3.3 — pont côté extension | `bridge-client.js` : l'extension garde son service (détection de langue de Chrome, français soigné par site, dictionnaire) et confie l'analyse brute à l'application (`engine-*`) ; première demande toujours servie tout de suite par le moteur de l'extension pendant que l'application démarre ; coupure en cours de demande rattrapée. Réglages : copie de ceux de l'application dans `chrome.storage.local`, fusion à la première connexion (listes réunies, réglage par défaut de l'application → valeur de l'extension), changements dans les deux sens, changements faits pendant une coupure renvoyés à la reconnexion. Pastille « Moteur : application ✓ » (jamais affichée sans application). `tests/extension/pont.mjs` : 19 vérifications de bout en bout, dont l'application tuée net puis relancée, stables sur plusieurs passages |
+| 01/11/2026 | 3.4 — documentation, version 0.35.0 — **phase 3 terminée** | Contrat du pont dans `core/api.md`, README, `app/README.md` (avec la liste « À vérifier sur Windows »), notes de version. À confirmer chez Jérémy : clés du registre, `relay.cmd`, canal nommé, Opera GX |

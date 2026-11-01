@@ -147,7 +147,7 @@
         showState(state);
         return [
             el("h3", { textContent: "Extension du navigateur" }),
-            el("p", { className: "hint", textContent: "La même correction directement dans les pages web (Chrome, Edge, Brave, Opera, Opera GX, Vivaldi…). Les navigateurs interdisent à un logiciel d'installer une extension tout seul : Aria Plume prépare tout, il te reste trois clics, guidés ici. L'extension garde ses propres réglages (exporte-les ici, importe-les dans les siens pour retrouver ton dictionnaire). Firefox n'est pas pris en charge." }),
+            el("p", { className: "hint", textContent: "La même correction directement dans les pages web (Chrome, Edge, Brave, Opera, Opera GX, Vivaldi…). Les navigateurs interdisent à un logiciel d'installer une extension tout seul : Aria Plume prépare tout, il te reste trois clics, guidés ici. Pour qu'elle partage les réglages de l'application (dictionnaire, glossaire…), connecte ensuite les navigateurs, juste en dessous. Firefox n'est pas pris en charge." }),
             status,
             buttons,
             steps,
