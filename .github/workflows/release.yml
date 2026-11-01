@@ -68,12 +68,18 @@ jobs:
               working-directory: app
               run: npm ci
 
+            # Les tests du complément Office ouvrent ses pages dans un vrai Chromium.
+            - name: Installer Chromium pour les tests
+              working-directory: app
+              run: npx playwright install --with-deps chromium
+
             - name: Tester l'application empaquetée (Linux)
               working-directory: app
               run: |
                   command -v xvfb-run > /dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
                   node tests/bridge.mjs
                   node tests/office.mjs
+                  node tests/office-word.mjs
                   xvfb-run -a npm run test:package
 
             - name: Construire l'application Windows

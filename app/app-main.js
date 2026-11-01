@@ -30,6 +30,7 @@ const { createInput, captureSelection, pasteInto } = await import("./windows-inp
 const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridge/server.js");
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
+const { WORD_MANIFEST, registerWord, unregisterWord, wordRegistered } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
 
@@ -199,7 +200,9 @@ const SERVICE_COMMANDS = {
 // (le fichier de l'application). « Renvoyer » (exchange) reste propre à la fenêtre.
 const BRIDGE_COMMANDS = {
     ping: async () => ({ version: app.getVersion() }),
-    check: (msg) => service.check({ text: String(msg.text ?? ""), lang: msg.lang, host: typeof msg.host === "string" ? msg.host : "" }),
+    // personal : dictionnaire, mots ignorés et catégories appliqués ici (complément Office) ;
+    // l'extension, elle, les applique dans ses pages.
+    check: (msg) => service.check({ text: String(msg.text ?? ""), lang: msg.lang, host: typeof msg.host === "string" ? msg.host : "", personal: msg.personal === true }),
     detect: SERVICE_COMMANDS.detect,
     translate: SERVICE_COMMANDS.translate,
     synonyms: SERVICE_COMMANDS.synonyms,
@@ -330,9 +333,24 @@ async function startOffice() {
     }
 }
 
+const officeOrigin = () => `https://localhost:${officePort()}`;
+
+// Manifeste Word réécrit au démarrage (nouvelle version, dossier déplacé) s'il était inscrit.
+async function refreshWordRegistration() {
+    if (!fs.existsSync(path.join(officeDir(), WORD_MANIFEST))) {
+        return;
+    }
+    try {
+        await registerWord({ dir: officeDir(), origin: officeOrigin(), version: app.getVersion() });
+    } catch (error) {
+        console.error("Complément Word : réinscription impossible :", error);
+    }
+}
+
 async function officeState() {
     const certificates = loadCertificates(officeDir());
     return {
+        word: await wordRegistered({ dir: officeDir() }),
         installed: !!certificates,
         trusted: await isTrusted(certificates),
         listening: !!officeServer,
@@ -582,11 +600,13 @@ ipcMain.handle("app:office-install", async () => {
         refused = result.refused;
     }
     await startOffice();
-    return { ...(await officeState()), refused };
+    const word = await registerWord({ dir: officeDir(), origin: officeOrigin(), version: app.getVersion() });
+    return { ...(await officeState()), refused, wordError: word.error ?? null };
 });
 ipcMain.handle("app:office-uninstall", async () => {
     await officeServer?.close();
     officeServer = null;
+    await unregisterWord({ dir: officeDir() });
     await removeCertificates(officeDir());
     return officeState();
 });
@@ -693,6 +713,7 @@ app.whenReady().then(() => {
     startBridge();
     refreshBridgeRegistration();
     startOffice();
+    refreshWordRegistration();
     // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
     input.warmUp();
     createWindow();

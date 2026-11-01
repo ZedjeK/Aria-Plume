@@ -305,6 +305,8 @@ await opt.waitForFunction(() => document.querySelector("#officeStatus").textCont
 check("Office : serveur prêt", (await opt.textContent("#officeStatus")).includes(`https://localhost:${officePort}/office/`) && await opt.isVisible("#officeTest"), await opt.textContent("#officeStatus"));
 const officeDir = `${(await win.evaluate(() => window.ariaTest.state())).settingsFile.replace(/[\\/][^\\/]+$/, "")}/Aria Plume - Office`;
 const leafPem = fs.readFileSync(`${officeDir}/serveur.pem`, "utf8");
+const wordXml = fs.readFileSync(`${officeDir}/manifeste-word.xml`, "utf8");
+check("Office : manifeste Word écrit, pointant vers l'application", wordXml.includes(`https://localhost:${officePort}/office/word.html`) && wordXml.includes(`<Version>${appVersion}.0</Version>`));
 const { X509Certificate, createHash } = await import("node:crypto");
 const spki = createHash("sha256").update(new X509Certificate(leafPem).publicKey.export({ type: "spki", format: "der" })).digest("base64");
 const officeBrowser = await chromium.launch({ args: [`--ignore-certificate-errors-spki-list=${spki}`, "--no-sandbox"] });
@@ -323,12 +325,14 @@ try {
     await officePage.goto("about:blank");
     const fromElsewhere = await officePage.evaluate(async (port) => fetch(`https://localhost:${port}/api/check`, { method: "POST", mode: "no-cors", headers: { "content-type": "text/plain" }, body: "{}" }).then((r) => r.type).catch(() => "bloqué"), officePort);
     check("Office : autre page, aucune réponse lisible", fromElsewhere === "opaque" || fromElsewhere === "bloqué", String(fromElsewhere));
+    const wordPage = await officePage.goto(`https://localhost:${officePort}/office/word.html`).catch(() => null);
+    check("Office : panneau Word servi par l'application (paquet compris)", wordPage?.status() === 200 && (await officePage.locator("script[type=module]").getAttribute("src")) === "word.js");
 } finally {
     await officeBrowser.close();
 }
 await opt.click("#officeUninstall");
 await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Complément non installé.", null, { timeout: 5000 }).catch(() => {});
-check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
+check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
 await opt.close();
 
 // Fermer = cacher ; réafficher ; quitter.

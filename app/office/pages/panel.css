@@ -1,0 +1,345 @@
+/* Aria Plume — panneau du complément Office. Clair par défaut, sombre selon le thème d'Office
+   (data-theme posé par panel.js) ou, à défaut, celui du système. */
+
+:root {
+    --bg: #ffffff;
+    --surface: #f4f3f9;
+    --text: #1d1b26;
+    --muted: #5d5a6b;
+    --line: #dddbe8;
+    --accent: #6b3fd6;
+    --accent-text: #ffffff;
+    --ortho: #d92d32;
+    --gram: #c26a00;
+    --style: #0b84c6;
+    --ok: #0b7a4b;
+    --warn: #9a5b00;
+    --error: #b42318;
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    --bg: #1b1a22;
+    --surface: #25232f;
+    --text: #ecebf3;
+    --muted: #a5a2b5;
+    --line: #3a3747;
+    --accent: #3ee6ff;
+    --accent-text: #10131a;
+    --ortho: #ff6b6f;
+    --gram: #f5a524;
+    --style: #4cc3ff;
+    --ok: #3ddc97;
+    --warn: #f5c451;
+    --error: #ff6b6b;
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #1b1a22;
+        --surface: #25232f;
+        --text: #ecebf3;
+        --muted: #a5a2b5;
+        --line: #3a3747;
+        --accent: #3ee6ff;
+        --accent-text: #10131a;
+        --ortho: #ff6b6f;
+        --gram: #f5a524;
+        --style: #4cc3ff;
+        --ok: #3ddc97;
+        --warn: #f5c451;
+        --error: #ff6b6b;
+        color-scheme: dark;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 "Segoe UI", system-ui, sans-serif;
+}
+
+main {
+    padding: 10px 12px 24px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.tag {
+    font: 11px Consolas, monospace;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+
+.tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+    overflow-x: auto;
+}
+
+.tabs button {
+    flex: 1 1 auto;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    padding: 6px 4px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.tabs button[aria-selected="true"] {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+section[hidden] {
+    display: none;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.row > input[type="text"] {
+    flex: 1 1 140px;
+    min-width: 0;
+}
+
+button,
+select,
+input[type="text"],
+textarea {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+}
+
+button {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+}
+
+button.link {
+    border: 0;
+    background: none;
+    padding: 2px 0;
+    color: var(--muted);
+    text-decoration: underline;
+}
+
+select,
+input[type="text"] {
+    padding: 5px 8px;
+}
+
+textarea {
+    width: 100%;
+    padding: 6px 8px;
+    resize: vertical;
+}
+
+.summary {
+    margin: 0;
+    color: var(--muted);
+}
+
+.notice {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+}
+
+.notice.ok {
+    border-left-color: var(--ok);
+}
+
+.notice.warn {
+    border-left-color: var(--warn);
+}
+
+.notice.error {
+    border-left-color: var(--error);
+    color: var(--error);
+}
+
+.items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.item {
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--style);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.item.kind-orthographe {
+    border-left-color: var(--ortho);
+}
+
+.item.kind-grammaire {
+    border-left-color: var(--gram);
+}
+
+.goto {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: none;
+    text-align: left;
+}
+
+.word {
+    font-weight: 600;
+    text-decoration: line-through;
+    text-decoration-color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.kind {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.msg {
+    margin: 4px 0 6px;
+    color: var(--muted);
+}
+
+.suggs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.sugg {
+    padding: 2px 8px;
+    border-color: var(--accent);
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.more {
+    color: var(--muted);
+}
+
+.direction {
+    font: 12px Consolas, monospace;
+    color: var(--muted);
+}
+
+.groups h4,
+.mood h4 {
+    margin: 10px 0 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+}
+
+.options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+.check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tense h5 {
+    margin: 6px 0 2px;
+    font-size: 12px;
+}
+
+.tense ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.offscreen {
+    position: fixed;
+    left: -9999px;
+}

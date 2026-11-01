@@ -233,6 +233,11 @@
                 text = `Le serveur du complément n'a pas pu démarrer : ${state.error}.`;
             } else {
                 text = `Serveur du complément prêt sur ${state.url}${state.trusted ? ", certificat approuvé par Windows" : ""}.`;
+                if (state.word === true) {
+                    text += " Word : bouton « Aria Plume » dans l'onglet Accueil (redémarre Word s'il était ouvert).";
+                } else if (state.word === false) {
+                    text += " Word : pas encore inscrit, clique sur « Réparer le complément Office ».";
+                }
             }
             status.textContent = `${text}${extra}`;
             status.classList.toggle("error", state.installed && (state.trusted === false || !!state.error));
@@ -245,7 +250,7 @@
             try {
                 const state = await action();
                 if (state?.installed !== undefined) {
-                    showState(state, state.refused ? " (Tu as répondu « Non » à Windows : rien n'a été approuvé.)" : "");
+                    showState(state, `${state.refused ? " (Tu as répondu « Non » à Windows : rien n'a été approuvé.)" : ""}${state.wordError ? ` Inscription dans Word impossible : ${state.wordError}` : ""}`);
                 }
             } catch (error) {
                 status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
@@ -266,6 +271,7 @@
         showState(await window.ariaApp.officeState());
         return [
             el("h3", { textContent: "Complément Office (Word, Outlook)" }),
+            el("p", { className: "hint", textContent: "Dans Word : un bouton « Aria Plume » dans l'onglet Accueil ouvre un panneau pour corriger le document ou la sélection, traduire, trouver un synonyme et conjuguer. L'application doit tourner pendant que tu l'utilises (« Démarrer avec Windows » s'en charge)." }),
             el("p", { className: "hint", textContent: "Word et Outlook n'affichent un complément que servi en HTTPS, avec un certificat approuvé par Windows. Aria Plume crée un certificat valable uniquement pour localhost, puis détruit la clé qui l'a signé : il ne peut servir à rien d'autre. Windows te demandera une fois de l'approuver, pour ta session seulement (« Oui » dans son avertissement). Le serveur n'écoute que ton PC. « Tester dans le navigateur » ouvre une page qui doit s'afficher sans avertissement." }),
             status,
             el("div", { className: "buttons" }, install, test, remove),
