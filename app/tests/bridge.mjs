@@ -18,7 +18,7 @@ const check = (label, ok, detail = "") => {
 };
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-pont-"));
-const dir = path.join(root, "Aria Plume - pont");
+const dir = path.join(root, "pont");
 const browserDirs = [path.join(root, "chrome", "NativeMessagingHosts"), path.join(root, "edge", "NativeMessagingHosts")];
 const env = { ARIA_TEST_HOOKS: "1", ARIA_TEST_NATIVE_DIRS: JSON.stringify(browserDirs) };
 const hostName = "fr.aria_plume.app";

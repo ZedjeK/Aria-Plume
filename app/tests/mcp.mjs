@@ -18,7 +18,9 @@ const command = !useApp
     : process.env.APP_BINARY
         ? [process.env.APP_BINARY, ["--mcp", "--no-sandbox"]]
         : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--mcp", "--no-sandbox"]];
-const proc = spawn(...command, { env: { ...process.env, NODE_OPTIONS: "" }, stdio: ["pipe", "pipe", "pipe"] });
+// Application : dossier de données temporaire (jamais le vrai dossier personnel).
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "aria-mcp-donnees-"));
+const proc = spawn(...command, { env: { ...process.env, NODE_OPTIONS: "", ARIA_TEST_HOOKS: "1", ARIA_TEST_SETTINGS_DIR: dataDir }, stdio: ["pipe", "pipe", "pipe"] });
 let stderr = "";
 proc.stderr.on("data", (d) => {
     stderr += d;

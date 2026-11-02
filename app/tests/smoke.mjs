@@ -20,17 +20,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Réglages de test : partir d'un fichier vierge (application empaquetée : réglages et dossiers
 // posés à côté de l'exécutable par un passage précédent).
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
-if (process.env.APP_BINARY) {
-    const home = process.env.APP_BINARY.replace(/[\\/][^\\/]+$/, "");
-    for (const name of ["aria-plume-reglages.json", "Aria Plume - pont", "Aria Plume - Office", "Aria Plume - extension"]) {
-        fs.rmSync(`${home}/${name}`, { recursive: true, force: true });
-    }
-}
+// Dossier de données de l'application (C:\Users\<toi>\.Aria-Plume une fois empaquetée) :
+// toujours un dossier temporaire neuf ici. Et d'anciens réglages « à côté de l'exe » à reprendre.
+const dataDir = fs.mkdtempSync(`${os.tmpdir()}/aria-donnees-`);
+const legacyDir = fs.mkdtempSync(`${os.tmpdir()}/aria-ancien-exe-`);
+fs.writeFileSync(`${legacyDir}/aria-plume-reglages.json`, JSON.stringify({ dictionary: ["Warhammer"], debounceMs: 700 }));
 const downloads = fs.mkdtempSync(`${os.tmpdir()}/aria-test-`);
 process.env.ARIA_TEST_DOWNLOADS = downloads;
 // Installation assistée de l'extension : dossier cible et navigateur simulé (un script qui note
 // ses arguments).
-const extensionDir = `${downloads}/Aria Plume - extension`;
+const extensionDir = `${downloads}/extension`;
 const browserArgs = `${downloads}/navigateur-args.txt`;
 fs.writeFileSync(`${downloads}/navigateur.sh`, `#!/bin/sh\necho "$@" > "${browserArgs}"\n`, { mode: 0o755 });
 const testBrowsers = JSON.stringify([{ id: "test", name: "Navigateur test", scheme: "chrome", exe: `${downloads}/navigateur.sh` }]);
@@ -60,7 +59,7 @@ const appVersion = JSON.parse(fs.readFileSync(`${appDir}/package.json`, "utf8"))
 const command = process.env.APP_BINARY
     ? [process.env.APP_BINARY, ["--no-sandbox", "--remote-debugging-port=9333"]]
     : [`${appDir}/node_modules/electron/dist/electron`, [appDir, "--no-sandbox", "--remote-debugging-port=9333"]];
-const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), ARIA_TEST_OFFICE_PORT: String(officePort), ARIA_TEST_UPDATE_URL: updateUrl, NODE_OPTIONS: "" } });
+const proc = spawn(...command, { env: { ...process.env, ARIA_TEST_HOOKS: "1", ARIA_FAKE_INPUT: "1", ARIA_TEST_DOWNLOADS: downloads, ARIA_TEST_EXTENSION_DIR: extensionDir, ARIA_TEST_BROWSERS: testBrowsers, ARIA_TEST_PIPE: bridgePipe, ARIA_TEST_NATIVE_DIRS: JSON.stringify([nativeDir]), ARIA_TEST_OFFICE_PORT: String(officePort), ARIA_TEST_UPDATE_URL: updateUrl, ARIA_TEST_SETTINGS_DIR: dataDir, ARIA_TEST_LEGACY_DIR: legacyDir, NODE_OPTIONS: "" } });
 proc.stderr.on("data", (d) => errors.push(String(d)));
 const exited = new Promise((r) => proc.on("exit", (code) => r(code)));
 let browser;
@@ -82,6 +81,13 @@ await win.waitForLoadState();
 await wait(800);
 
 check("fenêtre", (await win.title()) === "Aria Plume");
+// Dossier de données : réglages repris des anciennes versions (copiés, l'original reste), données
+// internes d'Electron rangées dedans.
+const startState = await win.evaluate(() => window.ariaTest.state());
+check("données : réglages dans le dossier d'Aria Plume", startState.settingsFile === `${dataDir}/aria-plume-reglages.json`, startState.settingsFile);
+const migratedSettings = await win.evaluate(() => chrome.storage.local.get({ dictionary: [], debounceMs: 0 }));
+check("données : anciens réglages repris, original gardé", migratedSettings.dictionary.includes("Warhammer") && migratedSettings.debounceMs === 700 && fs.existsSync(`${legacyDir}/aria-plume-reglages.json`), JSON.stringify(migratedSettings));
+check("données : fichiers internes d'Electron dans le dossier d'Aria Plume", fs.existsSync(`${dataDir}/electron`) && fs.readdirSync(`${dataDir}/electron`).length > 0, fs.existsSync(`${dataDir}/electron`) ? fs.readdirSync(`${dataDir}/electron`).slice(0, 5).join(", ") : "absent");
 check("isolation", await win.evaluate(() => typeof require === "undefined" && typeof process === "undefined"));
 check("pont chrome", await win.evaluate(() => typeof chrome.runtime.sendMessage === "function"));
 check("classes app", await win.evaluate(() => document.body.classList.contains("app") && document.body.classList.contains("window")));
@@ -342,7 +348,7 @@ check("Office : état initial", (await opt.textContent("#officeStatus")) === "Co
 await opt.click("#officeInstall");
 await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent.startsWith("Serveur du complément prêt"), null, { timeout: 10000 }).catch(() => {});
 check("Office : serveur prêt", (await opt.textContent("#officeStatus")).includes(`https://localhost:${officePort}/office/`) && await opt.isVisible("#officeTest"), await opt.textContent("#officeStatus"));
-const officeDir = `${(await win.evaluate(() => window.ariaTest.state())).settingsFile.replace(/[\\/][^\\/]+$/, "")}/Aria Plume - Office`;
+const officeDir = `${dataDir}/office`;
 const leafPem = fs.readFileSync(`${officeDir}/serveur.pem`, "utf8");
 const wordXml = fs.readFileSync(`${officeDir}/manifeste-word.xml`, "utf8");
 check("Office : manifeste Word écrit, pointant vers l'application", wordXml.includes(`https://localhost:${officePort}/office/word.html`) && wordXml.includes(`<Version>${appVersion}.0</Version>`));

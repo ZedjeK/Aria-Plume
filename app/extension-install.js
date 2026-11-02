@@ -5,7 +5,7 @@
 // --load-extension, et une adresse chrome://… passée au lancement n'est pas ouverte). Il reste donc
 // « Charger l'extension non empaquetée », que seul l'utilisateur peut faire. L'application prépare
 // tout le reste :
-//   1. copie de l'extension dans un dossier fixe, à côté des réglages (l'exe portable se
+//   1. copie de l'extension dans un dossier fixe, C:\Users\<toi>\.Aria-Plume\extension (l'exe portable se
 //      décompresse ailleurs à chaque lancement : le navigateur doit pointer vers un dossier stable) ;
 //   2. ouverture du navigateur, avec l'adresse de sa page d'extensions dans le presse-papiers ;
 //   3. le chemin du dossier à copier au moment de le choisir.
@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export const FOLDER_NAME = "Aria Plume - extension";
+export const FOLDER_NAME = "extension";
 // Fichier témoin, écrit en dernier : la version copiée et la liste des fichiers (une copie
 // interrompue n'a pas de témoin, et une mise à jour ne supprime que des fichiers qu'elle a posés).
 const MARKER = ".aria-plume-copie.json";

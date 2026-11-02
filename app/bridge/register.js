@@ -1,6 +1,6 @@
 // Aria Plume (application) — inscription du relais auprès des navigateurs (messagerie native).
 //
-// « Connecter les navigateurs » pose, dans un dossier « Aria Plume - pont » à côté des réglages :
+// « Connecter les navigateurs » pose, dans le dossier « pont » d'Aria Plume (C:\Users\<toi>\.Aria-Plume\pont) :
 //   relay.cjs            le relais (copie de bridge/relay.cjs)
 //   relay-config.json    adresse du canal, fichier du jeton, commande qui démarre l'application
 //   relay.cmd / relay.sh le lanceur : l'exécutable d'Aria Plume en mode Node
@@ -16,7 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const BRIDGE_FOLDER = "Aria Plume - pont";
+export const BRIDGE_FOLDER = "pont";
 const RELAY_SOURCE = path.join(path.dirname(fileURLToPath(import.meta.url)), "relay.cjs");
 
 // Clés lues par les navigateurs Chromium (Opera et Vivaldi lisent celle de Chrome).

@@ -20,7 +20,7 @@ const marker = (target) => JSON.parse(fs.readFileSync(path.join(target, ".aria-p
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-ext-"));
 const source = path.join(root, "source");
-const target = path.join(root, "Aria Plume - extension");
+const target = path.join(root, "extension");
 write(path.join(source, "manifest.json"), JSON.stringify({ name: "Aria Plume", version: "1.0.0" }));
 write(path.join(source, "background.js"), "// v1");
 write(path.join(source, "core", "ancien.js"), "// disparaîtra en 1.1");

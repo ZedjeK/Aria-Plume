@@ -1,16 +1,13 @@
-// Aria Plume (application) — réglages dans un fichier JSON, à côté de l'exécutable.
-// Version portable : tout suit le dossier (clé USB comprise). Emplacement :
-//   - exe portable           → dossier de l'exe portable (PORTABLE_EXECUTABLE_DIR)
-//   - application empaquetée → dossier de l'exécutable
-//   - développement          → app/dev-data/
+// Aria Plume (application) — réglages dans un fichier JSON, dans le dossier d'Aria Plume :
+// C:\Users\<toi>\.Aria-Plume\ (exe portable et version zip), app/dev-data/ en développement.
+// Voir paths.js.
 // Les réglages de correction reprennent ceux de l'extension (mêmes clés, même contrôle),
 // avec en plus les statistiques des fautes récurrentes et les réglages propres à l'application.
 
-import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { sharedSettings } from "./engine.js";
+import { dataDir } from "./paths.js";
 
 const FILE_NAME = "aria-plume-reglages.json";
 
@@ -30,19 +27,7 @@ const EXTRA_DEFAULTS = {
     mistakeStatsSince: null,
 };
 
-export function settingsDir() {
-    // Banc automatique : dossier de réglages à part (jamais actif sans ARIA_TEST_HOOKS=1).
-    if (process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_SETTINGS_DIR) {
-        return process.env.ARIA_TEST_SETTINGS_DIR;
-    }
-    if (process.env.PORTABLE_EXECUTABLE_DIR) {
-        return process.env.PORTABLE_EXECUTABLE_DIR;
-    }
-    if (app.isPackaged) {
-        return path.dirname(process.execPath);
-    }
-    return path.join(path.dirname(fileURLToPath(import.meta.url)), "dev-data");
-}
+export const settingsDir = () => dataDir();
 
 export const settingsFile = () => path.join(settingsDir(), FILE_NAME);
 

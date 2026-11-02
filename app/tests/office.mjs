@@ -40,7 +40,7 @@ check("contrainte de noms lue par OpenSSL", opensslText === "openssl absent" || 
 
 // --- Fichiers ---
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-office-"));
-const dir = path.join(root, "Aria Plume - Office");
+const dir = path.join(root, "office");
 check("rien avant l'installation", loadCertificates(dir) === null);
 const first = ensureCertificates(dir);
 const again = ensureCertificates(dir);

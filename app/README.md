@@ -8,10 +8,26 @@ Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md),
 Deux formats, aucun n'installe quoi que ce soit :
 
 - **`Aria-Plume-<version>-portable.exe`** : un seul fichier. À chaque lancement, il se décompresse
-  dans un dossier temporaire (quelques secondes), puis démarre. Les réglages sont dans
-  `aria-plume-reglages.json`, à côté de l'exe.
-- **`Aria-Plume-<version>-win-x64.zip`** : un dossier à décompresser où tu veux (clé USB comprise),
-  puis `Aria Plume.exe`. Démarrage immédiat. Les réglages sont à côté de `Aria Plume.exe`.
+  dans un dossier temporaire (quelques secondes), puis démarre.
+- **`Aria-Plume-<version>-win-x64.zip`** : un dossier à décompresser où tu veux, puis
+  `Aria Plume.exe`. Démarrage immédiat.
+
+**Tout ce qu'Aria Plume enregistre est dans un seul dossier**, le même pour les deux formats :
+
+```text
+C:\Users\<toi>\.Aria-Plume\
+├── aria-plume-reglages.json   réglages (dictionnaire, glossaire, mots ignorés…)
+├── extension\                 copie de l'extension que lit le navigateur
+├── pont\                      relais et jeton du pont avec l'extension
+├── office\                    certificat local et manifeste du complément Word
+└── electron\                  données internes de l'application (caches, verrou)
+```
+
+Seule exception, hors de notre main : l'exe portable se décompresse d'abord dans le dossier
+temporaire de Windows. Les versions d'avant la 0.36 rangeaient les réglages à côté de l'exe : au
+premier lancement, ce fichier est **copié** dans `.Aria-Plume` (l'original reste, à supprimer quand
+tu veux), tout comme l'ancien dossier `Aria Plume - extension` et `%APPDATA%\aria-plume`, qui ne
+servent plus.
 
 Pas de signature de code : au premier lancement, Windows SmartScreen affiche « Windows a protégé
 votre ordinateur » → « Informations complémentaires » → « Exécuter quand même ».
@@ -33,7 +49,7 @@ une adresse `chrome://…` passée au lancement n'est pas ouverte. « Charger l'
 empaquetée » reste réservé à l'utilisateur. Le bouton fait donc tout le reste :
 
 1. copie l'extension (embarquée dans l'application, identique au zip de la release) dans
-   `Aria Plume - extension`, à côté du fichier de réglages : un dossier fixe, que le navigateur lit
+   `C:\Users\<toi>\.Aria-Plume\extension` : un dossier fixe, que le navigateur lit
    à chaque démarrage (l'exe portable, lui, se décompresse ailleurs à chaque lancement) ;
 2. ouvre le navigateur et met l'adresse de sa page d'extensions (`opera://extensions`…) dans le
    presse-papiers ;
@@ -196,8 +212,8 @@ npm start
 ```
 
 L'application se loge près de l'horloge. Fermer la fenêtre la cache ; « Quitter Aria Plume »
-dans le menu de l'icône l'arrête. Les réglages sont dans `dev-data/aria-plume-reglages.json`
-(une fois empaquetée : à côté de l'exécutable).
+dans le menu de l'icône l'arrête. En développement, les données sont dans `dev-data/`
+(une fois empaquetée : `C:\Users\<toi>\.Aria-Plume\`).
 
 ## La fenêtre
 

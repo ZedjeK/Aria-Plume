@@ -165,7 +165,7 @@ extension ──connectNative("fr.aria_plume.app")──▶ relais (relay.cjs) �
 ```
 
 - **Inscription** : Réglages de l'application → « Connecter les navigateurs ». Dans le dossier
-  `Aria Plume - pont` (à côté des réglages) : `relay.cjs`, `relay-config.json`, `relay.cmd` (ou
+  `pont` d'Aria Plume (`C:\Users\<toi>\.Aria-Plume\pont`) : `relay.cjs`, `relay-config.json`, `relay.cmd` (ou
   `relay.sh`), le manifeste `fr.aria_plume.app.json` et le jeton `jeton`. Sous Windows, une clé
   `HKCU\Software\<navigateur>\NativeMessagingHosts\fr.aria_plume.app` pour Google\Chrome (lue aussi
   par Opera et Vivaldi), Microsoft\Edge, BraveSoftware\Brave-Browser et Chromium. Seule l'extension

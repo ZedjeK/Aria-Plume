@@ -1,6 +1,6 @@
 // Aria Plume (application) — fichiers et approbation du certificat du complément Office.
 //
-// Dossier « Aria Plume - Office », à côté des réglages :
+// Dossier « office » d'Aria Plume (C:\Users\<toi>\.Aria-Plume\office) :
 //   autorite-localhost.cer   l'autorité limitée à localhost (publique, sa clé a été jetée)
 //   serveur.pem              le certificat du serveur
 //   serveur-cle.pem          sa clé privée (lisible par l'utilisateur seul)
@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createLocalhostCertificates } from "./cert.js";
 
-export const OFFICE_FOLDER = "Aria Plume - Office";
+export const OFFICE_FOLDER = "office";
 const FILES = { ca: "autorite-localhost.cer", cert: "serveur.pem", key: "serveur-cle.pem", state: "etat.json" };
 
 const run = (command, args) => new Promise((resolve) => {

@@ -145,7 +145,7 @@ try {
     });
     check("réglage changé dans l'extension → application", !!(await until(() => readAppSettings().dictionary.includes("Warhammer"))));
     // Application → extension (un autre client du canal, comme la fenêtre de l'application).
-    const token = fs.readFileSync(path.join(settingsDir, "Aria Plume - pont", "jeton"), "utf8").trim();
+    const token = fs.readFileSync(path.join(settingsDir, "pont", "jeton"), "utf8").trim();
     await new Promise((resolve) => {
         const socket = net.connect(testEnv.ARIA_TEST_PIPE, () => {
             socket.write(`${JSON.stringify({ id: 0, cmd: "hello", token })}\n`);
