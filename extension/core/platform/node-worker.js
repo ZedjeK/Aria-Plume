@@ -10,8 +10,32 @@
 
 import { parentPort, workerData } from "node:worker_threads";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+
+// Harper lit son WebAssembly avec new URL(…).pathname : les accents et les espaces y restent
+// encodés (« Jérémy » → « J%C3%A9r%C3%A9my ») et un chemin Windows y garde la forme « /C:/… ».
+// Dès que le dossier de l'application contient un accent ou un espace (C:\Users\Jérémy…), le
+// fichier est introuvable et la correction anglaise ne trouve plus rien. Sans toucher à Harper
+// (copié sans modification) : dans ce worker seulement, un chemin introuvable de cette forme est
+// relu une fois décodé.
+function decodedPath(file) {
+    if (typeof file !== "string" || !file.startsWith("/") || fs.existsSync(file)) {
+        return file;
+    }
+    try {
+        const candidate = fileURLToPath(new URL(`file://${file}`));
+        return fs.existsSync(candidate) ? candidate : file;
+    } catch {
+        return file;
+    }
+}
+const nodeReadFile = fs.readFile;
+fs.readFile = function readFile(file, ...rest) {
+    return nodeReadFile.call(this, decodedPath(file), ...rest);
+};
+syncBuiltinESMExports();
 
 const { url, type } = workerData;
 const readText = (fileUrl) => fs.readFileSync(new URL(fileUrl), "utf8");

@@ -10,8 +10,10 @@
 
 import { Worker } from "node:worker_threads";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 const BOOTSTRAP = new URL("./node-worker.js", import.meta.url);
+const BERGAMOT_BOOTSTRAP = new URL("./bergamot-node-worker.cjs", import.meta.url);
 
 export const nodePlatform = {
     name: "node",
@@ -36,5 +38,54 @@ export const nodePlatform = {
 
     importModule(url) {
         return import(url);
+    },
+
+    // Workers de traduction de Bergamot : remplace la couche Node de Bergamot, qui casse les chemins
+    // avec accents, espaces ou lettre de lecteur (voir bergamot-node-worker.cjs). Même interface que
+    // le Worker que Bergamot attend.
+    BergamotWorker: class BergamotWorker {
+        // Tous les workers lancés : Bergamot perd la trace de ceux qui échouent à démarrer.
+        static live = new Set();
+
+        // Arrête tous les workers de traduction (moteur tombé, ou fermeture).
+        static terminateAll() {
+            for (const worker of BergamotWorker.live) {
+                BergamotWorker.stopping.add(worker);
+                worker.terminate();
+            }
+            BergamotWorker.live.clear();
+        }
+
+        // Workers arrêtés exprès : leur fin n'est pas une erreur.
+        static stopping = new WeakSet();
+
+        #worker;
+
+        constructor(url) {
+            this.#worker = new Worker(BERGAMOT_BOOTSTRAP, { workerData: { script: fileURLToPath(url) } });
+            BergamotWorker.live.add(this.#worker);
+            this.#worker.on("exit", () => BergamotWorker.live.delete(this.#worker));
+        }
+
+        addEventListener(eventName, callback) {
+            this.#worker.on(eventName, (data) => callback(eventName === "error" ? data : { data }));
+            // Un worker qui s'arrête tout seul est une erreur : sans elle, la traduction attendrait.
+            if (eventName === "error") {
+                this.#worker.on("exit", (code) => {
+                    if (code && !BergamotWorker.stopping.has(this.#worker)) {
+                        callback(new Error(`worker de traduction arrêté (code ${code})`));
+                    }
+                });
+            }
+        }
+
+        postMessage(message) {
+            this.#worker.postMessage(message);
+        }
+
+        terminate() {
+            BergamotWorker.stopping.add(this.#worker);
+            this.#worker.terminate();
+        }
     },
 };

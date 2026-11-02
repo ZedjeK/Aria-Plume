@@ -61,6 +61,7 @@ jobs:
             - name: Banc de mesure du moteur (sans recul toléré)
               run: |
                   node tests/node/smoke.mjs
+                  node tests/node/chemins.mjs
                   node tests/bench/run.mjs
                   node tests/bench/robustesse.mjs
 

@@ -17,8 +17,15 @@ const check = (label, ok, detail = "") => {
 };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Réglages de test : partir d'un fichier vierge.
+// Réglages de test : partir d'un fichier vierge (application empaquetée : réglages et dossiers
+// posés à côté de l'exécutable par un passage précédent).
 fs.rmSync(`${appDir}/dev-data`, { recursive: true, force: true });
+if (process.env.APP_BINARY) {
+    const home = process.env.APP_BINARY.replace(/[\\/][^\\/]+$/, "");
+    for (const name of ["aria-plume-reglages.json", "Aria Plume - pont", "Aria Plume - Office", "Aria Plume - extension"]) {
+        fs.rmSync(`${home}/${name}`, { recursive: true, force: true });
+    }
+}
 const downloads = fs.mkdtempSync(`${os.tmpdir()}/aria-test-`);
 process.env.ARIA_TEST_DOWNLOADS = downloads;
 // Installation assistée de l'extension : dossier cible et navigateur simulé (un script qui note

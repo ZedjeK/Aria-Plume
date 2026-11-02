@@ -23,6 +23,8 @@ import { prepareText, filterProtected } from "./protect.js";
 
 export const LANGUAGES = ["fr", "en"];
 const TRANSLATION_WORKERS = 2;
+// Une traduction sans aucun progrès pendant ce délai : moteur de traduction considéré comme bloqué.
+const TRANSLATION_STALL_MS = 90000;
 
 const here = (path) => new URL(path, import.meta.url).href;
 const PATHS = {
@@ -77,6 +79,46 @@ export function createAria(platform) {
     const loadTimes = {};
     const warmPairs = new Set();
     let translatorPromise = null;
+    // Traductions en cours : rejetées d'un coup si le moteur de traduction tombe (sinon elles
+    // attendraient sans fin). lastProgress : dernière traduction terminée (détection d'un blocage).
+    const inflight = new Set();
+    let lastProgress = 0;
+
+    // Arrêt d'un traducteur, même à moitié démarré (Bergamot.delete() échoue sur un worker qui n'a
+    // pas pu naître). File vidée, plus de nouveaux workers, workers existants arrêtés.
+    const retired = new Set();
+    function stopTranslator(translator) {
+        if (!translator) {
+            return;
+        }
+        translator.queue = [];
+        translator.workerLimit = 0;
+        for (const entry of translator.workers ?? []) {
+            try {
+                entry.worker?.terminate();
+            } catch {
+                // Déjà arrêté.
+            }
+        }
+    }
+
+    function translationFailed(cause) {
+        // Sans le détail technique de Bergamot (« (response to initialize(…)) »).
+        const message = String(cause?.message ?? cause).replace(/\s*\(response to [\s\S]*\)$/, "");
+        const error = new Error(`Le moteur de traduction s'est arrêté (${message}). Réessaie : il redémarre.`);
+        const failed = translatorPromise;
+        translatorPromise = null;
+        failed?.then((translator) => {
+            retired.add(translator);
+            stopTranslator(translator);
+        }).catch(() => {});
+        // Sous Node : aussi les workers que Bergamot a perdus (échec au démarrage).
+        platform.BergamotWorker?.terminateAll?.();
+        for (const reject of inflight) {
+            reject(error);
+        }
+        inflight.clear();
+    }
 
     async function readJson(url, { gzip = false } = {}) {
         let buffer = await platform.readFile(url);
@@ -134,6 +176,11 @@ export function createAria(platform) {
                     }
                 }
                 const { BatchTranslator, TranslatorBacking } = await platform.importModule(PATHS.bergamot);
+                // Sous Node, nos workers de traduction remplacent ceux de Bergamot (chemins avec
+                // accents, espaces, lettre de lecteur : voir platform/bergamot-node-worker.cjs).
+                if (platform.BergamotWorker) {
+                    globalThis.Worker = platform.BergamotWorker;
+                }
 
                 class LocalBacking extends TranslatorBacking {
                     async loadModelRegistery() {
@@ -147,7 +194,11 @@ export function createAria(platform) {
 
                 // Traducteur par lots : il traite plusieurs demandes à la fois (page entière) en respectant
                 // les priorités (une sélection passe avant les blocs de page). Deux workers suffisent.
-                const translator = new BatchTranslator({ workers: TRANSLATION_WORKERS, batchSize: 8 }, new LocalBacking({ pivotLanguage: null }));
+                const onerror = (cause) => translationFailed(cause);
+                // Les options du chargeur partent dans les workers (copie) : son onerror se pose après.
+                const backing = new LocalBacking({ pivotLanguage: null });
+                backing.onerror = onerror;
+                const translator = new BatchTranslator({ workers: TRANSLATION_WORKERS, batchSize: 8, onerror }, backing);
                 loadTimes.translation = performance.now() - start;
                 return translator;
             })();
@@ -188,14 +239,38 @@ export function createAria(platform) {
             const pairCold = !warmPairs.has(pair);
             const start = performance.now();
             const prepared = prepareGlossary({ text, html, from, to, glossary });
-            const response = await translator.translate({
-                from,
-                to,
-                text: prepared ? prepared.html : text,
-                html: prepared ? true : !!html,
-                priority: priority ?? 0,
-                jobId: jobId ?? null,
+            let reject;
+            let timer;
+            const failure = new Promise((_, fail) => {
+                reject = fail;
+                inflight.add(fail);
+                // Filet de sécurité : rien n'a avancé depuis le début de cette demande.
+                const watch = () => {
+                    timer = setTimeout(() => {
+                        if (lastProgress > start) {
+                            watch();
+                        } else {
+                            translationFailed(new Error("aucune réponse"));
+                        }
+                    }, TRANSLATION_STALL_MS);
+                };
+                watch();
             });
+            let response;
+            try {
+                response = await Promise.race([translator.translate({
+                    from,
+                    to,
+                    text: prepared ? prepared.html : text,
+                    html: prepared ? true : !!html,
+                    priority: priority ?? 0,
+                    jobId: jobId ?? null,
+                }), failure]);
+            } finally {
+                clearTimeout(timer);
+                inflight.delete(reject);
+            }
+            lastProgress = performance.now();
             warmPairs.add(pair);
             return {
                 text: prepared ? prepared.finish(response.target.text) : response.target.text,
@@ -250,10 +325,14 @@ export function createAria(platform) {
                 delete checkers[lang];
             }
             if (translatorPromise) {
-                const translator = await translatorPromise.catch(() => null);
-                await translator?.delete();
+                stopTranslator(await translatorPromise.catch(() => null));
                 translatorPromise = null;
             }
+            for (const translator of retired) {
+                stopTranslator(translator);
+            }
+            retired.clear();
+            platform.BergamotWorker?.terminateAll?.();
         },
 
         // Moteurs chargés et temps de chargement (ms).

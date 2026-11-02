@@ -112,6 +112,7 @@ Toute la logique (correction, traduction, conjugaison, synonymes) vit dans `exte
 ```sh
 node tests/node/smoke.mjs     # le moteur sous Node : vérification, traduction, conjugaison, synonymes
 node tests/bench/run.mjs      # banc de mesure : corpus FR et EN, textes avec fautes, tests de Grammalecte, exemples WordNet
+node tests/node/chemins.mjs   # le moteur dans un dossier « Jérémy Zémani » (accents, espaces) ; moteur de traduction cassé puis réparé
 node tests/bench/robustesse.mjs   # cas limites : vide, énorme, emojis, code, URL, chemins, accents décomposés…
 node tests/bench/endurance.mjs --minutes 60   # phrases générées à la volée pendant une heure
 ```
