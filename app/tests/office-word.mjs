@@ -154,6 +154,8 @@ try {
     await page.click('#fix-list .item:has(.word:text-is("a")) .sugg >> nth=0');
     await page.waitForFunction(() => window.__fakeWord.paragraphs[0].includes("à la plage"), null, { timeout: 10000 }).catch(() => {});
     check("correction appliquée dans le document", (await doc()).paragraphs[0] === "Les enfant sont partit à la plage.", (await doc()).paragraphs[0]);
+    // Le panneau réanalyse le paragraphe après la correction : on attend la liste à jour.
+    await page.waitForFunction(() => ![...document.querySelectorAll("#fix-list .item .word")].some((x) => x.textContent === "a"), null, { timeout: 10000 }).catch(() => {});
     check("liste mise à jour", !(await words()).includes("a"), (await words()).join(" | "));
 
     // Dictionnaire.
