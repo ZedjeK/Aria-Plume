@@ -31,7 +31,9 @@ concurrency:
 
 jobs:
     release:
-        runs-on: ubuntu-latest
+        # Version fixée : ubuntu-latest est passé à Ubuntu 26.04 (octobre 2026), que Playwright 1.56
+        # (Chromium des tests du complément Office) ne prend pas encore en charge.
+        runs-on: ubuntu-24.04
         timeout-minutes: 45
         env:
             TAG: ${{ github.event.inputs.tag || github.ref_name }}
