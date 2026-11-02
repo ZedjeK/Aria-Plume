@@ -4,14 +4,14 @@
 // Un bouton « Aria Plume » dans l'onglet Accueil ouvre le panneau.
 // Inscription sous Windows : valeur dans HKCU\Software\Microsoft\Office\16.0\WEF\Developer
 // (nom et donnée : le chemin du manifeste), lue par Word au démarrage. Aucun droit administrateur.
+// Écrite par PowerShell, puis relue (voir plus bas).
 
-import { execFile } from "node:child_process";
+import { runPowerShell } from "../powershell.js";
 import fs from "node:fs";
 import path from "node:path";
 
 export const WORD_ADDIN_ID = "8621473a-6172-4cc6-b0fb-1b8d89cbece4";
 export const WORD_MANIFEST = "manifeste-word.xml";
-const DEVELOPER_KEY = "HKCU\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer";
 
 const escapeXml = (text) => String(text).replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[c]);
 
@@ -118,35 +118,55 @@ export function wordManifest({ origin, version }) {
 `;
 }
 
-const run = (command, args) => new Promise((resolve) => {
-    execFile(command, args, { windowsHide: true }, (error, stdout, stderr) => {
-        resolve({ ok: !error, output: `${stdout ?? ""}${stderr ?? ""}` });
-    });
-});
+// --- Inscription dans Word (Windows) ---
+// Par PowerShell, avec les commandes vérifiées chez Jérémy (l'appel direct à reg.exe depuis
+// l'application ne laissait aucune trace dans le registre sur son PC). Le chemin du manifeste passe
+// par une variable d'environnement : aucun souci de guillemets ni de caractères spéciaux.
+const KEY = "HKCU:\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer";
+export const POWERSHELL_SCRIPTS = {
+    // Écrit la valeur, puis la relit : la sortie est le chemin relu.
+    register: `$cle = '${KEY}'; $manifeste = $env:ARIA_MANIFESTE
+if (-not (Test-Path $cle)) { New-Item -Path $cle -Force | Out-Null }
+Set-ItemProperty -Path $cle -Name $manifeste -Value $manifeste
+(Get-ItemProperty -Path $cle -ErrorAction Stop).$manifeste`,
+    // Sortie : le chemin inscrit, ou rien.
+    query: `$cle = '${KEY}'; $manifeste = $env:ARIA_MANIFESTE
+if (Test-Path $cle) { (Get-ItemProperty -Path $cle -ErrorAction SilentlyContinue).$manifeste }`,
+    unregister: `$cle = '${KEY}'; $manifeste = $env:ARIA_MANIFESTE
+if (Test-Path $cle) { Remove-ItemProperty -Path $cle -Name $manifeste -ErrorAction SilentlyContinue }`,
+};
 
-// Écrit le manifeste et l'inscrit pour Word. Renvoie { manifest, registered }.
-// Hors Windows (tests), le manifeste est écrit mais rien n'est inscrit.
-export async function registerWord({ dir, origin, version, platform = process.platform }) {
+// La commande à lancer à la main si l'inscription échoue (affichée dans les réglages).
+export const manualCommand = (manifest) => `$cle = '${KEY}'; $manifeste = '${manifest.replace(/'/g, "''")}'
+if (-not (Test-Path $cle)) { New-Item -Path $cle -Force | Out-Null }
+Set-ItemProperty -Path $cle -Name $manifeste -Value $manifeste`;
+
+// Écrit le manifeste et l'inscrit pour Word. Renvoie { manifest, registered, error }.
+// registered : true (inscrit et relu), false (échec, error dit pourquoi), null hors Windows.
+export async function registerWord({ dir, origin, version, platform = process.platform, run = runPowerShell }) {
     fs.mkdirSync(dir, { recursive: true });
     const manifest = path.join(dir, WORD_MANIFEST);
     fs.writeFileSync(manifest, wordManifest({ origin, version }));
     if (platform !== "win32") {
-        return { manifest, registered: null };
+        return { manifest, registered: null, error: null };
     }
-    const result = await run("reg", ["add", DEVELOPER_KEY, "/v", manifest, "/t", "REG_SZ", "/d", manifest, "/f"]);
-    return { manifest, registered: result.ok, error: result.ok ? null : result.output.trim() };
+    const result = await run(POWERSHELL_SCRIPTS.register, { ARIA_MANIFESTE: manifest });
+    if (result.ok && result.output === manifest) {
+        return { manifest, registered: true, error: null };
+    }
+    return { manifest, registered: false, error: result.error || "la valeur n'a pas pu être relue dans le registre" };
 }
 
-export async function unregisterWord({ dir, platform = process.platform }) {
+export async function unregisterWord({ dir, platform = process.platform, run = runPowerShell }) {
     const manifest = path.join(dir, WORD_MANIFEST);
     if (platform === "win32") {
-        await run("reg", ["delete", DEVELOPER_KEY, "/v", manifest, "/f"]);
+        await run(POWERSHELL_SCRIPTS.unregister, { ARIA_MANIFESTE: manifest });
     }
     fs.rmSync(manifest, { force: true });
 }
 
-// true / false, ou null hors Windows.
-export async function wordRegistered({ dir, platform = process.platform }) {
+// true / false, ou null hors Windows (rien à inscrire).
+export async function wordRegistered({ dir, platform = process.platform, run = runPowerShell }) {
     const manifest = path.join(dir, WORD_MANIFEST);
     if (platform !== "win32") {
         return fs.existsSync(manifest) ? null : false;
@@ -154,6 +174,6 @@ export async function wordRegistered({ dir, platform = process.platform }) {
     if (!fs.existsSync(manifest)) {
         return false;
     }
-    const result = await run("reg", ["query", DEVELOPER_KEY, "/v", manifest]);
-    return result.ok;
+    const result = await run(POWERSHELL_SCRIPTS.query, { ARIA_MANIFESTE: manifest });
+    return result.ok && result.output === manifest;
 }

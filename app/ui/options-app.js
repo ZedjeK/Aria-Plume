@@ -212,69 +212,82 @@
         ];
     }
 
-    // Complément Office (Word, Outlook) : serveur HTTPS local et son certificat.
+    // Complément Word : un bouton, et la liste de ce qui est vérifié pour de vrai (certificat approuvé
+    // par Windows, serveur qui répond en HTTPS, inscription relue dans le registre).
     async function officeBlock() {
+        const checks = el("ul", { className: "checks", id: "officeChecks" });
         const status = el("p", { className: "status", id: "officeStatus" });
         status.setAttribute("aria-live", "polite");
         const install = el("button", { type: "button", id: "officeInstall" });
-        const test = el("button", { type: "button", textContent: "Tester dans le navigateur", id: "officeTest" });
         const remove = el("button", { type: "button", textContent: "Désinstaller", id: "officeUninstall" });
+        const manual = el("div", { className: "manual", id: "officeManual", hidden: true });
 
-        function showState(state, extra = "") {
-            install.textContent = state.installed ? "Réparer le complément Office" : "Installer le complément Office";
-            test.hidden = !state.listening;
+        const line = (ok, text, help = "") => el("li", { className: ok === true ? "ok" : ok === false ? "ko" : "na" },
+            el("span", { className: "mark", textContent: ok === true ? "✓" : ok === false ? "✗" : "–" }),
+            el("span", {}, text, help ? el("small", { textContent: ` — ${help}` }) : ""));
+
+        function showState(state, message = "") {
+            install.textContent = state.installed ? "Réparer" : "Installer dans Word";
             remove.hidden = !state.installed;
-            let text;
-            if (!state.installed) {
-                text = "Complément non installé.";
-            } else if (state.trusted === false) {
-                text = "Certificat pas encore approuvé par Windows : clique sur « Réparer le complément Office » et réponds « Oui » à l'avertissement de Windows.";
-            } else if (state.error) {
-                text = `Le serveur du complément n'a pas pu démarrer : ${state.error}.`;
-            } else {
-                text = `Serveur du complément prêt sur ${state.url}${state.trusted ? ", certificat approuvé par Windows" : ""}.`;
-                if (state.word === true) {
-                    text += " Word : bouton « Aria Plume » dans l'onglet Accueil (redémarre Word s'il était ouvert).";
-                } else if (state.word === false) {
-                    text += " Word : pas encore inscrit, clique sur « Réparer le complément Office ».";
-                }
+            checks.hidden = !state.installed;
+            checks.replaceChildren(
+                line(state.trusted, "Certificat local approuvé par Windows", state.trusted === false ? "clique sur « Réparer » et réponds « Oui » à l'avertissement de Windows" : state.trusted === null ? "rien à approuver hors Windows" : ""),
+                line(state.server, `Serveur prêt sur ${state.url}`, state.server ? "" : `ne répond pas (${state.serverError ?? "raison inconnue"}) : relance l'application`),
+                line(state.word, "Inscrit dans Word", state.word === true ? "redémarre Word : bouton « Aria Plume » dans l'onglet Accueil" : state.word === null ? "rien à inscrire hors Windows" : "voir la commande ci-dessous"),
+            );
+            // Inscription impossible : la commande à lancer soi-même dans PowerShell.
+            manual.hidden = !(state.installed && state.word === false && state.manualCommand);
+            if (!manual.hidden) {
+                const code = el("pre", { className: "command", textContent: state.manualCommand });
+                const copy = el("button", { type: "button", textContent: "Copier la commande" });
+                copy.addEventListener("click", async () => {
+                    try {
+                        await navigator.clipboard.writeText(state.manualCommand);
+                        copy.textContent = "Copiée ✓";
+                    } catch {
+                        copy.textContent = "Sélectionne-la : Ctrl+C";
+                    }
+                });
+                manual.replaceChildren(
+                    el("p", { className: "hint", textContent: "Aria Plume n'a pas pu s'inscrire dans Word (un antivirus peut bloquer l'écriture dans le registre). Colle cette commande dans PowerShell, puis redémarre Word et clique sur « Réparer » pour vérifier :" }),
+                    code,
+                    el("div", { className: "buttons" }, copy));
             }
-            status.textContent = `${text}${extra}`;
-            status.classList.toggle("error", state.installed && (state.trusted === false || !!state.error));
+            status.textContent = state.installed ? message : "Pas encore installé.";
+            status.classList.toggle("error", /impossible|Non/.test(message));
         }
 
         async function act(button, action) {
-            [install, test, remove].forEach((item) => {
-                item.disabled = true;
-            });
+            install.disabled = true;
+            remove.disabled = true;
+            status.classList.remove("error");
+            status.textContent = "Vérification…";
             try {
                 const state = await action();
-                if (state?.installed !== undefined) {
-                    showState(state, `${state.refused ? " (Tu as répondu « Non » à Windows : rien n'a été approuvé.)" : ""}${state.wordError ? ` Inscription dans Word impossible : ${state.wordError}` : ""}`);
-                }
+                const notes = [
+                    state.refused ? "Tu as répondu « Non » à Windows : le certificat n'est pas approuvé." : "",
+                    state.wordError ? `Inscription dans Word impossible : ${state.wordError}` : "",
+                ].filter(Boolean).join(" ");
+                showState(state, notes);
             } catch (error) {
                 status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
                 status.classList.add("error");
             } finally {
-                [install, test, remove].forEach((item) => {
-                    item.disabled = false;
-                });
+                install.disabled = false;
+                remove.disabled = false;
                 button.focus();
             }
         }
         install.addEventListener("click", () => act(install, () => window.ariaApp.installOffice()));
-        test.addEventListener("click", () => act(test, async () => {
-            await window.ariaApp.openOfficeTest();
-            return null;
-        }));
         remove.addEventListener("click", () => act(remove, () => window.ariaApp.uninstallOffice()));
         showState(await window.ariaApp.officeState());
         return [
-            el("h3", { textContent: "Complément Office (Word, Outlook)" }),
-            el("p", { className: "hint", textContent: "Dans Word : un bouton « Aria Plume » dans l'onglet Accueil ouvre un panneau pour corriger le document ou la sélection, traduire, trouver un synonyme et conjuguer. L'application doit tourner pendant que tu l'utilises (« Démarrer avec Windows » s'en charge)." }),
-            el("p", { className: "hint", textContent: "Word et Outlook n'affichent un complément que servi en HTTPS, avec un certificat approuvé par Windows. Aria Plume crée un certificat valable uniquement pour localhost, puis détruit la clé qui l'a signé : il ne peut servir à rien d'autre. Windows te demandera une fois de l'approuver, pour ta session seulement (« Oui » dans son avertissement). Le serveur n'écoute que ton PC. « Tester dans le navigateur » ouvre une page qui doit s'afficher sans avertissement." }),
+            el("h3", { textContent: "Complément Word" }),
+            el("p", { className: "hint", textContent: "Un bouton « Aria Plume » dans l'onglet Accueil de Word : corriger le document, traduire, synonymes, conjugaison. Windows te demandera une fois d'approuver un certificat valable uniquement pour ce PC (localhost) : réponds « Oui ». L'application doit tourner pendant que tu utilises Word." }),
+            el("div", { className: "buttons" }, install, remove),
+            checks,
             status,
-            el("div", { className: "buttons" }, install, test, remove),
+            manual,
         ];
     }
 

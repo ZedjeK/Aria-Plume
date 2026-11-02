@@ -6,11 +6,12 @@
 //   relay.cmd / relay.sh le lanceur : l'exécutable d'Aria Plume en mode Node
 //   fr.aria_plume.app.json   le manifeste lu par le navigateur
 // puis inscrit le manifeste :
-//   Windows : une clé par navigateur dans HKEY_CURRENT_USER (aucun droit administrateur) ;
+//   Windows : une clé par navigateur dans HKEY_CURRENT_USER (aucun droit administrateur), écrite
+//             par PowerShell puis relue ;
 //   Linux   : une copie du manifeste dans le dossier NativeMessagingHosts de chaque navigateur.
 // L'exe portable se décompresse ailleurs à chaque lancement : il ne peut pas être inscrit.
 
-import { execFile } from "node:child_process";
+import { runPowerShell } from "../powershell.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -47,11 +48,43 @@ export function bridgeSupport({ env = process.env, platform = process.platform }
     return { ok: true, reason: null };
 }
 
-const run = (command, args) => new Promise((resolve) => {
-    execFile(command, args, { windowsHide: true }, (error, stdout, stderr) => {
-        resolve({ ok: !error, stdout: String(stdout ?? ""), stderr: String(stderr ?? error?.message ?? "") });
-    });
-});
+// Registre de Windows : par PowerShell, puis relu (l'appel direct à reg.exe depuis l'application ne
+// laissait aucune trace dans le registre chez Jérémy). Clés et manifeste passent par des
+// variables d'environnement. Une ligne de sortie par clé : « clé|ok » ou « clé|raison ».
+export const BRIDGE_SCRIPTS = {
+    register: `$manifeste = $env:ARIA_MANIFESTE
+foreach ($cle in $env:ARIA_CLES -split ';') {
+    try {
+        if (-not (Test-Path $cle)) { New-Item -Path $cle -Force | Out-Null }
+        Set-Item -Path $cle -Value $manifeste
+        if ((Get-Item -Path $cle).GetValue('') -eq $manifeste) { "$cle|ok" } else { "$cle|valeur relue différente" }
+    } catch { "$cle|$($_.Exception.Message)" }
+}`,
+    query: `$manifeste = $env:ARIA_MANIFESTE
+foreach ($cle in $env:ARIA_CLES -split ';') {
+    if ((Test-Path $cle) -and ((Get-Item -Path $cle -ErrorAction SilentlyContinue).GetValue('') -eq $manifeste)) { "$cle|ok" } else { "$cle|absente" }
+}`,
+    unregister: `foreach ($cle in $env:ARIA_CLES -split ';') { Remove-Item -Path $cle -ErrorAction SilentlyContinue }`,
+};
+
+// Clés PowerShell (HKCU:\…) des navigateurs, avec leur nom.
+const windowsKeys = (hostName) => WINDOWS_KEYS.map(([name, vendor]) => ({ name, key: `HKCU:\\Software\\${vendor}\\NativeMessagingHosts\\${hostName}` }));
+
+// Résultat par clé (« clé|ok » ou « clé|raison ») → { ok: [noms], failed: [{ name, error }] }.
+function parseLines(keys, output, fallbackError) {
+    const lines = new Map(String(output).split(/\r?\n/).map((line) => line.split("|")).filter((parts) => parts.length >= 2).map(([key, ...rest]) => [key.trim(), rest.join("|").trim()]));
+    const ok = [];
+    const failed = [];
+    for (const { name, key } of keys) {
+        const status = lines.get(key);
+        if (status === "ok") {
+            ok.push(name);
+        } else {
+            failed.push({ name, error: status || fallbackError || "pas de réponse de PowerShell" });
+        }
+    }
+    return { ok, failed };
+}
 
 // Emplacements où inscrire le manifeste. ARIA_TEST_NATIVE_DIRS (banc uniquement) : liste JSON
 // de dossiers à la place des vrais.
@@ -67,7 +100,6 @@ function linuxTargets(env) {
         .map(({ name, base }) => ({ name, dir: path.join(base, "NativeMessagingHosts") }));
 }
 
-const registryKey = (vendor, host) => `HKCU\\Software\\${vendor}\\NativeMessagingHosts\\${host}`;
 
 function launcherText({ platform, exe, relay }) {
     if (platform === "win32") {
@@ -80,7 +112,7 @@ function launcherText({ platform, exe, relay }) {
 }
 
 // Inscrit (ou réinscrit) le relais. Renvoie { registered: [noms], failed: [{ name, error }], dir }.
-export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, extensionId, hostName, env = process.env, platform = process.platform }) {
+export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, extensionId, hostName, env = process.env, platform = process.platform, run = runPowerShell }) {
     fs.mkdirSync(dir, { recursive: true });
     const relay = path.join(dir, "relay.cjs");
     // Lecture puis écriture : la source peut être dans l'archive app.asar.
@@ -101,10 +133,11 @@ export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, ex
     const registered = [];
     const failed = [];
     if (platform === "win32") {
-        for (const [name, vendor] of WINDOWS_KEYS) {
-            const result = await run("reg", ["add", registryKey(vendor, hostName), "/ve", "/t", "REG_SZ", "/d", manifestFile, "/f"]);
-            (result.ok ? registered : failed).push(result.ok ? name : { name, error: result.stderr.trim() });
-        }
+        const keys = windowsKeys(hostName);
+        const result = await run(BRIDGE_SCRIPTS.register, { ARIA_MANIFESTE: manifestFile, ARIA_CLES: keys.map(({ key }) => key).join(";") });
+        const parsed = parseLines(keys, result.output, result.error);
+        registered.push(...parsed.ok);
+        failed.push(...parsed.failed);
     } else {
         for (const { name, dir: target } of linuxTargets(env)) {
             try {
@@ -120,11 +153,9 @@ export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, ex
 }
 
 // Retire l'inscription et les fichiers du relais (le jeton reste, il ne sert à rien d'autre).
-export async function unregisterBridge({ dir, hostName, env = process.env, platform = process.platform }) {
+export async function unregisterBridge({ dir, hostName, env = process.env, platform = process.platform, run = runPowerShell }) {
     if (platform === "win32") {
-        for (const [, vendor] of WINDOWS_KEYS) {
-            await run("reg", ["delete", registryKey(vendor, hostName), "/f"]);
-        }
+        await run(BRIDGE_SCRIPTS.unregister, { ARIA_CLES: windowsKeys(hostName).map(({ key }) => key).join(";") });
     } else {
         for (const { dir: target } of linuxTargets(env)) {
             fs.rmSync(path.join(target, `${hostName}.json`), { force: true });
@@ -137,19 +168,16 @@ export async function unregisterBridge({ dir, hostName, env = process.env, platf
 
 // État de l'inscription : { registered, browsers: [noms], manifest }.
 // « registered » : notre manifeste existe et au moins un navigateur pointe vers lui.
-export async function bridgeRegistration({ dir, hostName, env = process.env, platform = process.platform }) {
+export async function bridgeRegistration({ dir, hostName, env = process.env, platform = process.platform, run = runPowerShell }) {
     const manifestFile = path.join(dir, `${hostName}.json`);
     if (!fs.existsSync(manifestFile)) {
         return { registered: false, browsers: [], manifest: null };
     }
     const browsers = [];
     if (platform === "win32") {
-        for (const [name, vendor] of WINDOWS_KEYS) {
-            const result = await run("reg", ["query", registryKey(vendor, hostName), "/ve"]);
-            if (result.ok && result.stdout.toLowerCase().includes(manifestFile.toLowerCase())) {
-                browsers.push(name);
-            }
-        }
+        const keys = windowsKeys(hostName);
+        const result = await run(BRIDGE_SCRIPTS.query, { ARIA_MANIFESTE: manifestFile, ARIA_CLES: keys.map(({ key }) => key).join(";") });
+        browsers.push(...parseLines(keys, result.output, result.error).ok);
     } else {
         for (const { name, dir: target } of linuxTargets(env)) {
             if (fs.existsSync(path.join(target, `${hostName}.json`))) {

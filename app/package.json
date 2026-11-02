@@ -1,7 +1,7 @@
 {
     "name": "aria-plume",
     "productName": "Aria Plume",
-    "version": "0.36.0",
+    "version": "0.36.1",
     "description": "Correcteur et traducteur français ↔ anglais, 100 % local",
     "license": "GPL-3.0-only",
     "author": "ZedjeK",
@@ -11,7 +11,7 @@
     "scripts": {
         "start": "electron .",
         "dist": "electron-builder --win --x64 --publish never",
-        "test": "node tests/extension-install.mjs && node tests/bridge.mjs && node tests/office.mjs && node tests/office-word.mjs && node tests/updates.mjs && node tests/smoke.mjs",
+        "test": "node tests/extension-install.mjs && node tests/bridge.mjs && node tests/office.mjs && node tests/office-word.mjs && node tests/registry.mjs && node tests/updates.mjs && node tests/smoke.mjs",
         "test:package": "electron-builder --linux dir --x64 --publish never && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/smoke.mjs && APP_BINARY=$PWD/dist/linux-unpacked/aria-plume node tests/mcp.mjs --app && node tests/package-accents.mjs",
         "test:mcp": "node tests/mcp.mjs && node tests/mcp.mjs --app"
     },
@@ -29,6 +29,7 @@
         "files": [
             "main.js",
             "paths.js",
+            "powershell.js",
             "app-main.js",
             "engine.js",
             "settings.js",

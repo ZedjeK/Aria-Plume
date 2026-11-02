@@ -4,7 +4,9 @@
 // La fenêtre affiche le correcteur de l'extension (popup.html), servi par le protocole aria:.
 
 import { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, protocol, shell } from "electron";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import https from "node:https";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -31,7 +33,7 @@ const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridg
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
-const { WORD_MANIFEST, registerWord, unregisterWord, wordRegistered } = await import("./office/manifest.js");
+const { WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
 
@@ -348,16 +350,58 @@ async function refreshWordRegistration() {
     }
 }
 
+// Le serveur répond-il vraiment, en HTTPS, avec notre certificat ? Renvoie { ok, error }.
+// Le certificat présenté est comparé au nôtre par son empreinte : BoringSSL (le TLS d'Electron)
+// refuse la contrainte de noms sur les adresses IP de notre autorité, que Windows, lui, accepte
+// (c'est Windows qui valide pour Word ; son approbation est vérifiée à part, par certutil).
+function pingOffice(certificates) {
+    return new Promise((resolve) => {
+        if (!certificates || !officeServer) {
+            resolve({ ok: false, error: officeError ?? "serveur arrêté" });
+            return;
+        }
+        const expected = new crypto.X509Certificate(certificates.cert).fingerprint256;
+        const request = https.get({
+            host: "127.0.0.1",
+            port: officePort(),
+            path: "/office/ping",
+            servername: "localhost",
+            headers: { host: `localhost:${officePort()}` },
+            rejectUnauthorized: false,
+            timeout: 3000,
+        }, (response) => {
+            const presented = response.socket.getPeerCertificate()?.fingerprint256;
+            let body = "";
+            response.on("data", (chunk) => {
+                body += chunk;
+            });
+            response.on("end", () => resolve(presented !== expected
+                ? { ok: false, error: "un autre certificat que celui d'Aria Plume" }
+                : response.statusCode === 200 && body.includes("Aria Plume")
+                    ? { ok: true, error: null }
+                    : { ok: false, error: `réponse inattendue (${response.statusCode})` }));
+        });
+        request.on("error", (error) => resolve({ ok: false, error: error.code ?? error.message }));
+        request.on("timeout", () => {
+            request.destroy();
+            resolve({ ok: false, error: "pas de réponse en 3 secondes" });
+        });
+    });
+}
+
+// État réel, vérifié : certificat approuvé, serveur qui répond, inscription relue dans le registre.
 async function officeState() {
     const certificates = loadCertificates(officeDir());
+    const manifest = path.join(officeDir(), WORD_MANIFEST);
+    const ping = await pingOffice(certificates);
     return {
-        word: await wordRegistered({ dir: officeDir() }),
         installed: !!certificates,
         trusted: await isTrusted(certificates),
-        listening: !!officeServer,
-        error: officeError,
+        server: ping.ok,
+        serverError: ping.error,
+        word: await wordRegistered({ dir: officeDir() }),
         url: `https://localhost:${officePort()}/office/`,
-        platform: process.platform,
+        manualCommand: process.platform === "win32" ? manualCommand(manifest) : null,
     };
 }
 
@@ -703,14 +747,6 @@ ipcMain.handle("app:office-uninstall", async () => {
     await unregisterWord({ dir: officeDir() });
     await removeCertificates(officeDir());
     return officeState();
-});
-ipcMain.handle("app:office-open-test", async () => {
-    const state = await officeState();
-    if (!state.listening) {
-        throw new Error("Le serveur du complément n'est pas démarré.");
-    }
-    await shell.openExternal(state.url);
-    return state.url;
 });
 // --- Mises à jour : réglages ---
 ipcMain.handle("app:update-state", () => ({ last: lastUpdate, kind: appKind(), version: app.getVersion() }));

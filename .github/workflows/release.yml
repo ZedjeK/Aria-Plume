@@ -83,6 +83,7 @@ jobs:
                   node tests/bridge.mjs
                   node tests/office.mjs
                   node tests/office-word.mjs
+                  node tests/registry.mjs
                   node tests/updates.mjs
                   xvfb-run -a npm run test:package
 

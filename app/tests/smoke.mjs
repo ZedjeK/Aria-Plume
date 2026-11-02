@@ -344,10 +344,17 @@ check("mises à jour : réglages enregistrés", updateSettingsSaved.checkUpdates
 
 // Complément Office : installation (pas de certificat à approuver hors Windows), page de test
 // ouverte dans Chromium avec le certificat du serveur reconnu, moteur réel derrière.
-check("Office : état initial", (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
+check("Office : état initial (un seul bouton)", (await opt.textContent("#officeStatus")) === "Pas encore installé." && (await opt.textContent("#officeInstall")) === "Installer dans Word" && !(await opt.isVisible("#officeUninstall")), await opt.textContent("#officeStatus"));
 await opt.click("#officeInstall");
-await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent.startsWith("Serveur du complément prêt"), null, { timeout: 10000 }).catch(() => {});
-check("Office : serveur prêt", (await opt.textContent("#officeStatus")).includes(`https://localhost:${officePort}/office/`) && await opt.isVisible("#officeTest"), await opt.textContent("#officeStatus"));
+await opt.waitForFunction(() => document.querySelectorAll("#officeChecks li").length === 3 && !/Vérification/.test(document.querySelector("#officeStatus").textContent), null, { timeout: 15000 }).catch(() => {});
+const officeChecks = await opt.$$eval("#officeChecks li", (list) => list.map((li) => `${li.className}:${li.textContent}`));
+// Hors Windows : rien à approuver ni à inscrire (–), mais le serveur est vraiment joint en HTTPS (✓).
+check("Office : vérifications réelles (serveur joint en HTTPS)", officeChecks.length === 3 && officeChecks[1].startsWith(`ok:✓Serveur prêt sur https://localhost:${officePort}/office/`) && officeChecks[0].startsWith("na:") && officeChecks[2].startsWith("na:"), officeChecks.join(" | "));
+if (shots) {
+    await opt.evaluate(() => document.querySelector("#officeChecks").scrollIntoView({ block: "center" }));
+    await opt.screenshot({ path: `${shots}/app-office.png` });
+}
+check("Office : bouton « Réparer » une fois installé, pas de commande de secours", (await opt.textContent("#officeInstall")) === "Réparer" && await opt.isVisible("#officeUninstall") && !(await opt.isVisible("#officeManual")));
 const officeDir = `${dataDir}/office`;
 const leafPem = fs.readFileSync(`${officeDir}/serveur.pem`, "utf8");
 const wordXml = fs.readFileSync(`${officeDir}/manifeste-word.xml`, "utf8");
@@ -376,8 +383,8 @@ try {
     await officeBrowser.close();
 }
 await opt.click("#officeUninstall");
-await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Complément non installé.", null, { timeout: 5000 }).catch(() => {});
-check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && (await opt.textContent("#officeStatus")) === "Complément non installé.", await opt.textContent("#officeStatus"));
+await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Pas encore installé.", null, { timeout: 10000 }).catch(() => {});
+check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && (await opt.textContent("#officeStatus")) === "Pas encore installé.", await opt.textContent("#officeStatus"));
 await opt.close();
 
 fakeGithub.close();

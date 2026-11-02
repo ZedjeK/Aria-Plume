@@ -110,9 +110,22 @@ Tests : `node tests/bridge.mjs` (relais, jeton, démarrage automatique, limites,
 
 ## Le complément Word
 
-Réglages → Application → **Complément Office** → « Installer le complément Office » : certificat
-local (Windows demande une fois de l'approuver), serveur `https://localhost:47823` et inscription
-dans Word. Ensuite, dans Word : onglet **Accueil → Aria Plume**.
+Réglages → Application → **Complément Word** → « Installer dans Word » : certificat local
+(Windows demande une fois de l'approuver), serveur `https://localhost:47823` et inscription dans
+Word. Redémarre Word : onglet **Accueil → Aria Plume**.
+
+La section affiche ce qui est vérifié pour de vrai, pas ce qui a été tenté :
+
+- ✓ **Certificat local approuvé par Windows** (`certutil -user -verifystore`) ;
+- ✓ **Serveur prêt** : l'application se connecte à son propre serveur en HTTPS et compare
+  l'empreinte du certificat présenté au sien ;
+- ✓ **Inscrit dans Word** : la valeur `HKCU\Software\Microsoft\Office\16.0\WEF\Developer` est
+  écrite par PowerShell (script encodé, chemin passé par variable d'environnement, sortie en UTF-8
+  sans BOM), puis **relue**. Si elle ne peut pas l'être (un antivirus qui bloque l'écriture dans le
+  registre, par exemple), la section affiche la commande PowerShell à lancer soi-même, prête à copier.
+
+« Réparer » refait tout et revérifie. Le pont avec l'extension inscrit ses clés
+(`HKCU\Software\<navigateur>\NativeMessagingHosts`) de la même façon.
 
 - **Correction** : document entier ou sélection ; un clic sur une remarque sélectionne le passage,
   un clic sur une suggestion corrige, « Tout corriger » applique l'orthographe et la grammaire ;
@@ -129,7 +142,8 @@ dans Word. Ensuite, dans Word : onglet **Accueil → Aria Plume**.
 
 L'application doit tourner pendant que tu utilises le complément (« Démarrer avec Windows »).
 Tests : `node tests/office-word.mjs` (faux Word strict sur load/sync, vrai moteur, Word ancien,
-Microsoft 365 et sans abonnement).
+Microsoft 365 et sans abonnement) et `node tests/registry.mjs` (inscriptions dans le registre avec
+un faux PowerShell ; le vrai ne tourne que sous Windows).
 
 ## Le serveur MCP (pour les IA)
 
