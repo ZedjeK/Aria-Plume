@@ -242,6 +242,9 @@ function spellingContext(before) {
     if (/(?:^|\s)mises?\s+à\s+$/iu.test(before)) {
         return { notFinite: true };  // « mise à jur » → jour
     }
+    if (/(?:^|[\s,])en\s+$/iu.test(before)) {
+        return { gerund: true };  // « en changant » → changeant
+    }
     const person = expectedPerson(before);
     if (person) {
         return { person };
@@ -255,6 +258,10 @@ function spellingContext(before) {
     const subject = NOUN_SUBJECT.exec(before);
     if (subject) {
         return { person: /^(les|des|ces|mes|tes|ses|nos|vos|leurs)$/i.test(subject[1] ?? "") ? ":3p" : ":3s" };
+    }
+    // Prénom en tête de phrase : « Jeanne fermat les volets ».
+    if (/(?:^|[.!?]\s+)\p{Lu}\p{Ll}{2,}\s+$/u.test(before) && !/(?:^|[.!?]\s+)(?:Hier|Demain|Aujourd'hui|Ensuite|Puis|Alors|Mais|Donc|Enfin|Soudain|Parfois|Souvent|Toujours|Pourtant|Ici|Là|Bonjour|Salut|Merci|Bref)\s+$/u.test(before)) {
+        return { person: ":3s" };
     }
     return {};
 }
@@ -285,7 +292,7 @@ const suggestionCache = new Map();
 const SUGGESTION_CACHE_MAX = 2000;
 
 function spellSuggestions(word, context = {}) {
-    const key = `${word}|${context.person ?? ""}|${context.infinitive ? "Y" : ""}|${context.notFinite ? "N" : ""}`;
+    const key = `${word}|${context.person ?? ""}|${context.infinitive ? "Y" : ""}|${context.notFinite ? "N" : ""}|${context.gerund ? "P" : ""}`;
     const cached = suggestionCache.get(key);
     if (cached) {
         return cached;
@@ -349,6 +356,71 @@ function damerau(a, b, max) {
         }
     }
     return d[a.length][b.length];
+}
+
+// Verbe mal écrit, retrouvé par son infinitif puis conjugué à la personne du sujet (banc du
+// 06/11/2026) : « Elle peind » → peint, « Vous pouvé » → pouvez, « Il achette » → achète,
+// « Jeanne fermat » → ferma, « Les Romains construisire » → construisirent, « En changant » → changeant.
+const STRIP_ENDINGS = ["issaient", "eraient", "èrent", "irent", "urent", "aient", "ions", "iez", "ons", "ant", "ez", "ent", "ait", "ais", "ai", "ât", "at", "a", "es", "e", "ée", "ées", "és", "é", "is", "it", "ie", "i", "us", "ut", "u", "t", "d", "s", "x", "ment", ""];
+const ALL_PERSONS = [":1s", ":2s", ":3s", ":1p", ":2p", ":3p"];
+
+function contextVerbForm(word, context) {
+    const lower = word.toLowerCase();
+    if (lower.length < 4 || !/^\p{Ll}+$/u.test(lower) || typeof conj === "undefined") {
+        return null;
+    }
+    const variants = new Set([lower, lower.replace(/ett/, "et").replace(/ell/, "el"), lower.replace(/([bcdfglmnprst])\1/, "$1"), lower.replace(/g([aoâ])/, "ge$1"), lower.replace(/c([aoâu])/, "ç$1"), lower.replace(/[èê]/, "e")]);
+    const lemmas = new Set();
+    for (const variant of variants) {
+        for (const end of STRIP_ENDINGS) {
+            if (!variant.endsWith(end)) {
+                continue;
+            }
+            const stem = variant.slice(0, variant.length - end.length);
+            if (stem.length < 2) {
+                continue;
+            }
+            for (const infinitive of ["er", "ir", "re", "oir", "dre"]) {
+                if (conj._dVerb[stem + infinitive]) {
+                    lemmas.add(stem + infinitive);
+                }
+            }
+        }
+    }
+    if (lemmas.size === 0) {
+        const plain = stripAccents(lower);
+        for (const verb of verbsStartingWith(lower.slice(0, 5)).concat(plain !== lower ? verbsStartingWith(plain.slice(0, 5)) : []).slice(0, 40)) {
+            lemmas.add(verb);
+        }
+    }
+    const plainWord = stripAccents(lower);
+    let best = null;
+    const consider = (form, bonus = 0) => {
+        if (!form || form === lower) {
+            return;
+        }
+        const plainForm = stripAccents(form);
+        const distance = damerau(plainWord, plainForm, 3) + (plainForm !== form || plainWord !== lower ? (form === lower ? 0 : 0.3) : 0) - bonus;
+        if (!best || distance < best.distance) {
+            best = { form, distance };
+        }
+    };
+    for (const lemma of lemmas) {
+        // « peind » → peindre plutôt que peiner : le mot est le début de l'infinitif.
+        const own = lemma.startsWith(lower) ? 0.2 : 0;
+        if (context.gerund) {
+            consider(conj.getConj(lemma, ":P", ":P"), own);
+            continue;
+        }
+        const persons = context.person ? [context.person] : ALL_PERSONS;
+        for (const tense of [":Ip", ":Iq", ":Is", ":If", ":K"]) {
+            for (const who of persons) {
+                // « fermat », « frappat » : un passé simple écrit comme le subjonctif (« fermât »).
+                consider(conj.getConj(lemma, tense, who), own + (tense === ":Is" && /[aâ]t$/.test(lower) ? 0.6 : 0));
+            }
+        }
+    }
+    return best && best.distance <= (context.person || context.gerund ? 2.5 : 1.5) ? best : null;
 }
 
 function barbarismSuggestions(word) {
@@ -452,6 +524,16 @@ function computeSpellSuggestions(word, context = {}) {
     const extra = barbarism.list.filter((c) => !suggestions.includes(c));
     suggestions.splice(Math.min(1, suggestions.length), 0, ...extra);
     suggestions.push(...native);
+    // Même mot à la majuscule près (« bruxelles » → Bruxelles), « Ca » → Ça : en tête.
+    const near = !context.person && suggestions.find((s) => s !== word && ((s.toLowerCase() === word.toLowerCase() && /^\p{Lu}\p{Ll}/u.test(s)) || (word.toLowerCase() === "ca" && s.toLowerCase() === "ça")));
+    if (near) {
+        suggestions.unshift(near);
+    }
+    // Un verbe conjugué d'après son sujet passe devant (« Elle peind » → peint, pas « pend »).
+    const verbForm = !context.infinitive && !context.notFinite && (context.person || context.gerund || /(?:at|ât|ûment|îment|âment)$/.test(word)) ? contextVerbForm(word, context) : null;
+    if (verbForm) {
+        suggestions.unshift(matchCase(word, verbForm.form));
+    }
     return [...new Set(suggestions)].slice(0, MAX_SUGGESTIONS);
 }
 
@@ -1040,11 +1122,16 @@ function addHomophones(line, grammar) {
     const all = homophones.find(line, { formal: formalMode });
     // Grammalecte a déjà vu la faute et propose notre correction, mais pas en premier
     // (« Il et parti » → ait, est, hait) : on la remonte en tête.
+    // Accord d'un participe : Grammalecte ne voit pas toujours le genre du nom repris (« Ces vidéos,
+    // tu les as regardé » → regardés) ; la règle d'Aria, qui a trouvé le nom, donne le bon genre.
+    const genderOnly = (a, b) => a && b && a !== b && a.replace(/e?s?$/, "") === b.replace(/e?s?$/, "");
     for (const h of all) {
         for (const e of grammar) {
             if (e.start <= h.start && e.end >= h.end && sameFix(e, h.suggestions[0]) && !sameFix({ suggestions: e.suggestions.slice(0, 1) }, h.suggestions[0])) {
                 const fix = e.suggestions.find((sugg) => sameFix({ suggestions: [sugg] }, h.suggestions[0]));
                 e.suggestions = [fix, ...e.suggestions.filter((sugg) => sugg !== fix)];
+            } else if (e.start === h.start && e.end === h.end && /_(ppas_cod_avant|accord_attribut|ppas_relative)$/.test(h.rule) && genderOnly(e.suggestions[0], h.suggestions[0])) {
+                e.suggestions = [h.suggestions[0], ...e.suggestions.filter((sugg) => sugg !== h.suggestions[0])];
             }
         }
     }
@@ -1059,7 +1146,7 @@ function addHomophones(line, grammar) {
     // signale déjà quelque chose au même endroit, sa correction (pensée pour la phrase entière) prime ;
     // on remonte seulement la nôtre en tête si elle figure dans ses propositions.
     // Règles complémentaires (campagne du 06/11/2026) : elles aussi cèdent la place à Grammalecte.
-    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|a_ete|a_verbe_avoir|prep_infinitif|et_est_attribut|a_prep|imperatif_consigne|couleur_pluriel)$/;
+    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|a_ete|a_verbe_avoir|prep_infinitif|et_est_attribut|a_prep|imperatif_consigne|couleur_pluriel|futur_conditionnel|imperatif_2s|ppas_cod_avant|ppas_avoir_invariable|accord_nom_adjectif|pluriel_nombre)$/;
     const found = all.filter((h) => !WEAK.test(h.rule) || !grammar.some((e) => e.start < h.end && e.end > h.start));
     if (found.length === 0) {
         return { grammar, extra: [] };

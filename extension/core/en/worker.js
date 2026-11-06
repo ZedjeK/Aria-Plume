@@ -1,7 +1,7 @@
 // Aria Plume — worker anglais (Harper 2.10, binaire WebAssembly « slim », fichiers d'origine non modifiés)
 import { LocalLinter, Dialect, SuggestionKind } from "../../engines/harper/index.js";
 import { slimBinary } from "../../engines/harper/slimBinary.js";
-import { findEnglishRules, IRREGULAR_PP } from "./rules.js";
+import { articleForAcronym, findEnglishRules, IRREGULAR_PP } from "./rules.js";
 
 // Prétérits et participes irréguliers (lent, sent, went, gone…) : voir les fausses alertes de Harper.
 const PAST_FORMS = new Set([...Object.keys(IRREGULAR_PP), ...Object.values(IRREGULAR_PP), "lent", "sent", "spent", "bent", "meant", "built", "felt", "kept", "left", "lost", "paid", "said", "sold", "told", "thought", "brought", "bought", "caught", "taught", "fought", "found", "held", "led", "read", "slept", "stood", "understood", "won", "made", "had", "heard", "met", "put", "set", "cut", "hit", "let", "shut", "quit"]);
@@ -137,6 +137,27 @@ async function check(text, dialect) {
         }
         if (m.rule === "Agreement" && word === "it's" && /^time\b/.test(after)) {
             return true;
+        }
+        // « I think it's good advice » : après un verbe d'opinion, « it's » ouvre la proposition.
+        if (m.rule === "Agreement" && word === "it's" && /\b(?:think|thought|guess|believe|hope|know|sure|say|said|feel|felt|that)\s*$/i.test(text.slice(0, m.start))) {
+            return true;
+        }
+        // « as soon as », « as long as », « as well as » : Harper propose de supprimer un « as ».
+        // (Un « as as » doublé reste signalé.)
+        if (m.rule === "Redundancy" && word === "as") {
+            const before = text.slice(0, m.start);
+            const after = text.slice(m.end);
+            const pair = /^\s+(?:soon|long|well|far|much|many|good|quickly|fast|often|early|late|little)\s+as\b/i.test(after) || /\bas\s+(?:soon|long|well|far|much|many|good|quickly|fast|often|early|late|little)\s*$/i.test(before);
+            if (pair && !/^\s+as\b/i.test(after) && !/\bas\s*$/i.test(before)) {
+                return true;
+            }
+        }
+        // « an SUV », « an HR manager » : Harper lit la lettre comme une consonne.
+        if (/^an?$/.test(word)) {
+            const next = /^\s*([A-Z][A-Z0-9]{1,4}s?)\b/.exec(text.slice(m.end))?.[1];
+            if (next && articleForAcronym(next) === word) {
+                return true;
+            }
         }
         return /missing a preposition/i.test(m.message) && /^(will|would|can|could|shall|should|may|might|must)\b/.test(`${word} ${after}`.split(" ").slice(1).join(" ").trimStart() || after);
     };

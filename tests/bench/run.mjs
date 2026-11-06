@@ -25,6 +25,11 @@
 //   - textes4     campagne du 06/11/2026, français et anglais, écrite à l'aveugle (sans lire le
 //                 moteur) : série de travail
 //   - controle4   sa série de contrôle, jamais regardée pendant la mise au point
+//   - textes5, controle5 : grandes séries réalistes du 06/11/2026 (français et anglais), à l'aveugle
+//   - traduction2, trcontrole2 : grandes séries de traduction du 06/11/2026 (fr→en et en→fr)
+//   - grandfr, granden, grandtr : grand banc génératif (grand-banc.mjs) — sujets, personnes, temps,
+//                 accords, homophones, orthographe, fautes de frappe ; traduction : temps, négation,
+//                 genre, nombres, tu/vous. Une ligne par famille ; --grand N cas par famille (60)
 //   - traduction  traduction fr ↔ en (traduction.mjs) : sens respecté (formes attendues, contresens
 //                 interdits), tutoiement ou vouvoiement, chrF ; --brut : le modèle seul, sans les
 //                 réécritures d'Aria (pour mesurer ce qu'elles apportent)
@@ -53,13 +58,16 @@ import { phrases as traduction } from "./traduction.mjs";
 import { phrases as trcontrole } from "./traduction-controle.mjs";
 import { parse, evaluate, summarize, report, misses } from "./textes-eval.mjs";
 import * as trEval from "./traduction-eval.mjs";
+import { buildFrench, buildEnglish, buildTranslation } from "./grand-banc.mjs";
 
 const args = process.argv.slice(2);
 const verbose = args.includes("-v");
 const update = args.includes("--update");
 const raw = args.includes("--brut");
 const genres = args.includes("--genres");
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole"];
+// Grand banc génératif : cas par famille (--grand 200 pour un passage plus long).
+const GRAND = Number(args[args.indexOf("--grand") + 1]) > 0 && args.includes("--grand") ? Number(args[args.indexOf("--grand") + 1]) : 60;
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole", "grandfr", "granden", "grandtr", "textes5", "controle5", "traduction2", "trcontrole2"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -188,7 +196,7 @@ function benchWordnet() {
 }
 
 // --- textes : textes du quotidien, moteur complet par le service (réglages par défaut, sans répétitions) ---
-async function benchTextes(list = textes) {
+async function benchTextes(list = textes, { families = false } = {}) {
     const settings = { ...DEFAULTS, repetitions: false };
     const service = createService({
         aria,
@@ -199,7 +207,7 @@ async function benchTextes(list = textes) {
     for (const item of list) {
         const parsed = parse(item.text);
         const { matches } = await service.check({ text: parsed.wrong, lang: item.lang });
-        const result = { ...evaluate(parsed, matches), lang: item.lang, wrong: parsed.wrong };
+        const result = { ...evaluate(parsed, matches), lang: item.lang, wrong: parsed.wrong, genre: item.genre };
         results.push(result);
         const lines = misses(result);
         if (lines.length) {
@@ -209,6 +217,25 @@ async function benchTextes(list = textes) {
     }
     const summary = summarize(results);
     log(report(summary));
+    // Grand banc : une ligne par famille (cas fautifs : trouvées, en tête ; cas justes : fausses alertes).
+    if (families || genres) {
+        const byFamily = {};
+        for (const r of results) {
+            const name = String(r.genre ?? "?").replace(/:juste$/, "");
+            const f = (byFamily[`${r.lang}:${name}`] ??= { zones: 0, found: 0, first: 0, right: 0, alerts: 0 });
+            f.zones += r.zones.length;
+            f.found += r.zones.filter((z) => z.found).length;
+            f.first += r.zones.filter((z) => z.first).length;
+            if (/:juste$/.test(r.genre ?? "")) {
+                f.right += 1;
+                f.alerts += r.falseAlerts.length ? 1 : 0;
+            }
+        }
+        const pct = (a, b) => (b ? `${Math.round((100 * a) / b)} %` : "—").padStart(5);
+        for (const [name, f] of Object.entries(byFamily).sort()) {
+            log(`    ${name.padEnd(24)} fautes ${String(f.zones).padStart(4)} · trouvées ${pct(f.found, f.zones)} · en tête ${pct(f.first, f.zones)} · justes ${String(f.right).padStart(4)} · avec fausse alerte ${pct(f.alerts, f.right)}`);
+        }
+    }
     const { total } = summary;
     return { found: total.found, fixed: total.fixed, firstRank: total.first, total: total.zones, falseAlerts: total.falseAlerts, oneClick: total.oneClick };
 }
@@ -249,7 +276,17 @@ async function benchTraduction(list) {
 
 const DIRECTION = { ok: "more", chrf: "more", register: "more", found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
 
-const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3), textes4: () => benchTextes([...textes4fr, ...textes4en]), controle4: () => benchTextes([...controle4fr, ...controle4en]), traduction: () => benchTraduction(traduction), trcontrole: () => benchTraduction(trcontrole) };
+const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3), textes4: () => benchTextes([...textes4fr, ...textes4en]), controle4: () => benchTextes([...controle4fr, ...controle4en]), traduction: () => benchTraduction(traduction), trcontrole: () => benchTraduction(trcontrole), grandfr: async () => benchTextes(await buildFrench(aria, { perFamily: GRAND }), { families: true }), granden: async () => benchTextes(buildEnglish({ perFamily: GRAND }), { families: true }), grandtr: async () => benchTraduction(await buildTranslation(aria, { perFamily: GRAND })),
+    textes5: async () => benchTextes(await loadSets(["./textes-5-fr.mjs", "./textes-5-en.mjs"], "textes")),
+    controle5: async () => benchTextes(await loadSets(["./textes-controle-5-fr.mjs", "./textes-controle-5-en.mjs"], "textes")),
+    traduction2: async () => benchTraduction(await loadSets(["./traduction-2-fr.mjs", "./traduction-2-en.mjs"], "phrases")),
+    trcontrole2: async () => benchTraduction(await loadSets(["./traduction-controle-2-fr.mjs", "./traduction-controle-2-en.mjs"], "phrases")) };
+// Séries du 06/11/2026, chargées à la demande (« --seul en » ou « --seul fr » pour une langue).
+async function loadSets(files, key) {
+    const only = args.includes("--seul") ? args[args.indexOf("--seul") + 1] : null;
+    const lists = await Promise.all(files.filter((f) => !only || f.includes(`-${only}.mjs`)).map(async (f) => (await import(f))[key]));
+    return lists.flat();
+}
 const baselineFile = here("baseline.json");
 const baseline = fs.existsSync(baselineFile) ? JSON.parse(fs.readFileSync(baselineFile, "utf8")) : {};
 let regressions = 0;

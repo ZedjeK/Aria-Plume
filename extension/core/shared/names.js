@@ -95,18 +95,114 @@ export function isProperName(text, match, lang) {
     return false;
 }
 
+// Abréviations de messagerie et sigles techniques : pas des fautes d'orthographe.
+const CHAT_WORDS = new Set("ngl tbh lgtm omg idk imo imho btw fyi afaik iirc smh lol lmao brb tldr tl;dr ty np wfh eod eta asap ooo ptal wip irl dm dms pm ama jk nvm rn tbf ftw ikr bc cuz gonna wanna gotta kinda sorta lemme gimme y'all ya".split(" "));
+// Mots composés connus dont Harper souligne les morceaux (« Wi-Fi » → Wi, Fi).
+const COMPOUNDS = new Set(["wi-fi", "hi-fi", "sci-fi", "k-pop", "x-ray", "e-mail", "t-shirt", "häagen-dazs", "coca-cola", "rolls-royce", "mercedes-benz", "jay-z", "wi-fi's"]);
+// Mots anglais que le dictionnaire de Harper ignore.
+const EXTRA_ENGLISH = new Set(["chaperone", "chaperoned", "chaperones", "trailhead", "trailheads", "standup", "standups", "onboarding", "offboarding", "frontend", "backend", "dev", "devs", "repo", "repos", "config", "configs", "async", "auth", "boolean", "localhost", "middleware", "runtime", "timestamp", "uptime", "upvote", "downvote", "workflow", "workflows"]);
+
+// Une remarque d'orthographe à retirer en anglais : sigle, abréviation de messagerie, mot composé connu,
+// emprunt accentué (déjà vu, fiancée, soufflé), nombre suivi de « s » (502s, 1990s), liste de prénoms.
+export function englishNonWord(text, match) {
+    if (match.kind !== "orthographe") {
+        return false;
+    }
+    const word = text.slice(match.start, match.end).trim();
+    const lower = word.toLowerCase();
+    if (CHAT_WORDS.has(lower) || EXTRA_ENGLISH.has(lower)) {
+        return true;
+    }
+    // Sigle tout en majuscules (« GKE », « LGTM »), hors phrase entièrement en majuscules.
+    if (/^[A-Z][A-Z0-9]{1,5}s?$/.test(word) && !/\b[A-Z]{3,}\s+[A-Z]{3,}\b/.test(text.slice(Math.max(0, match.start - 30), match.end + 30).replace(word, ""))) {
+        return true;
+    }
+    // Emprunts accentués : un mot anglais n'a pas d'accent ; « vu » après « déjà ».
+    if (/[à-ÿ]/i.test(word) || (lower === "vu" && /déjà\s*$/i.test(text.slice(0, match.start)))) {
+        return true;
+    }
+    // « 502s », « 1990s ».
+    if (lower === "s" && /\d$/.test(text.slice(0, match.start))) {
+        return true;
+    }
+    const compound = /[\p{L}-]*$/u.exec(text.slice(0, match.start))[0] + word + /^[\p{L}-]*/u.exec(text.slice(match.end))[0];
+    if (compound.includes("-") && COMPOUNDS.has(compound.toLowerCase())) {
+        return true;
+    }
+    // Liste de prénoms : « Thuy, Oluwaseun, and Xochitl joined ».
+    if (/^\p{Lu}\p{Ll}+$/u.test(word)) {
+        const around = text.slice(Math.max(0, match.start - 40), match.end + 40);
+        const listed = new RegExp(`(?:\\p{Lu}\\p{Ll}+,\\s+(?:and\\s+)?)${word}\\b|${word},\\s+(?:and\\s+)?\\p{Lu}\\p{Ll}+|\\p{Lu}\\p{Ll}+\\s+and\\s+${word}\\b|${word}\\s+and\\s+\\p{Lu}\\p{Ll}+`, "u");
+        if (listed.test(around)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Remarques de Harper à ne pas montrer : grossièretés « censurées », unités développées (GB → gigabytes).
 export function unwantedEnglishRemark(text, match) {
     if ((match.suggestions ?? []).some((s) => /\*{2,}|\w\*+\w/.test(s))) {
         return true;
     }
     const word = text.slice(match.start, match.end);
+    // « OMG » → « Oh my god » : un registre, pas une faute.
+    if (CHAT_WORDS.has(word.toLowerCase()) || englishNonWord(text, match)) {
+        return true;
+    }
+    // « throw the trash » → « throw away the trash » : un conseil de style, pas une faute.
+    const particleOnly = (match.suggestions ?? []).length > 0 && match.suggestions.every((s) => s.replace(/\s+(?:away|out|up|off|down|back|over)\b/gi, "").replace(/\s+/g, " ").trim().toLowerCase() === word.replace(/\s+/g, " ").trim().toLowerCase());
+    if (match.rule === "Miscellaneous" && particleOnly) {
+        return true;
+    }
     return match.rule === "WordChoice" && /^(?:[KMGTP]B|[KMGT]iB|GHz|MHz|kHz|Mbps|Gbps|ms|KB|kb)$/.test(word);
+}
+
+// Jargon technique et mots anglais courants dans un texte français (« merger la branche », « le pod »).
+const FRENCH_JARGON = new Set("merger merge mergé mergée commit commits commiter commité push pusher pushé pull rebase rebaser forker fork build builds builder deploy déployer debug debugger débugger débugguer release releases hotfix hotfixes staging prod préprod backlog sprint sprints standup daily review reviews reviewer feature features branch cluster clusters pod pods node nodes container containers pipeline pipelines workflow workflows dashboard dashboards frontend backend framework runtime repo repos checkout token tokens callback endpoint endpoints payload timeout logs logger monitoring scaler scalable helm kube kubectl lint linter linters refacto refactoring refactorer bug bugs bugué buggé crash crashé crasher spam spammer liker liké follower followers story stories replay live lives stream streamer streamé gamer gameplay setup check checker checké mail mails mailing newsletter meeting meetings call calls brief briefer débriefer process deadline deadlines feedback feedbacks booké booker".split(" "));
+// Mots-outils anglais : une citation qui en contient au moins deux est de l'anglais.
+const ENGLISH_FUNCTION = /\b(?:the|to|be|is|are|you|your|it|in|of|and|for|with|will|good|me|go|there|this|that|what|i'll|i'm|i|we|they|my|on|at|do|not|can|please|thanks|ahead|looks|okay)\b/gi;
+
+// Remarques de Grammalecte à ne pas montrer dans un texte français : citation en anglais, jargon
+// technique, tirets de liste, genre d'un sigle (« la CI »), prénom après une salutation (« Salut Romain »).
+export function unwantedFrenchRemark(text, match) {
+    const word = text.slice(match.start, match.end).trim();
+    const rule = String(match.rule ?? "");
+    if (match.kind === "orthographe" || /spell/i.test(rule)) {
+        if (FRENCH_JARGON.has(word.toLowerCase())) {
+            return true;
+        }
+        const before = text.slice(0, match.start);
+        const open = Math.max(before.lastIndexOf("«"), before.lastIndexOf("“"), before.lastIndexOf("\""));
+        const close = open >= 0 ? text.slice(open + 1).search(/[»”"]/) : -1;
+        if (open >= 0 && close >= 0 && open + 1 + close >= match.end) {
+            const quote = text.slice(open + 1, open + 1 + close);
+            if ((quote.match(ENGLISH_FUNCTION) ?? []).length >= 2) {
+                return true;
+            }
+        }
+    }
+    // « - » en tête de ligne dans une liste à puces (au moins deux lignes qui commencent ainsi).
+    if (/tiret_début_ligne/.test(rule) && (text.match(/^\s*- /gm) ?? []).length >= 2) {
+        return true;
+    }
+    // « la CI », « le PR » : genre d'un sigle.
+    if (/gn_(?:la|le|un|une)_/.test(rule) && /\b\p{Lu}{2,}\b/u.test(word)) {
+        return true;
+    }
+    // « Salut Romain, », « Bonjour Romain » : un prénom, pas un gentilé.
+    if (/maj_gentilés/.test(rule) && (/(?:salut|bonjour|bonsoir|coucou|merci|cher|chère|hello|hey|à|avec|pour|de)\s*$/i.test(text.slice(0, match.start)) || /^\s*,/.test(text.slice(match.end)))) {
+        return true;
+    }
+    return false;
 }
 
 export function filterNames(text, matches, lang) {
     return matches.filter((m) => {
         if (lang === "en" && unwantedEnglishRemark(text, m)) {
+            return false;
+        }
+        if (lang === "fr" && unwantedFrenchRemark(text, m)) {
             return false;
         }
         const word = text.slice(m.start, m.end).trim();
