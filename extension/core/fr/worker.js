@@ -1175,7 +1175,7 @@ function addHomophones(line, grammar) {
     // signale déjà quelque chose au même endroit, sa correction (pensée pour la phrase entière) prime ;
     // on remonte seulement la nôtre en tête si elle figure dans ses propositions.
     // Règles complémentaires (campagne du 06/11/2026) : elles aussi cèdent la place à Grammalecte.
-    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|a_ete|a_verbe_avoir|prep_infinitif|et_est_attribut|a_prep|imperatif_consigne|couleur_pluriel|futur_conditionnel|imperatif_2s|ppas_cod_avant|ppas_avoir_invariable|accord_nom_adjectif|pluriel_nombre)$/;
+    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|a_ete|a_verbe_avoir|prep_infinitif|et_est_attribut|a_prep|imperatif_consigne|couleur_pluriel|futur_conditionnel|imperatif_2s|ppas_cod_avant|ppas_avoir_invariable|accord_nom_adjectif|pluriel_nombre|elision)$/;
     const found = all.filter((h) => !WEAK.test(h.rule) || !grammar.some((e) => e.start < h.end && e.end > h.start));
     if (found.length === 0) {
         return { grammar, extra: [] };
