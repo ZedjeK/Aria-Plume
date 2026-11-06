@@ -151,6 +151,19 @@ body.app #bench {
     color: var(--muted, #a5a2b5);
 }
 
+.app-options .steps {
+    margin: 8px 0;
+    padding-left: 22px;
+}
+
+.app-options .steps li {
+    padding: 2px 0;
+}
+
+.app-options .steps code {
+    overflow-wrap: anywhere;
+}
+
 .app-options .command {
     white-space: pre-wrap;
     overflow-wrap: anywhere;

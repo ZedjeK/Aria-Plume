@@ -1,6 +1,6 @@
 # Composants tiers
 
-Les fichiers des moteurs sont copiés sans modification. Seuls les modèles de traduction sont recompressés en gzip ; leur empreinte SHA-256 d'origine est vérifiée après décompression. Le thésaurus anglais est converti depuis WordNet par un script du dépôt, de façon reproductible.
+Les fichiers des moteurs sont copiés sans modification, sauf un garde-fou de quelques lignes dans `engines/bergamot/translator.js` (file vidée pendant le chargement d'un worker : la version d'origine plantait), signalé par un commentaire « Aria Plume ». Seuls les modèles de traduction sont recompressés en gzip ; leur empreinte SHA-256 d'origine est vérifiée après décompression. Le thésaurus anglais est converti depuis WordNet par un script du dépôt, de façon reproductible.
 
 | Composant | Version | Licence | Dossier |
 |---|---|---|---|

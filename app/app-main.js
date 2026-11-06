@@ -33,7 +33,7 @@ const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridg
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
-const { WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered } = await import("./office/manifest.js");
+const { OUTLOOK_MANIFEST, OUTLOOK_SIDELOAD_URL, WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered, writeOutlookManifest } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
 
@@ -323,6 +323,9 @@ async function startOffice() {
                 if (!run) {
                     throw new Error(`Commande inconnue : ${String(msg?.cmd)}`);
                 }
+                if (msg.cmd === "ping") {
+                    noteOfficeUse(msg.host);
+                }
                 return run(msg);
             },
             log: (text) => console.warn(text),
@@ -338,7 +341,40 @@ async function startOffice() {
 
 const officeOrigin = () => `https://localhost:${officePort()}`;
 
+// Le panneau d'un complément s'est ouvert (ping avec host « Word » ou « Outlook ») : noté au plus
+// une fois par heure, et affiché dans les réglages.
+function noteOfficeUse(host) {
+    if (host !== "Word" && host !== "Outlook") {
+        return;
+    }
+    const seen = loadSettings().officeSeen ?? {};
+    const last = Date.parse(seen[host] ?? "");
+    if (Number.isNaN(last) || Date.now() - last > 3600 * 1000) {
+        updateSettings({ officeSeen: { ...seen, [host]: new Date().toISOString() } });
+    }
+}
+
+// Certificat (approuvé par Windows) et serveur : commun à Word et Outlook.
+async function prepareOffice() {
+    const certificates = ensureCertificates(officeDir());
+    let refused = false;
+    if (await isTrusted(certificates) === false) {
+        // Windows affiche son avertissement : la réponse de l'utilisateur décide.
+        refused = (await trust(certificates)).refused;
+    }
+    await startOffice();
+    return { refused };
+}
+
 // Manifeste Word réécrit au démarrage (nouvelle version, dossier déplacé) s'il était inscrit.
+// Manifeste Outlook réécrit au démarrage s'il existe (même contenu tant que le port ne change pas ;
+// une nouvelle version demande quand même de le réinstaller dans Outlook pour que la version suive).
+function refreshOutlookManifest() {
+    if (fs.existsSync(path.join(officeDir(), OUTLOOK_MANIFEST))) {
+        writeOutlookManifest({ dir: officeDir(), origin: officeOrigin(), version: app.getVersion() });
+    }
+}
+
 async function refreshWordRegistration() {
     if (!fs.existsSync(path.join(officeDir(), WORD_MANIFEST))) {
         return;
@@ -402,6 +438,8 @@ async function officeState() {
         word: await wordRegistered({ dir: officeDir() }),
         url: `https://localhost:${officePort()}/office/`,
         manualCommand: process.platform === "win32" ? manualCommand(manifest) : null,
+        outlookManifest: fs.existsSync(path.join(officeDir(), OUTLOOK_MANIFEST)) ? path.join(officeDir(), OUTLOOK_MANIFEST) : null,
+        seen: loadSettings().officeSeen ?? {},
     };
 }
 
@@ -728,23 +766,32 @@ ipcMain.handle("app:bridge-unregister", async () => {
 // --- Complément Office : installation (certificat approuvé par Windows, serveur démarré) ---
 ipcMain.handle("app:office-state", () => officeState());
 ipcMain.handle("app:office-install", async () => {
-    const certificates = ensureCertificates(officeDir());
-    let trusted = await isTrusted(certificates);
-    let refused = false;
-    if (trusted === false) {
-        // Windows affiche son avertissement : la réponse de l'utilisateur décide.
-        const result = await trust(certificates);
-        trusted = result.ok;
-        refused = result.refused;
-    }
-    await startOffice();
+    const { refused } = await prepareOffice();
     const word = await registerWord({ dir: officeDir(), origin: officeOrigin(), version: app.getVersion() });
     return { ...(await officeState()), refused, wordError: word.error ?? null };
+});
+// Outlook : pas de registre. Manifeste écrit, puis la page de Microsoft et le dossier du fichier
+// ouverts : l'installation se fait là-bas, une fois, et suit le compte Microsoft.
+ipcMain.handle("app:outlook-install", async () => {
+    const { refused } = await prepareOffice();
+    const manifest = writeOutlookManifest({ dir: officeDir(), origin: officeOrigin(), version: app.getVersion() });
+    openedUrl = OUTLOOK_SIDELOAD_URL;
+    if (process.env.ARIA_TEST_HOOKS !== "1") {
+        await shell.openExternal(OUTLOOK_SIDELOAD_URL);
+        shell.showItemInFolder(manifest);
+    }
+    return { ...(await officeState()), refused };
+});
+ipcMain.handle("app:outlook-copy-path", () => {
+    const manifest = path.join(officeDir(), OUTLOOK_MANIFEST);
+    clipboard.writeText(manifest);
+    return manifest;
 });
 ipcMain.handle("app:office-uninstall", async () => {
     await officeServer?.close();
     officeServer = null;
     await unregisterWord({ dir: officeDir() });
+    fs.rmSync(path.join(officeDir(), OUTLOOK_MANIFEST), { force: true });
     await removeCertificates(officeDir());
     return officeState();
 });
@@ -850,6 +897,7 @@ app.whenReady().then(() => {
     refreshBridgeRegistration();
     startOffice();
     refreshWordRegistration();
+    refreshOutlookManifest();
     scheduleUpdateChecks();
     // PowerShell compile son aide au démarrage : le premier raccourci sera immédiat.
     input.warmUp();

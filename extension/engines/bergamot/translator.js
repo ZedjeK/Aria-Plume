@@ -577,6 +577,13 @@ export class BatchTranslator {
             // cooperatively parallel.
             const batch = this.queue.shift();
 
+            // Aria Plume : la file a pu être vidée pendant le chargement du worker (requête
+            // annulée par remove()) ; sans ce garde-fou, batch.requests plante le processus.
+            if (!batch) {
+                worker.idle = true;
+                return;
+            }
+
             // Put this worker to work, marking as busy
             worker.idle = false;
             try {

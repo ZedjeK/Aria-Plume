@@ -379,12 +379,34 @@ try {
     check("Office : autre page, aucune réponse lisible", fromElsewhere === "opaque" || fromElsewhere === "bloqué", String(fromElsewhere));
     const wordPage = await officePage.goto(`https://localhost:${officePort}/office/word.html`).catch(() => null);
     check("Office : panneau Word servi par l'application (paquet compris)", wordPage?.status() === 200 && (await officePage.locator("script[type=module]").getAttribute("src")) === "word.js");
+    const outlookPage = await officePage.goto(`https://localhost:${officePort}/office/outlook.html`).catch(() => null);
+    check("Office : panneau Outlook servi par l'application (paquet compris)", outlookPage?.status() === 200 && (await officePage.locator("script[type=module]").getAttribute("src")) === "outlook.js");
+    // Le panneau s'ouvre dans Outlook : ping avec le nom du complément, noté dans les réglages.
+    const pinged = await officePage.evaluate(() => fetch("/api/ping", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ host: "Outlook" }) }).then((r) => r.text()).catch((e) => String(e)));
+    const seen = JSON.parse(fs.readFileSync(`${dataDir}/aria-plume-reglages.json`, "utf8")).officeSeen ?? {};
+    check("Office : ouverture du panneau Outlook notée", /"ok":true/.test(pinged) && !!seen.Outlook, `${pinged} · ${JSON.stringify(seen)}`);
 } finally {
     await officeBrowser.close();
 }
+// Complément Outlook : manifeste écrit, page de Microsoft « ouverte » (notée en test), étapes.
+check("Outlook : état initial", (await opt.textContent("#outlookInstall")) === "Installer dans Outlook" && (await opt.textContent("#outlookStatus")) === "Pas encore installé." && !(await opt.isVisible("#outlookSteps")));
+await opt.click("#outlookInstall");
+await opt.waitForFunction(() => document.querySelectorAll("#outlookChecks li").length === 3 && !/Préparation/.test(document.querySelector("#outlookStatus").textContent), null, { timeout: 15000 }).catch(() => {});
+const outlookXml = fs.existsSync(`${officeDir}/manifeste-outlook.xml`) ? fs.readFileSync(`${officeDir}/manifeste-outlook.xml`, "utf8") : "";
+check("Outlook : manifeste écrit, pointant vers l'application", outlookXml.includes(`https://localhost:${officePort}/office/outlook.html`) && outlookXml.includes('xsi:type="MailApp"'));
+check("Outlook : page d'installation de Microsoft ouverte", (await win.evaluate(() => window.ariaTest.opened())) === "https://aka.ms/olksideload");
+const outlookChecks = await opt.$$eval("#outlookChecks li", (list) => list.map((li) => `${li.className}:${li.textContent}`));
+check("Outlook : étapes, chemin du fichier, utilisation notée", await opt.isVisible("#outlookSteps") && (await opt.textContent("#outlookSteps")).includes(`${officeDir}/manifeste-outlook.xml`)
+    && (await opt.textContent("#outlookInstall")) === "Rouvrir la page d'installation" && outlookChecks[1]?.startsWith("ok:") && /^ok:✓Panneau ouvert dans Outlook le /.test(outlookChecks[2] ?? ""), outlookChecks.join(" | "));
+await opt.click("#outlookCopy");
+check("Outlook : chemin du fichier copié", (await win.evaluate(() => window.ariaTest.clipboard())) === `${officeDir}/manifeste-outlook.xml`);
+if (shots) {
+    await opt.evaluate(() => document.querySelector("#outlookSteps").scrollIntoView({ block: "center" }));
+    await opt.screenshot({ path: `${shots}/app-outlook.png` });
+}
 await opt.click("#officeUninstall");
 await opt.waitForFunction(() => document.querySelector("#officeStatus").textContent === "Pas encore installé.", null, { timeout: 10000 }).catch(() => {});
-check("Office : désinstallation", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && (await opt.textContent("#officeStatus")) === "Pas encore installé.", await opt.textContent("#officeStatus"));
+check("Office : désinstallation (Word et Outlook)", !fs.existsSync(`${officeDir}/serveur.pem`) && !fs.existsSync(`${officeDir}/manifeste-word.xml`) && !fs.existsSync(`${officeDir}/manifeste-outlook.xml`) && (await opt.textContent("#officeStatus")) === "Pas encore installé." && (await opt.textContent("#outlookStatus")) === "Pas encore installé.", `${fs.existsSync(officeDir) ? fs.readdirSync(officeDir).join(",") : "(dossier retiré)"} · ${await opt.textContent("#outlookStatus")}`);
 await opt.close();
 
 fakeGithub.close();

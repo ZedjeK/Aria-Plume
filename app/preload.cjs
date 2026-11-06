@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld("ariaApp", {
     officeState: () => ipcRenderer.invoke("app:office-state"),
     installOffice: () => ipcRenderer.invoke("app:office-install"),
     uninstallOffice: () => ipcRenderer.invoke("app:office-uninstall"),
+    installOutlook: () => ipcRenderer.invoke("app:outlook-install"),
+    copyOutlookPath: () => ipcRenderer.invoke("app:outlook-copy-path"),
     updateState: () => ipcRenderer.invoke("app:update-state"),
     checkUpdate: () => ipcRenderer.invoke("app:update-check"),
     openUpdate: () => ipcRenderer.invoke("app:update-open"),

@@ -118,6 +118,133 @@ export function wordManifest({ origin, version }) {
 `;
 }
 
+// --- Complément Outlook ---
+// Manifeste « MailApp » (XML), d'après le modèle officiel de Microsoft (Office-Addin-TaskPane-JS,
+// manifest.outlook.xml). Lecture ET rédaction déclarées d'emblée : chaque changement de manifeste
+// oblige à le réinstaller à la main (et l'Outlook classique peut mettre 24 h à le voir).
+// Installation : une fois, par https://aka.ms/olksideload → Mes compléments → Ajouter un
+// complément personnalisé → À partir d'un fichier (aucun registre : c'est le compte Microsoft qui le
+// garde, dans tous les Outlook). Comptes Outlook.com et Microsoft 365 seulement.
+export const OUTLOOK_ADDIN_ID = "8509698c-4c62-48ac-afca-febf06025eb0";
+export const OUTLOOK_MANIFEST = "manifeste-outlook.xml";
+export const OUTLOOK_SIDELOAD_URL = "https://aka.ms/olksideload";
+
+export function outlookManifest({ origin, version }) {
+    const url = (relative) => escapeXml(`${origin}/office/${relative}`);
+    const icon = `<Icon>
+                                        <bt:Image size="16" resid="Icon.16x16"/>
+                                        <bt:Image size="32" resid="Icon.32x32"/>
+                                        <bt:Image size="80" resid="Icon.80x80"/>
+                                    </Icon>`;
+    const surface = (point, group, button) => `<ExtensionPoint xsi:type="${point}">
+                        <OfficeTab id="TabDefault">
+                            <Group id="${group}">
+                                <Label resid="Group.Label"/>
+                                <Control xsi:type="Button" id="${button}">
+                                    <Label resid="Button.Label"/>
+                                    <Supertip>
+                                        <Title resid="Button.Label"/>
+                                        <Description resid="Button.Tooltip"/>
+                                    </Supertip>
+                                    ${icon}
+                                    <Action xsi:type="ShowTaskpane">
+                                        <SourceLocation resid="Taskpane.Url"/>
+                                    </Action>
+                                </Control>
+                            </Group>
+                        </OfficeTab>
+                    </ExtensionPoint>`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+    <Id>${OUTLOOK_ADDIN_ID}</Id>
+    <Version>${manifestVersion(version)}</Version>
+    <ProviderName>Aria Plume</ProviderName>
+    <DefaultLocale>fr-FR</DefaultLocale>
+    <DisplayName DefaultValue="Aria Plume"/>
+    <Description DefaultValue="Correction, traduction, synonymes et conjugaison, 100 % sur ton PC (application Aria Plume)."/>
+    <IconUrl DefaultValue="${url("icons/icon-64.png")}"/>
+    <HighResolutionIconUrl DefaultValue="${url("icons/icon-128.png")}"/>
+    <SupportUrl DefaultValue="https://github.com/ZedjeK/Aria-Plume"/>
+    <AppDomains>
+        <AppDomain>${escapeXml(origin)}</AppDomain>
+    </AppDomains>
+    <Hosts>
+        <Host Name="Mailbox"/>
+    </Hosts>
+    <Requirements>
+        <Sets>
+            <Set Name="Mailbox" MinVersion="1.3"/>
+        </Sets>
+    </Requirements>
+    <FormSettings>
+        <Form xsi:type="ItemRead">
+            <DesktopSettings>
+                <SourceLocation DefaultValue="${url("outlook.html")}"/>
+                <RequestedHeight>450</RequestedHeight>
+            </DesktopSettings>
+        </Form>
+        <Form xsi:type="ItemEdit">
+            <DesktopSettings>
+                <SourceLocation DefaultValue="${url("outlook.html")}"/>
+            </DesktopSettings>
+        </Form>
+    </FormSettings>
+    <Permissions>ReadWriteItem</Permissions>
+    <Rule xsi:type="RuleCollection" Mode="Or">
+        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+    </Rule>
+    <DisableEntityHighlighting>false</DisableEntityHighlighting>
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+        <Requirements>
+            <bt:Sets DefaultMinVersion="1.3">
+                <bt:Set Name="Mailbox"/>
+            </bt:Sets>
+        </Requirements>
+        <Hosts>
+            <Host xsi:type="MailHost">
+                <DesktopFormFactor>
+                    <FunctionFile resid="Commands.Url"/>
+                    ${surface("MessageReadCommandSurface", "AriaPlume.Read", "AriaPlume.ReadOpen")}
+                    ${surface("MessageComposeCommandSurface", "AriaPlume.Compose", "AriaPlume.ComposeOpen")}
+                </DesktopFormFactor>
+            </Host>
+        </Hosts>
+        <Resources>
+            <bt:Images>
+                <bt:Image id="Icon.16x16" DefaultValue="${url("icons/icon-16.png")}"/>
+                <bt:Image id="Icon.32x32" DefaultValue="${url("icons/icon-32.png")}"/>
+                <bt:Image id="Icon.80x80" DefaultValue="${url("icons/icon-80.png")}"/>
+            </bt:Images>
+            <bt:Urls>
+                <bt:Url id="Commands.Url" DefaultValue="${url("commands.html")}"/>
+                <bt:Url id="Taskpane.Url" DefaultValue="${url("outlook.html")}"/>
+            </bt:Urls>
+            <bt:ShortStrings>
+                <bt:String id="Group.Label" DefaultValue="Aria Plume"/>
+                <bt:String id="Button.Label" DefaultValue="Aria Plume"/>
+            </bt:ShortStrings>
+            <bt:LongStrings>
+                <bt:String id="Button.Tooltip" DefaultValue="Corriger, traduire, trouver un synonyme ou conjuguer, sans que ton texte quitte ton PC."/>
+            </bt:LongStrings>
+        </Resources>
+    </VersionOverrides>
+</OfficeApp>
+`;
+}
+
+// Écrit le manifeste Outlook (à installer à la main) ; renvoie son chemin.
+export function writeOutlookManifest({ dir, origin, version }) {
+    fs.mkdirSync(dir, { recursive: true });
+    const manifest = path.join(dir, OUTLOOK_MANIFEST);
+    fs.writeFileSync(manifest, outlookManifest({ origin, version }));
+    return manifest;
+}
+
 // --- Inscription dans Word (Windows) ---
 // Par PowerShell, avec les commandes vérifiées chez Jérémy (l'appel direct à reg.exe depuis
 // l'application ne laissait aucune trace dans le registre sur son PC). Le chemin du manifeste passe

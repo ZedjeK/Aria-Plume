@@ -20,6 +20,9 @@ export const APP_DEFAULTS = {
     checkUpdates: true,
     updateCheckedAt: null,
     updateNotified: null,
+    // Dernière utilisation des compléments Office (« Word », « Outlook ») : seule preuve que
+    // l'installation a marché côté Microsoft.
+    officeSeen: {},
 };
 // Données que l'extension garde aussi dans son stockage (fautes récurrentes).
 const EXTRA_DEFAULTS = {
@@ -41,6 +44,10 @@ function sanitizeApp(input) {
     }
     if (typeof input?.checkUpdates === "boolean") {
         out.checkUpdates = input.checkUpdates;
+    }
+    if (input?.officeSeen && typeof input.officeSeen === "object" && !Array.isArray(input.officeSeen)) {
+        out.officeSeen = Object.fromEntries(Object.entries(input.officeSeen)
+            .filter(([host, when]) => ["Word", "Outlook"].includes(host) && typeof when === "string" && when.length <= 40));
     }
     for (const key of ["updateCheckedAt", "updateNotified"]) {
         if (input?.[key] === null || (typeof input?.[key] === "string" && input[key].length <= 40)) {

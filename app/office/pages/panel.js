@@ -5,6 +5,11 @@
 //   host.select(block, match), host.replace(block, edits) → { text, done },
 //   host.selectionText(), host.selectionContext(), host.writeSelection(text, "Replace" | "After"),
 //   host.annotations (facultatif : soulignés dans le texte), host.readAll() (vérification en direct)
+// Facultatifs, selon ce que l'hôte sait faire (Outlook en lecture : ni correction, ni sélection,
+// ni écriture) : host.tabs (onglets montrés, dans l'ordre), host.translateSource ({ label, read }
+// → { text, note } : ce que « Traduire » prend à la place de la sélection), host.notice (message
+// d'accueil). Sans host.writeSelection : pas de « Remplacer » ni « Insérer » ; sans
+// host.selectionText : pas de « Mot sélectionné ».
 
 import { call } from "./api.js";
 
@@ -76,8 +81,9 @@ export async function createPanel({ host, root }) {
     const tabs = {};
     const panels = {};
     const tabBar = el("div", { className: "tabs", role: "tablist" });
+    const shown = host.tabs ?? ["fix", "translate", "synonyms", "conj"];
     for (const [id, label] of [["fix", "Correction"], ["translate", "Traduction"], ["synonyms", "Synonymes"], ["conj", "Conjugaison"]]) {
-        tabs[id] = el("button", { type: "button", role: "tab", id: `tab-${id}`, textContent: label, "aria-selected": "false" });
+        tabs[id] = el("button", { type: "button", role: "tab", id: `tab-${id}`, textContent: label, "aria-selected": "false", hidden: !shown.includes(id) });
         panels[id] = el("section", { id: `panel-${id}`, role: "tabpanel", hidden: true });
         tabs[id].addEventListener("click", () => showTab(id));
         tabBar.append(tabs[id]);
@@ -97,20 +103,22 @@ export async function createPanel({ host, root }) {
         notice,
         ...Object.values(panels),
     );
-    call("ping").then(({ version: v }) => {
+    // host : l'application note que ce complément sert (« Utilisé dans Outlook » dans ses réglages).
+    call("ping", { host: host.name }).then(({ version: v }) => {
         version.textContent = `${host.name} · ${v}`;
     }).catch(fail);
 
     // --- Correction ---
     let items = [];
-    let lastScope = host.scopes[0].id;
+    const scopes = host.scopes ?? [];
+    let lastScope = scopes[0]?.id ?? null;
     let busy = false;
     const lang = el("select", { id: "fix-lang", "aria-label": "Langue du texte" },
         el("option", { value: "auto", textContent: "Langue : auto" }),
         el("option", { value: "fr", textContent: "Français" }),
         el("option", { value: "en", textContent: "Anglais" }));
-    const scopeButtons = host.scopes.map(({ id, label }) => {
-        const button = el("button", { type: "button", className: id === host.scopes[0].id ? "primary" : "", textContent: label, dataset: { scope: id } });
+    const scopeButtons = scopes.map(({ id, label }) => {
+        const button = el("button", { type: "button", className: id === lastScope ? "primary" : "", textContent: label, dataset: { scope: id } });
         button.addEventListener("click", () => runCheck(id));
         return button;
     });
@@ -466,13 +474,14 @@ export async function createPanel({ host, root }) {
         target,
         el("div", { className: "row" }, replaceSel, insertSel, copyTr));
 
-    async function translate() {
+    // note : remarque sur ce qui est traduit (historique laissé de côté…), gardée affichée.
+    async function translate(note = "") {
         const text = source.value;
         if (!text.trim()) {
             say("Rien à traduire.", "warn");
             return;
         }
-        say("");
+        say(typeof note === "string" ? note : "", "info");
         target.value = "Traduction…";
         try {
             const result = await call("translate", { text, from: forcedFrom ?? "auto" });
@@ -484,21 +493,28 @@ export async function createPanel({ host, root }) {
             fail(error);
         }
     }
+    if (host.translateSource) {
+        grab.textContent = host.translateSource.label;
+    }
+    if (!host.writeSelection) {
+        replaceSel.hidden = true;
+        insertSel.hidden = true;
+    }
     grab.addEventListener("click", async () => {
         try {
-            const text = await host.selectionText();
+            const { text, note } = host.translateSource ? await host.translateSource.read() : { text: await host.selectionText(), note: "" };
             if (!text.trim()) {
-                say("Rien de sélectionné dans le document.", "warn");
+                say(host.translateSource ? "Rien à traduire dans ce message." : "Rien de sélectionné dans le document.", "warn");
                 return;
             }
             source.value = text;
             forcedFrom = null;
-            await translate();
+            await translate(note);
         } catch (error) {
             fail(error);
         }
     });
-    go.addEventListener("click", translate);
+    go.addEventListener("click", () => translate());
     swap.addEventListener("click", () => {
         const from = direction.dataset.from;
         forcedFrom = from === "fr" ? "en" : from === "en" ? "fr" : null;
@@ -527,6 +543,7 @@ export async function createPanel({ host, root }) {
     const synGrab = el("button", { type: "button", className: "primary", id: "syn-grab", textContent: "Mot sélectionné" });
     const synGo = el("button", { type: "button", id: "syn-go", textContent: "Chercher" });
     const synList = el("div", { className: "groups", id: "syn-list" });
+    synGrab.hidden = !host.selectionText;
     panels.synonyms.append(el("div", { className: "row" }, synGrab), el("div", { className: "row" }, synInput, synGo), synList);
     let synSelection = null;
     let synContext = "";
@@ -657,7 +674,10 @@ export async function createPanel({ host, root }) {
         }
     });
 
-    showTab("fix");
+    showTab(shown[0]);
+    if (host.notice) {
+        say(host.notice, "info");
+    }
     // Avec les soulignés, le document est vérifié dès l'ouverture du panneau.
     if (underlining()) {
         runCheck("document");

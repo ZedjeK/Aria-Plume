@@ -214,6 +214,16 @@
 
     // Complément Word : un bouton, et la liste de ce qui est vérifié pour de vrai (certificat approuvé
     // par Windows, serveur qui répond en HTTPS, inscription relue dans le registre).
+    // Word et Outlook partagent le certificat et le serveur (et « Désinstaller » retire les deux) :
+    // ce que fait un bloc est montré dans l'autre.
+    const officeChanged = (from, state) => document.dispatchEvent(new CustomEvent("aria-office", { detail: { from, state } }));
+    const onOfficeChange = (self, show) => document.addEventListener("aria-office", ({ detail }) => {
+        if (detail.from !== self) {
+            show(detail.state);
+        }
+    });
+    const seenDate = (iso) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+
     async function officeBlock() {
         const checks = el("ul", { className: "checks", id: "officeChecks" });
         const status = el("p", { className: "status", id: "officeStatus" });
@@ -233,7 +243,7 @@
             checks.replaceChildren(
                 line(state.trusted, "Certificat local approuvé par Windows", state.trusted === false ? "clique sur « Réparer » et réponds « Oui » à l'avertissement de Windows" : state.trusted === null ? "rien à approuver hors Windows" : ""),
                 line(state.server, `Serveur prêt sur ${state.url}`, state.server ? "" : `ne répond pas (${state.serverError ?? "raison inconnue"}) : relance l'application`),
-                line(state.word, "Inscrit dans Word", state.word === true ? "redémarre Word : bouton « Aria Plume » dans l'onglet Accueil" : state.word === null ? "rien à inscrire hors Windows" : "voir la commande ci-dessous"),
+                line(state.word, "Inscrit dans Word", state.word === true ? (state.seen?.Word ? `panneau ouvert dans Word le ${seenDate(state.seen.Word)}` : "redémarre Word : bouton « Aria Plume » dans l'onglet Accueil") : state.word === null ? "rien à inscrire hors Windows" : "voir la commande ci-dessous"),
             );
             // Inscription impossible : la commande à lancer soi-même dans PowerShell.
             manual.hidden = !(state.installed && state.word === false && state.manualCommand);
@@ -269,6 +279,7 @@
                     state.wordError ? `Inscription dans Word impossible : ${state.wordError}` : "",
                 ].filter(Boolean).join(" ");
                 showState(state, notes);
+                officeChanged("word", state);
             } catch (error) {
                 status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
                 status.classList.add("error");
@@ -278,6 +289,7 @@
                 button.focus();
             }
         }
+        onOfficeChange("word", (state) => showState(state, status.textContent));
         install.addEventListener("click", () => act(install, () => window.ariaApp.installOffice()));
         remove.addEventListener("click", () => act(remove, () => window.ariaApp.uninstallOffice()));
         showState(await window.ariaApp.officeState());
@@ -288,6 +300,76 @@
             checks,
             status,
             manual,
+        ];
+    }
+
+    // Complément Outlook : pas de registre, l'installation se fait sur la page de Microsoft (une fois,
+    // elle suit le compte). L'application prépare le fichier, ouvre la page et le dossier.
+    async function outlookBlock() {
+        const checks = el("ul", { className: "checks", id: "outlookChecks" });
+        const status = el("p", { className: "status", id: "outlookStatus" });
+        status.setAttribute("aria-live", "polite");
+        const install = el("button", { type: "button", id: "outlookInstall" });
+        const copyPath = el("button", { type: "button", textContent: "Copier le chemin du fichier", id: "outlookCopy" });
+        const steps = el("ol", { className: "steps", id: "outlookSteps" });
+
+        const line = (ok, text, help = "") => el("li", { className: ok === true ? "ok" : ok === false ? "ko" : "na" },
+            el("span", { className: "mark", textContent: ok === true ? "✓" : ok === false ? "✗" : "–" }),
+            el("span", {}, text, help ? el("small", { textContent: ` — ${help}` }) : ""));
+
+        function showState(state, message = "") {
+            const ready = Boolean(state.outlookManifest);
+            install.textContent = ready ? "Rouvrir la page d'installation" : "Installer dans Outlook";
+            copyPath.hidden = !ready;
+            steps.hidden = !ready;
+            checks.hidden = !ready;
+            steps.replaceChildren(
+                el("li", { textContent: "Sur la page « Compléments » qui vient de s'ouvrir dans ton navigateur (connecte-toi à ton compte Outlook si besoin) : « Mes compléments »." }),
+                el("li", { textContent: "Tout en bas : « Ajouter un complément personnalisé », puis « Ajouter à partir du fichier »." }),
+                el("li", {}, "Choisis ", el("code", { textContent: state.outlookManifest ?? "manifeste-outlook.xml" }), " (le dossier est ouvert), puis « Installer »."),
+                el("li", { textContent: "Ouvre un mail : bouton « Aria Plume » dans le ruban (ou dans le menu « … » sur le web). Outlook classique peut mettre jusqu'à 24 h à l'afficher." }),
+            );
+            checks.replaceChildren(
+                line(state.trusted, "Certificat local approuvé par Windows", state.trusted === false ? "clique sur le bouton ci-dessus et réponds « Oui » à l'avertissement de Windows" : state.trusted === null ? "rien à approuver hors Windows" : ""),
+                line(state.server, `Serveur prêt sur ${state.url}`, state.server ? "" : `ne répond pas (${state.serverError ?? "raison inconnue"}) : relance l'application`),
+                line(state.seen?.Outlook ? true : null, state.seen?.Outlook ? `Panneau ouvert dans Outlook le ${seenDate(state.seen.Outlook)}` : "Pas encore ouvert dans Outlook"),
+            );
+            status.textContent = ready ? message : "Pas encore installé.";
+            status.classList.toggle("error", /impossible|Non/.test(message));
+        }
+
+        install.addEventListener("click", async () => {
+            install.disabled = true;
+            status.classList.remove("error");
+            status.textContent = "Préparation…";
+            try {
+                const state = await window.ariaApp.installOutlook();
+                showState(state, state.refused ? "Tu as répondu « Non » à Windows : le certificat n'est pas approuvé, Outlook ne pourra pas afficher le panneau." : "");
+                officeChanged("outlook", state);
+            } catch (error) {
+                status.textContent = String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+                status.classList.add("error");
+            } finally {
+                install.disabled = false;
+                install.focus();
+            }
+        });
+        onOfficeChange("outlook", (state) => showState(state, ""));
+        copyPath.addEventListener("click", async () => {
+            await window.ariaApp.copyOutlookPath();
+            copyPath.textContent = "Chemin copié ✓";
+            setTimeout(() => {
+                copyPath.textContent = "Copier le chemin du fichier";
+            }, 2000);
+        });
+        showState(await window.ariaApp.officeState());
+        return [
+            el("h3", { textContent: "Complément Outlook" }),
+            el("p", { className: "hint", textContent: "Un bouton « Aria Plume » quand tu lis un mail, dans Outlook classique, le nouvel Outlook et Outlook sur le web : traduire le message (sans l'historique cité), synonymes, conjugaison. Pour un compte Outlook.com ou Microsoft 365. L'installation se fait une fois, sur la page de Microsoft, et suit ton compte sur tous tes appareils ; l'application doit tourner sur ce PC pour que le panneau réponde. Pour le retirer : même page, « Mes compléments », Aria Plume, « Supprimer »." }),
+            el("div", { className: "buttons" }, install, copyPath),
+            steps,
+            checks,
+            status,
         ];
     }
 
@@ -401,6 +483,7 @@
         section.append(...await extensionBlock());
         section.append(...await bridgeBlock());
         section.append(...await officeBlock());
+        section.append(...await outlookBlock());
         section.append(...await updateBlock(settings));
         // Serveur MCP : la configuration à copier dans Claude Desktop, LM Studio…
         const mcp = await window.ariaApp.mcpConfig();
