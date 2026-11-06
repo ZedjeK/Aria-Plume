@@ -19,7 +19,7 @@ C:\Users\<toi>\.Aria-Plume\
 ├── aria-plume-reglages.json   réglages (dictionnaire, glossaire, mots ignorés…)
 ├── extension\                 copie de l'extension que lit le navigateur
 ├── pont\                      relais et jeton du pont avec l'extension
-├── office\                    certificat local et manifeste du complément Word
+├── office\                    certificat local et manifestes des compléments Word et Outlook
 └── electron\                  données internes de l'application (caches, verrou)
 ```
 
@@ -144,6 +144,41 @@ L'application doit tourner pendant que tu utilises le complément (« Démarrer 
 Tests : `node tests/office-word.mjs` (faux Word strict sur load/sync, vrai moteur, Word ancien,
 Microsoft 365 et sans abonnement) et `node tests/registry.mjs` (inscriptions dans le registre avec
 un faux PowerShell ; le vrai ne tourne que sous Windows).
+
+## Le complément Outlook
+
+Pour Outlook classique, le nouvel Outlook et Outlook sur le web, avec un compte Outlook.com ou
+Microsoft 365. Pas de registre ici : Microsoft n'accepte un complément Outlook personnel que depuis
+sa page « Compléments ».
+
+Réglages → Application → **Complément Outlook** → « Installer dans Outlook » : l'application prépare
+le certificat et le serveur (les mêmes que pour Word), écrit `office\manifeste-outlook.xml`, ouvre
+la page des compléments de Microsoft (`https://aka.ms/olksideload`) et le dossier du fichier. Sur la
+page : **Mes compléments → Ajouter un complément personnalisé → Ajouter à partir du fichier**, choisis
+`manifeste-outlook.xml`, puis « Installer ». L'installation suit ton compte sur tous tes appareils ;
+Outlook classique peut mettre jusqu'à 24 h à afficher le bouton. Pour le retirer : même page, Aria
+Plume, « Supprimer ».
+
+- **En lisant un mail** : bouton « Aria Plume » dans le ruban (ou dans le menu « … » sur le web).
+  « Traduire le message » traduit la partie nouvelle du mail, sans l'historique cité (« De : … Envoyé
+  : … », « Le … a écrit : », « -----Original Message----- »…). Synonymes et conjugaison d'un mot tapé.
+- **En écrivant un mail** : synonymes et conjugaison pour l'instant ; correction et traduction du
+  message arrivent dans la prochaine version.
+- La section des réglages affiche « Panneau ouvert dans Outlook le … » dès la première ouverture :
+  c'est la seule preuve que l'installation a marché côté Microsoft.
+
+L'application doit tourner sur ce PC pendant que tu utilises Outlook.
+Tests : `node tests/office-outlook.mjs` (faux Outlook, vrai moteur : historique cité, manifeste,
+lecture et rédaction).
+
+### À vérifier sur Windows (Outlook)
+
+1. « Installer dans Outlook » : la page de Microsoft et le dossier s'ouvrent.
+2. Le fichier s'installe sur la page, sans erreur de validation du manifeste.
+3. Le bouton « Aria Plume » apparaît sur un mail reçu, dans chacun des trois Outlook.
+4. Le panneau s'affiche et traduit. **Point le plus incertain** : le nouvel Outlook et Outlook sur le
+   web pourraient refuser qu'une page en ligne parle à `localhost` (protection des navigateurs
+   récents contre l'accès au réseau local) ; Outlook classique n'est pas concerné.
 
 ## Le serveur MCP (pour les IA)
 

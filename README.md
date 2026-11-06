@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.36 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="#installation"><b>Installer l'extension</b></a> · v0.37 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
@@ -62,7 +62,7 @@ Testé sur Opera GX 136 (Chromium 152). L'extension utilise le document offscree
 
 ### L'application de bureau (Windows)
 
-Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison, raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel, **pont avec l'extension** (Réglages → « Connecter les navigateurs », version zip) et **serveur MCP** (`--mcp`) pour prêter ces outils à Claude Desktop, LM Studio ou toute IA qui parle MCP. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ». L'application te prévient quand une nouvelle version sort (une demande à GitHub par jour au plus, réglable ; aucun texte n'est envoyé).
+Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume-<version>-portable.exe` (un seul fichier, rien à installer) ou `Aria-Plume-<version>-win-x64.zip` (un dossier à décompresser, démarrage immédiat). Correcteur, traduction, conjugaison, raccourci global **Alt+Maj+C** sur une sélection dans n'importe quel logiciel, **pont avec l'extension** (Réglages → « Connecter les navigateurs », version zip), **compléments Word et Outlook** et **serveur MCP** (`--mcp`) pour prêter ces outils à Claude Desktop, LM Studio ou toute IA qui parle MCP. Détails : [`app/README.md`](app/README.md). Au premier lancement, SmartScreen avertit (exe non signé) : « Informations complémentaires » → « Exécuter quand même ». L'application te prévient quand une nouvelle version sort (une demande à GitHub par jour au plus, réglable ; aucun texte n'est envoyé).
 
 ## Premiers pas
 
