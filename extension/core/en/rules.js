@@ -494,7 +494,7 @@ const REAL_EARLY = [
     }, "contraction", "orthographe"],
     // « dont » : doesn't après he/she/it ou un nom singulier (« the gate code dont work »).
     [/(?:\b(?<p>he|she|it|everyone|everybody|someone|somebody|anyone|anybody|nobody)\s+|\b(?:the|my|your|his|her|our|their|this|that|a|an)\s+(?:[a-z]+\s+)?(?<n>[a-z]+)\s+|(?<c>`[^`\n]+`)\s+)?(?<![\w'’])(?<w>dont)(?![\w'’])/gi, (m, g) => ((g.p || g.c || singularHead(g.n)) ? "doesn't" : "don't"), "contraction", "orthographe"],
-    [/(?<![\p{L}'’@#/.-])(?<w>im)(?=\s+[a-z])/gu, "I'm", "im_contraction"],
+    [/(?<![\p{L}'’@#/.-])(?<w>[Ii]m)(?=\s+[a-z])/gu, "I'm", "im_contraction"],
     [/\b(?<w>definatly|definately|definitly|definetly|defenitely|definitley|latly|ofr)\b/gi, (m) => ({ latly: "lately", ofr: "for" })[m.toLowerCase()] ?? "definitely", "orthographe_courante", "orthographe"],
     [/\b(?<w>defiantly)\s+(?=(?:not|a|an|the|worth|recommend|going|will|be|need|one|getting|something|true|better|worse|more|less|agree|want|coming|my|your|our)\b)/gi, "definitely", "defiantly"],
     [/\b(?:my|your|his|her|our|their)\s+(?<w>(?:mom|dad|mum|wife|husband|sister|brother|son|daughter|aunt|uncle|grandma|grandpa|grandmother|grandfather|girlfriend|boyfriend|partner|roommate|landlord|neighbor|neighbour|cousin|friend|teacher|manager|coworker|colleague)s)\s+(?=(?:birthday|car|house|place|phone|name|job|office|wedding|party|room|idea|fault|turn|cooking|recipe|advice|dog|cat|new|old|favorite|favourite|apartment|number|email|address|garden|kitchen|laptop|wallet|bag|kids|husband|wife|family|parents|funeral|graduation|retirement|anniversary|surgery|health)\b)/gi, (m) => `${m.slice(0, -1)}'s`, "possessive_s"],

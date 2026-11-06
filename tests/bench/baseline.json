@@ -15,7 +15,7 @@
     "grammalecte": {
         "sentences": 14160,
         "outsideZone": 10,
-        "inZone": 285
+        "inZone": 287
     },
     "wordnet": {
         "sentences": 47478,
@@ -40,10 +40,10 @@
     "textes2": {
         "found": 176,
         "fixed": 175,
-        "firstRank": 174,
+        "firstRank": 175,
         "total": 182,
         "falseAlerts": 1,
-        "oneClick": 209
+        "oneClick": 210
     },
     "controle2": {
         "found": 97,
@@ -56,10 +56,10 @@
     "textes3": {
         "found": 131,
         "fixed": 131,
-        "firstRank": 130,
+        "firstRank": 131,
         "total": 131,
         "falseAlerts": 0,
-        "oneClick": 169
+        "oneClick": 170
     },
     "controle3": {
         "found": 62,
@@ -71,19 +71,19 @@
     },
     "textes4": {
         "found": 333,
-        "fixed": 330,
-        "firstRank": 326,
+        "fixed": 331,
+        "firstRank": 330,
         "total": 378,
         "falseAlerts": 8,
-        "oneClick": 375
+        "oneClick": 379
     },
     "controle4": {
         "found": 179,
         "fixed": 172,
-        "firstRank": 167,
+        "firstRank": 169,
         "total": 217,
         "falseAlerts": 15,
-        "oneClick": 204
+        "oneClick": 206
     },
     "traduction": {
         "ok": 284,
@@ -99,19 +99,19 @@
     },
     "grandfr": {
         "found": 1097,
-        "fixed": 1095,
-        "firstRank": 1083,
+        "fixed": 1096,
+        "firstRank": 1091,
         "total": 1143,
         "falseAlerts": 1,
-        "oneClick": 2213
+        "oneClick": 2221
     },
     "granden": {
         "found": 701,
-        "fixed": 688,
-        "firstRank": 684,
+        "fixed": 700,
+        "firstRank": 699,
         "total": 706,
         "falseAlerts": 2,
-        "oneClick": 1347
+        "oneClick": 1362
     },
     "grandtr": {
         "ok": 580,
@@ -122,18 +122,18 @@
     "textes5": {
         "found": 566,
         "fixed": 563,
-        "firstRank": 556,
+        "firstRank": 561,
         "total": 600,
         "falseAlerts": 6,
-        "oneClick": 733
+        "oneClick": 738
     },
     "controle5": {
-        "found": 287,
-        "fixed": 276,
-        "firstRank": 262,
+        "found": 288,
+        "fixed": 277,
+        "firstRank": 269,
         "total": 368,
         "falseAlerts": 17,
-        "oneClick": 380
+        "oneClick": 388
     },
     "traduction2": {
         "ok": 672,

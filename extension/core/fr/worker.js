@@ -24,6 +24,11 @@ importScripts(...[
 ].map((file) => BASE + file));
 importScripts(new URL("homophones.js", self.location).href);
 importScripts(new URL("register.js", self.location).href);
+importScripts(new URL("../shared/frequences-data.js", self.location).href, new URL("../shared/frequences.js", self.location).href);
+// Poids de la fréquence d'usage dans le classement des suggestions : à coût de frappe proche, le
+// mot courant passe devant le mot rare (« encire » → encore avant encre, « fesait » → faisait).
+const FREQUENCY_WEIGHT = 1.2;
+const commonness = (word) => (self.AriaFrequences?.ready ? self.AriaFrequences.commonness(word) : 0.5);
 
 const MAX_SUGGESTIONS = 5;
 let spellChecker = null;
@@ -90,7 +95,10 @@ function substitutionCost(a, b) {
     if (VOWELS.has(a) && VOWELS.has(b)) {
         return 0.8;
     }
-    return keyboardNeighbours(a, b) ? 0.9 : 1.2;
+    // Une lettre accentuée a été tapée exprès : la remplacer par une autre lettre est peu probable
+    // (« véls » → vélos plutôt que vols).
+    const accented = a !== stripAccent(a) ? 0.3 : 0;
+    return (keyboardNeighbours(a, b) ? 0.9 : 1.2) + accented;
 }
 
 // Mots du dictionnaire à une modification de la faute, du plus probable au moins probable.
@@ -104,7 +112,9 @@ const SOUND_SWAPS = [["ai", "e"], ["e", "ai"], ["ai", "è"], ["è", "ai"], ["ei"
     ["ph", "f"], ["f", "ph"], ["qu", "k"], ["k", "qu"], ["c", "qu"], ["qu", "c"], ["ss", "s"], ["s", "ss"], ["an", "en"], ["en", "an"], ["am", "em"], ["em", "am"],
     ["in", "ain"], ["ain", "in"], ["in", "ein"], ["ein", "in"], ["g", "gu"], ["gu", "g"], ["c", "ç"], ["ç", "c"], ["s", "c"], ["c", "s"], ["ill", "y"], ["y", "ill"],
     ["er", "é"], ["é", "er"], ["ez", "é"], ["t", "tt"], ["tt", "t"], ["l", "ll"], ["ll", "l"], ["m", "mm"], ["mm", "m"], ["n", "nn"], ["nn", "n"], ["p", "pp"], ["pp", "p"],
-    ["r", "rr"], ["rr", "r"], ["f", "ff"], ["ff", "f"], ["c", "cc"], ["cc", "c"], ["ent", "ant"], ["ant", "ent"], ["emment", "amment"], ["amment", "emment"]];
+    ["r", "rr"], ["rr", "r"], ["f", "ff"], ["ff", "f"], ["c", "cc"], ["cc", "c"], ["ent", "ant"], ["ant", "ent"], ["emment", "amment"], ["amment", "emment"],
+    // « évidament », « récament » → évidemment, récemment : adverbes en -emment écrits comme ils se disent.
+    ["ament", "emment"], ["ement", "emment"], ["ament", "amment"]];
 
 // context : { person, infinitive, notFinite } d'après les mots avant (voir spellingContext).
 // « jai » → j'ai, « cest » → c'est, « daccord » → d'accord ; mais pas « sai » → s'ai.
@@ -194,7 +204,15 @@ function scoredEditCandidates(word, context = {}) {
             continue;
         }
         const morphs = spellChecker.getMorph(elided ?? form);
-        let score = cost;
+        let score = cost - FREQUENCY_WEIGHT * (commonness(elided ?? form) - 0.5);
+        // Même terminaison que le mot écrit (« rappelerons » → rappellerons, pas rappelons) : elle porte
+        // le temps et la personne, la faute est ailleurs.
+        if (lower.length >= 6 && form.length >= 6 && lower.slice(-4) === form.toLowerCase().slice(-4) && /(?:ons|ez|ent|ais|ait|aient|rai|ras|ra|ront|rez|rons|ions|iez)$/.test(lower)) {
+            score -= 0.2;
+        }
+        if (context.number && morphs.some((m) => /:[NA]/.test(m) && new RegExp(`:[${context.number}i](?=[:/]|$)`).test(m))) {
+            score -= 0.3;
+        }
         if (RARE(morphs)) {
             score += 0.4;  // mots rares ou étrangers (« wai ») après les mots courants
         }
@@ -252,7 +270,12 @@ function spellingContext(before) {
     if (BEFORE_INFINITIVE.test(before)) {
         return { infinitive: true };
     }
-    if (AFTER_DETERMINER.test(before) || AFTER_AUXILIARY.test(before)) {
+    if (AFTER_DETERMINER.test(before)) {
+        // « ces salads » → salades : le nombre du déterminant oriente le choix.
+        const plural = /(?:^|[\s(«"])(?:les|des|ces|mes|tes|ses|nos|vos|leurs|plusieurs|quelques)\s+$/iu.test(before);
+        return { notFinite: true, number: plural ? "p" : /(?:^|[\s(«"])(?:un|une|le|la|ce|cet|cette|mon|ton|son|ma|ta|sa|chaque)\s+$|l['’]$/iu.test(before) ? "s" : null };
+    }
+    if (AFTER_AUXILIARY.test(before)) {
         return { notFinite: true };
     }
     const subject = NOUN_SUBJECT.exec(before);
@@ -269,7 +292,7 @@ function spellingContext(before) {
 // Personne attendue après un pronom sujet, éventuellement suivi de « ne » et d'un pronom
 // complément : « je ne sai », « tu le fai », « il s'apel ».
 const SUBJECT_PERSON = { "j'": ":1s", je: ":1s", tu: ":2s", il: ":3s", elle: ":3s", on: ":3s", nous: ":1p", vous: ":2p", ils: ":3p", elles: ":3p" };
-const BEFORE_VERB = /(?:^|[\s(«"])(j['’]|je|tu|il|elle|on|nous|vous|ils|elles)(?:\s+|(?<=['’]))(?:(?:ne\s+|n['’]))?(?:(?:me|te|se|le|la|les|lui|leur|y|en|nous|vous)\s+|[mtsl]['’])?$/iu;
+const BEFORE_VERB = /(?:^|[\s(«"'’])(j['’]|je|tu|il|elle|on|nous|vous|ils|elles)(?:\s+|(?<=['’]))(?:(?:ne\s+|n['’]))?(?:(?:me|te|se|le|la|les|lui|leur|y|en|nous|vous)\s+|[mtsl]['’])?$/iu;
 
 function expectedPerson(before) {
     const subject = BEFORE_VERB.exec(before)?.[1]?.toLowerCase().replace("’", "'");
@@ -292,7 +315,7 @@ const suggestionCache = new Map();
 const SUGGESTION_CACHE_MAX = 2000;
 
 function spellSuggestions(word, context = {}) {
-    const key = `${word}|${context.person ?? ""}|${context.infinitive ? "Y" : ""}|${context.notFinite ? "N" : ""}|${context.gerund ? "P" : ""}`;
+    const key = `${word}|${context.person ?? ""}|${context.infinitive ? "Y" : ""}|${context.notFinite ? "N" : ""}|${context.gerund ? "P" : ""}|${context.number ?? ""}`;
     const cached = suggestionCache.get(key);
     if (cached) {
         return cached;
@@ -311,6 +334,8 @@ function spellSuggestions(word, context = {}) {
 // de conjugaison de Grammalecte, et on la propose en premier.
 
 const PERSON_ENDINGS = [
+    // « rappelerons », « rappelerez » : terminaison du futur des verbes en -er.
+    [/erons$/, [":1p"], [":If"]], [/erez$/, [":2p"], [":If"]],
     [/iez$/, [":2p"]], [/ez$/, [":2p"]], [/ions$/, [":1p"]], [/ons$/, [":1p"]],
     [/aient$/, [":3p"]], [/ront$/, [":3p"], [":If"]], [/ent$/, [":3p"]],
     [/ait$/, [":3s"]], [/ais$/, [":1s", ":2s"]], [/rai$/, [":1s"], [":If"]], [/ras$/, [":2s"], [":If"]],
@@ -369,7 +394,8 @@ function contextVerbForm(word, context) {
     if (lower.length < 4 || !/^\p{Ll}+$/u.test(lower) || typeof conj === "undefined") {
         return null;
     }
-    const variants = new Set([lower, lower.replace(/ett/, "et").replace(/ell/, "el"), lower.replace(/([bcdfglmnprst])\1/, "$1"), lower.replace(/g([aoâ])/, "ge$1"), lower.replace(/c([aoâu])/, "ç$1"), lower.replace(/[èê]/, "e")]);
+    // (« envoit » → envoyer : le y des verbes en -oyer, -uyer, -ayer s'écrit souvent i.)
+    const variants = new Set([lower, lower.replace(/ett/, "et").replace(/ell/, "el"), lower.replace(/([bcdfglmnprst])\1/, "$1"), lower.replace(/g([aoâ])/, "ge$1"), lower.replace(/c([aoâu])/, "ç$1"), lower.replace(/[èê]/, "e"), lower.replace(/([oua])i(?=[tse]?$|ent$)/, "$1y")]);
     const lemmas = new Set();
     for (const variant of variants) {
         for (const end of STRIP_ENDINGS) {
@@ -416,7 +442,10 @@ function contextVerbForm(word, context) {
         for (const tense of [":Ip", ":Iq", ":Is", ":If", ":K"]) {
             for (const who of persons) {
                 // « fermat », « frappat » : un passé simple écrit comme le subjonctif (« fermât »).
-                consider(conj.getConj(lemma, tense, who), own + (tense === ":Is" && /[aâ]t$/.test(lower) ? 0.6 : 0));
+                // « marchairent » → marchèrent : la terminaison écrite (-rent) dit le temps voulu.
+                const form = conj.getConj(lemma, tense, who);
+                const sameEnding = form && form.length > 4 && lower.slice(-4) === form.slice(-4) ? (tense === ":Is" && /rent$/.test(lower) && !/aient$/.test(lower) ? 1.5 : 0.4) : 0;
+                consider(form, own + sameEnding + (tense === ":Is" && /[aâ]t$/.test(lower) ? 0.6 : 0));
             }
         }
     }
@@ -1275,6 +1304,129 @@ const POLITE_VERBS = new Set(["pouvoir", "vouloir", "devoir", "aimer", "souhaite
 // Souhait ou désir : conditionnel même avec un repère futur (« il souhaiterait vous voir la semaine prochaine »).
 const WISH_VERBS = new Set(["vouloir", "aimer", "souhaiter", "préférer", "désirer"]);
 
+// Classement des suggestions de conjugaison (banc du 06/11/2026) : on change ce qui est faux, pas le
+// reste. Une forme au même temps que le mot écrit passe devant (« Elle pris » → prit, pas prise ;
+// « Trois élèves devrons » → devront, pas devraient) ; un participe écrit seul prend le temps des
+// autres verbes de la phrase (« Pendant que je préparé…, les enfants faisaient » → préparais) ; un
+// participe seul ne passe pas devant quand il n'y a pas d'auxiliaire.
+const tensesOf = (morphs) => new Set(morphs.filter((m) => /:V/.test(m)).map((m) => /:(Ip|Iq|Is|If|K|Sp|Sq)(?=[:/]|$)/.exec(m)?.[1]).filter(Boolean));
+function orderConjugation(line, grammar) {
+    return grammar.map((match) => {
+        const original = line.slice(match.start, match.end);
+        if (!/^\p{L}+$/u.test(original) || match.suggestions.length < 2 || !match.suggestions.every((s) => /^\p{L}+$/u.test(s))) {
+            return match;
+        }
+        const own = spellChecker.getMorph(original.toLowerCase());
+        if (!own.some((m) => /:V/.test(m))) {
+            return match;
+        }
+        // Seulement là où un verbe conjugué est attendu : pas après une préposition (« de vous annoncé »
+        // → annoncer), ni quand un participe accordé est proposé sans sujet pronom (« Les candidatures
+        // reçus » → reçues).
+        const before = line.slice(0, match.start);
+        const afterPreposition = /(?:^|[\s'’])(?:de|d['’]|à|pour|sans|par|après)\s*(?:(?:me|te|se|nous|vous|le|la|les|lui|leur|y|en|m['’]|t['’]|s['’]|l['’])\s*)?$/iu.test(before);
+        const firstIsParticiple = spellChecker.getMorph(match.suggestions[0].toLowerCase()).some((m) => /:Q/.test(m));
+        if (afterPreposition || (!expectedPerson(before) && firstIsParticiple)) {
+            return match;
+        }
+        const ownTenses = tensesOf(own);
+        const [from, to] = sentenceBounds(line, match.start, match.end);
+        const others = (line.slice(from, match.start) + " " + line.slice(match.end, to)).match(/\p{L}+/gu) ?? [];
+        const contextTenses = new Map();
+        for (const word of others) {
+            const morphs = spellChecker.getMorph(word.toLowerCase());
+            if (morphs.length && morphs.every((m) => /:V/.test(m)) && !morphs.some((m) => /:[NAQ]/.test(m))) {
+                for (const tense of tensesOf(morphs)) {
+                    contextTenses.set(tense, (contextTenses.get(tense) ?? 0) + 1);
+                }
+            }
+        }
+        const contextTense = [...contextTenses].sort((a, b) => b[1] - a[1])[0]?.[0];
+        const afterAuxiliary = AFTER_AUXILIARY.test(line.slice(0, match.start));
+        const score = (suggestion) => {
+            const morphs = spellChecker.getMorph(suggestion.toLowerCase());
+            const tenses = tensesOf(morphs);
+            let value = 0;
+            if (ownTenses.size && [...tenses].some((t) => ownTenses.has(t))) {
+                value -= 1;
+            } else if (!ownTenses.size && contextTense && tenses.has(contextTense)) {
+                value -= 1;
+            }
+            if (!afterAuxiliary && morphs.length && morphs.every((m) => /:Q/.test(m) || !/:V/.test(m)) && ownTenses.size) {
+                value += 0.5;
+            }
+            return value;
+        };
+        const ranked = match.suggestions.map((s, index) => ({ s, index, value: score(s) })).sort((a, b) => a.value - b.value || a.index - b.index).map((x) => x.s);
+        return ranked.join("|") === match.suggestions.join("|") ? match : { ...match, suggestions: ranked };
+    });
+}
+
+// Chaque suggestion d'orthographe est essayée dans la phrase : celle que Grammalecte accepte sans
+// nouvelle faute autour passe devant (« Il pleuvais » → pleuvait, pas « pleurais » ; « ils sachrnt »
+// → sachent). Les quatre premières seulement, et seulement si l'essai les départage.
+const fitCache = new Map();
+function fitInSentence(line, start, end, suggestions) {
+    if (suggestions.length < 2) {
+        return suggestions;
+    }
+    const top = suggestions.slice(0, 4);
+    const counts = top.map((suggestion) => {
+        const variant = line.slice(0, start) + suggestion + line.slice(end);
+        if (!fitCache.has(variant)) {
+            if (fitCache.size > 500) {
+                fitCache.clear();
+            }
+            // Seules les fautes de grammaire comptent (conjugaison, accords, confusions), pas le style
+            // (« pleut dehors » : pléonasme) ni la typographie.
+            const near = gc_engine.parse(variant, "FR", false, null, false)
+                .filter((e) => /conj|gn_|ppas|conf_|infi|vmode|imp_|sgpl/.test(e.sRuleId) && !/pleo|typo|esp|apos|maj|nbsp|redon/.test(e.sRuleId))
+                .filter((e) => e.nEnd > start - 25 && e.nStart < start + suggestion.length + 25).length;
+            fitCache.set(variant, near);
+        }
+        return fitCache.get(variant);
+    });
+    if (new Set(counts).size < 2) {
+        return suggestions;
+    }
+    const ranked = top.map((suggestion, index) => ({ suggestion, index, errors: counts[index] }))
+        .sort((a, b) => a.errors - b.errors || a.index - b.index)
+        .map((x) => x.suggestion);
+    return [...ranked, ...suggestions.slice(4)];
+}
+
+// Groupe « (déterminant) nom adjectif » mal accordé : Grammalecte propose parfois de changer le
+// déterminant ou le nom (« une tarte délicieux » → un tarte délicieux ; « des factures complets » →
+// facturés complets). Quand le genre du nom est sûr, on garde le nom et on accorde l'adjectif.
+function preferNounGender(line, grammar) {
+    return grammar.map((match) => {
+        if (!/gn_/.test(match.rule)) {
+            return match;
+        }
+        const original = line.slice(match.start, match.end);
+        const words = original.split(/(\s+)/);
+        const letters = words.filter((w, k) => k % 2 === 0);
+        if (letters.length < 2 || letters.length > 3 || !letters.every((w) => /^\p{L}+$/u.test(w))) {
+            return match;
+        }
+        const nounIndex = letters.findIndex((w) => homophones.nounGender(w));
+        const adjective = letters.at(-1);
+        if (nounIndex < 0 || nounIndex === letters.length - 1 || !spellChecker.getMorph(adjective.toLowerCase()).some((m) => /:[AQ]/.test(m))) {
+            return match;
+        }
+        const noun = letters[nounIndex];
+        const gender = homophones.nounGender(noun);
+        const number = spellChecker.getMorph(noun.toLowerCase()).some((m) => /:N[^/]*:p/.test(m)) && !spellChecker.getMorph(noun.toLowerCase()).some((m) => /:N[^/]*:s/.test(m)) ? "p" : "s";
+        const form = homophones.inflectWord(adjective, gender, number);
+        if (!form || form === adjective.toLowerCase()) {
+            return match;
+        }
+        words[words.length - 1] = form;
+        const fix = words.join("");
+        return { ...match, suggestions: [fix, ...match.suggestions.filter((s) => s !== fix)] };
+    });
+}
+
 function orderFutureConditional(line, grammar) {
     return grammar.map((match) => {
         const original = line.slice(match.start, match.end);
@@ -1301,13 +1453,15 @@ function orderFutureConditional(line, grammar) {
         const sentence = line.slice(from, to);
         const after = line.slice(match.end, match.end + 8);
         let preferConditional = null;
-        if (/\?/.test(sentence) || /^\s*gré(?!\p{L})/u.test(after) || WISH_VERBS.has(lemma)) {
+        // Question : conditionnel de politesse (« Tu pourrai m'aider ? » → pourrais), mais pas pour un
+        // futur ordinaire (« Est-ce que Léa et toi viendra ? » → viendrez).
+        if ((/\?/.test(sentence) && (POLITE_VERBS.has(lemma) || !own || /:K/.test(own))) || /^\s*gré(?!\p{L})/u.test(after) || WISH_VERBS.has(lemma)) {
             preferConditional = true;
         } else if (PAST_THEN_QUE.test(line.slice(from, match.start))) {
             preferConditional = true;  // futur dans le passé : « je pensais que tu serais là »
         } else if (FUTURE_MARKERS.test(sentence)) {
             preferConditional = false;
-        } else if (["devoir", "falloir"].includes(lemma)) {
+        } else if (["devoir", "falloir"].includes(lemma) && (!own || /:K/.test(own) || ["1s", "2s", "2p"].includes(person))) {
             preferConditional = true;  // conseil : « tu devrais essayer »
         } else if (own) {
             preferConditional = /:K/.test(own);  // sinon, le temps du mot écrit (« tu pourra » → pourras)
@@ -1477,8 +1631,8 @@ function check(text, formal = false, repetitionDistance = 0) {
                 rule: err.sRuleId,
             }));
             const { grammar: independent, extra: aria } = addHomophones(line, participleAfterNoun(line, orderParticiples(line, resolveAOrInfinitive(line, vetoPretPres(line, grammar)))));
-            const extra = orderFutureConditional(line, aria);
-            const grouped = orderSubjunctive(line, orderFutureConditional(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start)))));
+            const extra = orderFutureConditional(line, orderConjugation(line, aria));
+            const grouped = preferNounGender(line, orderSubjunctive(line, orderFutureConditional(line, orderConjugation(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start)))))));
             // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
             const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
             const withApostrophe = (list) => list.map((sugg) => sugg.replace(/['’]/g, apostrophe));
@@ -1515,7 +1669,7 @@ function check(text, formal = false, repetitionDistance = 0) {
                     kind: "orthographe",
                     detail: "spelling",
                     message: "Mot absent du dictionnaire.",
-                    suggestions: withApostrophe(spellSuggestions(err.sValue, context)),
+                    suggestions: withApostrophe(fitInSentence(line, err.nStart, err.nEnd, spellSuggestions(err.sValue, context))),
                     rule: "spelling",
                 });
             }

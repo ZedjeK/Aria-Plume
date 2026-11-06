@@ -3007,6 +3007,39 @@ const Homophones = (() => {
                     homophone("dû", "Participe de devoir : « dû » (j'ai dû partir).");
                 }
 
+                // R28. Impératif avec trait d'union : « Envoyer-nous vos questions » → Envoyez-nous ;
+                //      « puis faite-les revenir » → faites-les (vous si la phrase vouvoie ou emploie -ez).
+                const hyphen = /^(\p{L}+)-(nous|moi|le|la|les|lui|leur|en|y|toi)$/u.exec(token.text);
+                if (hasConj && hyphen && (clauseStart(tokens, i) || IMPERATIVE_LINKS.has(text(i - 1)))) {
+                    const head = morph({ text: hyphen[1], lower: hyphen[1].toLowerCase(), punct: false });
+                    const entry = head.find((m) => /:V/.test(m) && /:(?:Y|Q)(?=[:/]|$)/.test(m));
+                    if (entry && !head.some((m) => /:E/.test(m))) {
+                        const vous = hyphen[2] === "nous" || /\b\p{L}+ez\b/u.test(line.replace(token.text, "")) || /\bvous\b/i.test(line);
+                        const form = conj.getConj(lemmaOf(entry), ":E", vous ? ":2p" : ":2s");
+                        if (form) {
+                            add(token, token.end, keepCase(token.text, `${form}-${hyphen[2]}`), `Impératif : « ${form}-${hyphen[2]} ».`, "imperatif_trait_union", "conjugaison");
+                        }
+                    }
+                }
+
+                // R29. Participe pris pour un verbe conjugué : « Les identifiants fournit par le prestataire
+                //      ne fonctionnent pas » → fournis (le verbe de la phrase vient après).
+                if (hasConj && next?.lower === "par" && prev && i >= 2 && DET_PLUR.has(text(i - 2)) && noun(prev, "p") && !has(token, /:Q/)
+                    && morph(token).some((m) => /:V[^/]*:(?:Ip|Is)/.test(m)) && nextFiniteVerb(tokens, i + 2, 14) > 0) {
+                    const lemma = infinitiveOf(token);
+                    const gender = morph(prev).filter((m) => /:N/.test(m)).every((m) => /:f/.test(m)) ? "f" : "m";
+                    const form = lemma ? conj.getConj(lemma, ":Q", `:${gender}:p`) : null;
+                    if (form && form !== lower) {
+                        // Une autre règle a pu y voir un verbe à accorder (« fournissent ») : celle-ci la remplace.
+                        for (let k = currentResults.length - 1; k >= 0; k--) {
+                            if (currentResults[k].start < token.end && token.start < currentResults[k].end) {
+                                currentResults.splice(k, 1);
+                            }
+                        }
+                        push(token, token.end, form, `Participe accordé avec « ${prev.text} » : « ${form} ».`, "participe_verbe", "accord");
+                    }
+                }
+
                 // R27. « Je les ai vu hier » → vus / vues : « les » (complément placé avant) commande l'accord.
                 if (lower === "les" && hasConj && next && AVOIR_FORMS.has(next.lower) && tokens[i + 2]) {
                     let p = i + 2;
@@ -3285,7 +3318,18 @@ const Homophones = (() => {
             return subjectAgreement(tokens, k);
         }
 
-        return { find, agreementBefore };
+        // Accord d'un adjectif ou d'un participe (utilisé par le worker pour classer les suggestions de
+        // Grammalecte) : « délicieux » → délicieuse pour « une tarte ».
+        const inflectWord = (word, gender, number) => inflectAdjective({ text: word, lower: word.toLowerCase(), punct: false }, gender, number);
+        // Genre d'un nom : "f", "m" ou null (épicène, inconnu, ou à la fois nom masculin et féminin).
+        const nounGender = (word) => {
+            const nouns = morph({ text: word, lower: word.toLowerCase(), punct: false }).filter((m) => /:N/.test(m));
+            if (!nouns.length || nouns.some((m) => /:e/.test(m))) {
+                return null;
+            }
+            return nouns.every((m) => /:f/.test(m)) ? "f" : nouns.every((m) => /:m/.test(m)) ? "m" : null;
+        };
+        return { find, agreementBefore, inflectWord, nounGender };
     }
 
     return { create, tokenize };

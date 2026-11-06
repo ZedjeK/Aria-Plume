@@ -46,6 +46,9 @@ l'empreinte SHA-256 d'origine après décompression)
   en→fr vocab enfr/vocab.enfr.spm.gz                     SHA-256 (décompressé) 783abf3abe075afdf8d85d233994bef2c3a064e935ab1bed946820aff6ac002a
   en→fr lex   enfr/lex.50.50.enfr.s2t.bin.gz             SHA-256 (décompressé) 2585ed98d3af0bc949865aedeb390493d591f56870814376e73e4144c41ed059
   en→fr model enfr/model.enfr.intgemm.alphas.bin.gz      SHA-256 (décompressé) 6322e296d4fecfe395a8d5723da4ec37ecbe6d7613bb1dfcf4b28e2a47498b68
+Dérivé : extension/core/shared/frequences-data.js (fréquences d'usage des mots pour le classement
+des suggestions d'orthographe) est extrait du vocabulaire ci-dessus (vocab.fren.spm) par
+tools/build-frequences.mjs : morceaux du vocabulaire et leur log-probabilité, même licence (MPL-2.0).
 
 
 == Thésaurus français de Grammalecte 2.3.0 ==

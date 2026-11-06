@@ -8,6 +8,7 @@ Les fichiers des moteurs sont copiés sans modification, sauf un garde-fou de qu
 | Harper (harper.js, binaire slim) | 2.10.0 | Apache-2.0 (voir `engines/harper/LICENSE`) | `engines/harper/` |
 | Bergamot Translator | 0.4.9 | MPL-2.0 | `engines/bergamot/` |
 | Modèles de traduction fr→en et en→fr | 2.0 | MPL-2.0 | `models/` |
+| Fréquences des mots (tirées du vocabulaire des modèles par `tools/build-frequences.mjs`) | 2.0 | MPL-2.0 | `core/shared/frequences-data.js` |
 | Thésaurus français de Grammalecte | 2.3.0 | GPL-3.0 | `engines/grammalecte/fr/thesaurus*_data.json` |
 | WordNet (synonymes anglais, converti par `tools/build-thesaurus-en.mjs`) | 3.1 | licence WordNet (Princeton, voir `data/LICENSE-WordNet.txt`) | `data/thesaurus-en.json.gz` |
 
