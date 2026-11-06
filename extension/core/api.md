@@ -56,7 +56,7 @@ Réponse :
 Les résultats sont triés par position. Les règles d'Aria commencent par `aria_`, celles de
 Grammalecte par `g…__` ou `p…__`, celles de Harper par leur nom, la faute d'orthographe par `spelling`.
 
-## `translate({ text, from, to, html?, glossary?, priority?, jobId? })`
+## `translate({ text, from, to, html?, glossary?, priority?, jobId?, register?, rewrite? })`
 
 Traduit un texte avec Bergamot et les modèles de Mozilla.
 
@@ -68,9 +68,28 @@ Traduit un texte avec Bergamot et les modèles de Mozilla.
 | `glossary` | `{ glossary: [{ fr, en }], keepTerms: [] }` | Termes imposés et termes à ne jamais traduire |
 | `priority` | nombre | Plus petit = plus urgent (une sélection passe avant les blocs d'une page) |
 | `jobId` | chaîne | Regroupe des demandes pour pouvoir les annuler ensemble |
+| `register` | `"tu"` / `"vous"` / `"auto"` / `null` | Vers le français : tutoiement ou vouvoiement dans tout le texte (`"auto"` : le plus présent dans la traduction ; `null` : rien) |
+| `rewrite` | booléen (vrai par défaut) | Texte brut : réécritures avant et après le modèle (voir plus bas). `false` : le modèle seul |
 
 Réponse : `{ text, glossaryHits, engineMs, loadMs, cold, pairCold }`. `text` est du HTML si `html`
 était vrai. `glossaryHits` compte les termes du glossaire trouvés dans le texte d'origine.
+
+En texte brut (pas en HTML), la traduction passe par `translate/rewrite.js` :
+
+1. **Avant le modèle**, dans la langue d'origine : abréviations de SMS (« slt cv », « idk »), oral (« t'inquiète », « chui »),
+   argot et expressions (« crevé », « il pleut des cordes », « piece of cake ») remplacés par un équivalent standard ;
+   prénoms et marques qui sont aussi des mots (« Pierre », « Victoire », « at Subway ») remplacés par des noms inventés,
+   remis après ; adresses, courriels, code et chemins recopiés tels quels (glossaire interne).
+2. **Après le modèle**, dans la langue cible : calques connus (« Ça a du sens » → « C'est logique »), expressions
+   d'arrivée (« il pleut des cordes », « quand on parle du loup »), vocabulaire selon le contexte de la phrase d'origine
+   (« ticket », « commande », « fichier », « pull request »), civilités, heures et nombres, typographie
+   (espace insécable avant ? ! : ; et guillemets « » en français).
+3. **Vers le français**, par le worker français (Grammalecte) : tutoiement ou vouvoiement (`register`), masculin par
+   défaut pour « je » (l'anglais ne dit pas le genre de celui qui parle), puis relecture des accords.
+
+Le service (`createService`) choisit `register` d'après le site (`host`) et le réglage `translateRegister` :
+`site` (défaut : vous sur les sites en français soigné, tu sur les sites décontractés, ailleurs `auto`), `tu`, `vous`
+ou `libre`. Une demande peut l'imposer (`register: "tu"`), comme le banc de test.
 
 ## `cancelTranslation(jobId)`
 

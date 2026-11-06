@@ -22,6 +22,13 @@
 //   - controle2   sa série de contrôle, écrite en même temps, jamais regardée pendant les correctifs
 //   - textes3     campagne 100 % français (30/10/2026) : constructions difficiles, textes justes piégeux
 //   - controle3   sa série de contrôle
+//   - textes4     campagne du 06/11/2026, français et anglais, écrite à l'aveugle (sans lire le
+//                 moteur) : série de travail
+//   - controle4   sa série de contrôle, jamais regardée pendant la mise au point
+//   - traduction  traduction fr ↔ en (traduction.mjs) : sens respecté (formes attendues, contresens
+//                 interdits), tutoiement ou vouvoiement, chrF ; --brut : le modèle seul, sans les
+//                 réécritures d'Aria (pour mesurer ce qu'elles apportent)
+//   - trcontrole  sa série de contrôle (traduction-controle.mjs)
 
 import fs from "node:fs";
 import zlib from "node:zlib";
@@ -38,12 +45,21 @@ import { textes as textes2 } from "./textes-2.mjs";
 import { textes as controle2 } from "./textes-controle-2.mjs";
 import { textes as textes3 } from "./textes-3.mjs";
 import { textes as controle3 } from "./textes-controle-3.mjs";
+import { textes as textes4fr } from "./textes-4-fr.mjs";
+import { textes as textes4en } from "./textes-4-en.mjs";
+import { textes as controle4fr } from "./textes-controle-4-fr.mjs";
+import { textes as controle4en } from "./textes-controle-4-en.mjs";
+import { phrases as traduction } from "./traduction.mjs";
+import { phrases as trcontrole } from "./traduction-controle.mjs";
 import { parse, evaluate, summarize, report, misses } from "./textes-eval.mjs";
+import * as trEval from "./traduction-eval.mjs";
 
 const args = process.argv.slice(2);
 const verbose = args.includes("-v");
 const update = args.includes("--update");
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3"];
+const raw = args.includes("--brut");
+const genres = args.includes("--genres");
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -198,9 +214,42 @@ async function benchTextes(list = textes) {
 }
 
 // Pour chaque mesure : faut-il qu'elle monte (more) ou qu'elle baisse (less) ?
-const DIRECTION = { found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
+// --- traduction : service complet (réécritures, registre), ou modèle seul avec --brut ---
+async function benchTraduction(list) {
+    const settings = { ...DEFAULTS };
+    const service = createService({
+        aria,
+        getSettings: async (defaults) => Object.fromEntries(Object.keys(defaults).map((key) => [key, key in settings ? settings[key] : defaults[key]])),
+        saveValues: async () => {},
+    });
+    const rows = await Promise.all(list.map(async (phrase) => {
+        const to = phrase.from === "fr" ? "en" : "fr";
+        const result = raw
+            ? await aria.translate({ text: phrase.text, from: phrase.from, to, rewrite: false })
+            : await service.translate({ text: phrase.text, from: phrase.from, to, register: phrase.register });
+        const verdict = trEval.judge(phrase, result.text);
+        return { phrase, output: result.text, verdict, best: trEval.bestStats(result.text, phrase.ref) };
+    }));
+    for (const row of rows) {
+        if (!row.verdict.ok) {
+            const why = [
+                ...row.verdict.missing.map((g) => `manque [${g.slice(0, 4).join(" | ")}]`),
+                ...row.verdict.forbidden.map((f) => `interdit «${f}»`),
+                ...(row.verdict.register ? [] : [`registre attendu « ${row.phrase.register} »`]),
+            ].join(" ; ");
+            const oneLine = (text) => text.replace(/\n/g, " / ");
+            detail(`  ${row.phrase.from} ${oneLine(row.phrase.text)}\n     → ${oneLine(row.output)}\n       ${why}`);
+        }
+    }
+    const summary = trEval.summarize(rows);
+    log(trEval.report(summary, { genres }));
+    const { total } = summary;
+    return { ok: total.ok, total: total.phrases, register: total.register, chrf: total.chrf };
+}
 
-const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3) };
+const DIRECTION = { ok: "more", chrf: "more", register: "more", found: "more", fixed: "more", oneClick: "more", firstRank: "more", inZone: "more", falseAlerts: "less", outsideZone: "less", flagged: "less" };
+
+const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3), textes4: () => benchTextes([...textes4fr, ...textes4en]), controle4: () => benchTextes([...controle4fr, ...controle4en]), traduction: () => benchTraduction(traduction), trcontrole: () => benchTraduction(trcontrole) };
 const baselineFile = here("baseline.json");
 const baseline = fs.existsSync(baselineFile) ? JSON.parse(fs.readFileSync(baselineFile, "utf8")) : {};
 let regressions = 0;
@@ -225,7 +274,9 @@ try {
     await aria.close();
 }
 
-if (update) {
+if (update && raw) {
+    log("\n--brut : référence non mise à jour (le modèle seul ne sert qu'à comparer).");
+} else if (update) {
     fs.writeFileSync(baselineFile, `${JSON.stringify({ ...baseline, ...results }, null, 4)}\n`);
     log("\nRéférence mise à jour (baseline.json).");
 } else if (regressions) {

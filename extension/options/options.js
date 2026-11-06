@@ -1,7 +1,7 @@
 // Aria Plume — page de réglages. Tout est enregistré dès le changement, dans le stockage
 // local du navigateur ; l'export produit un fichier JSON sur ton PC, rien n'est envoyé.
 import { topMistakes } from "../core/shared/mistakes.js";
-import { DEFAULTS, DEFAULT_COLORS, DIALECTS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../core/shared/settings.js";
+import { DEFAULTS, DEFAULT_COLORS, DIALECTS, REGISTERS, KINDS, DEBOUNCE_RANGE, MAX_DICTIONARY, MAX_GLOSSARY, REPETITION_RANGE, cleanHost, sanitize, splitWords, cleanTerm, loadSettings } from "../core/shared/settings.js";
 
 const $ = (selector) => document.querySelector(selector);
 const KIND_LABELS = { orthographe: "Orthographe", grammaire: "Grammaire", style: "Style", typographie: "Typographie" };
@@ -47,6 +47,7 @@ function render() {
     $("#debounceMs").value = settings.debounceMs;
     $("#debounceValue").textContent = `${settings.debounceMs} ms`;
     $("#englishDialect").value = settings.englishDialect;
+    $("#translateRegister").value = settings.translateRegister ?? DEFAULTS.translateRegister;
 
     for (const kind of KINDS) {
         $(`#kind-${kind}`).checked = !settings.disabledKinds.includes(kind);
@@ -272,6 +273,12 @@ function build() {
         dialect.append(el("option", { value, textContent: label }));
     }
     dialect.addEventListener("change", () => save({ englishDialect: dialect.value }));
+
+    const register = $("#translateRegister");
+    for (const [value, label] of Object.entries(REGISTERS)) {
+        register.append(el("option", { value, textContent: label }));
+    }
+    register.addEventListener("change", () => save({ translateRegister: register.value }));
 
     for (const kind of KINDS) {
         const box = el("input", { type: "checkbox", id: `kind-${kind}` });

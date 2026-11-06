@@ -12,6 +12,17 @@ export const DIALECTS = {
     indian: "Indien",
 };
 
+// Traduction vers le français : tutoiement ou vouvoiement.
+//   site : vous sur les sites « français soigné », tu sur les sites décontractés, ailleurs le
+//          registre le plus présent dans la traduction, appliqué partout ;
+//   tu / vous : partout ; libre : ce que propose le modèle.
+export const REGISTERS = {
+    site: "Selon le site",
+    tu: "Toujours « tu »",
+    vous: "Toujours « vous »",
+    libre: "Comme le modèle",
+};
+
 export const DEFAULT_COLORS = {
     orthographe: "#e5484d",
     grammaire: "#f59e0b",
@@ -29,6 +40,7 @@ export const DEFAULTS = {
     // Français écrit soigné site par site (le réglage général vaut ailleurs).
     formalHosts: ["mail.google.com", "outlook.live.com", "outlook.office.com", "outlook.office365.com"],
     casualHosts: ["discord.com"],
+    translateRegister: "site",
     repetitions: true,
     repetitionDistance: 30,
     trackMistakes: true,
@@ -86,6 +98,24 @@ export function hostMatches(host, list) {
 }
 
 // Français soigné pour ce site : liste « soigné », sinon liste « courant », sinon réglage général.
+// Registre de la traduction vers le français pour un site : "tu", "vous", "auto" ou null (libre).
+export function registerFor(host, settings) {
+    const choice = settings.translateRegister ?? DEFAULTS.translateRegister;
+    if (choice === "tu" || choice === "vous") {
+        return choice;
+    }
+    if (choice === "libre") {
+        return null;
+    }
+    if (host && hostMatches(host, settings.formalHosts ?? [])) {
+        return "vous";
+    }
+    if (host && hostMatches(host, settings.casualHosts ?? [])) {
+        return "tu";
+    }
+    return "auto";
+}
+
 export function formalFor(host, settings) {
     if (host && hostMatches(host, settings.formalHosts ?? [])) {
         return true;
@@ -131,6 +161,9 @@ export function sanitize(input) {
     }
     if (Number.isFinite(input.debounceMs)) {
         result.debounceMs = Math.min(DEBOUNCE_RANGE.max, Math.max(DEBOUNCE_RANGE.min, Math.round(input.debounceMs)));
+    }
+    if (isString(input.translateRegister) && input.translateRegister in REGISTERS) {
+        result.translateRegister = input.translateRegister;
     }
     if (isString(input.englishDialect) && input.englishDialect in DIALECTS) {
         result.englishDialect = input.englishDialect;

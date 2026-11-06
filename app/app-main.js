@@ -215,7 +215,7 @@ const BRIDGE_COMMANDS = {
     // Le moteur seul : l'extension garde son service (détection de langue du navigateur, français
     // soigné selon le site, dictionnaire) et ne demande à l'application que l'analyse elle-même.
     "engine-check": async (msg) => aria.check({ text: String(msg.text ?? ""), lang: msg.lang, dialect: msg.dialect, formal: !!msg.formal, repetitions: Number(msg.repetitions) || 0 }),
-    "engine-translate": async (msg) => aria.translate({ text: String(msg.text ?? ""), from: msg.from, to: msg.to, html: !!msg.html, glossary: msg.glossary ?? null, priority: Number(msg.priority) || 0, jobId: msg.jobId ?? null }),
+    "engine-translate": async (msg) => aria.translate({ text: String(msg.text ?? ""), from: msg.from, to: msg.to, html: !!msg.html, glossary: msg.glossary ?? null, priority: Number(msg.priority) || 0, jobId: msg.jobId ?? null, register: ["tu", "vous", "auto"].includes(msg.register) ? msg.register : null, rewrite: msg.rewrite !== false }),
     "engine-conjugate": async (msg) => aria.conjugate({ verb: String(msg.verb ?? ""), options: msg.options ?? {} }),
     "engine-synonyms": async (msg) => aria.synonyms({ word: String(msg.word ?? ""), lang: msg.lang }),
     "engine-cancel": async (msg) => {

@@ -13,7 +13,7 @@
 //   detectNative  facultatif : (texte) → Promise<{ isReliable, languages: [{ language, percentage }] }>,
 //                 le détecteur du navigateur (chrome.i18n.detectLanguage)
 
-import { DEFAULTS, formalFor } from "./shared/settings.js";
+import { DEFAULTS, formalFor, registerFor } from "./shared/settings.js";
 import { addMistakes } from "./shared/mistakes.js";
 
 // Détection de langue. Le détecteur du navigateur se trompe souvent sur les textes courts
@@ -43,6 +43,13 @@ export function guessFrenchOrEnglish(text) {
         return null;
     }
     return fr > en ? "fr" : "en";
+}
+
+// Marques du tutoiement et du vouvoiement dans un texte français (décompte grossier).
+export function registerMarks(text) {
+    const tu = (String(text).match(/(?<![\p{L}'’])(?:tu|te|toi|ton|ta|tes)(?![\p{L}'’])|(?<![\p{L}-])t['’](?=\p{L})/giu) ?? []).length;
+    const vous = (String(text).match(/(?<![\p{L}'’])(?:vous|votre|vos)(?![\p{L}'’])/giu) ?? []).length;
+    return { tu, vous };
 }
 
 // Distance d'édition avec transposition (« sytemd » → « systemd » : une seule faute de frappe).
@@ -183,17 +190,33 @@ export function createService({ aria, getSettings, saveValues, detectNative = nu
         return { from: source, to: source === "fr" ? "en" : "fr", detection };
     }
 
+    // Traduction. host : site d'où vient le texte (tutoiement ou vouvoiement selon le site) ;
+    // register : impose "tu" ou "vous" (serveur MCP, bancs de test).
     async function translate(msg) {
         const { from, to, detection } = await resolvePair(msg);
-        const { glossary, keepTerms } = await getSettings({ glossary: [], keepTerms: [] });
+        const settings = await getSettings({ glossary: [], keepTerms: [], translateRegister: DEFAULTS.translateRegister, formalHosts: DEFAULTS.formalHosts, casualHosts: DEFAULTS.casualHosts });
+        const { glossary, keepTerms } = settings;
         const glossaryData = glossary.length || keepTerms.length ? { glossary, keepTerms } : null;
-        const common = { from, to, html: !!msg.html, priority: msg.priority ?? 0, jobId: msg.jobId ?? null, glossary: glossaryData };
+        const register = to !== "fr" ? null : ["tu", "vous"].includes(msg.register) ? msg.register : registerFor(msg.host ?? "", settings);
+        const common = { from, to, html: !!msg.html, priority: msg.priority ?? 0, jobId: msg.jobId ?? null, glossary: glossaryData, register };
         // Texte brut sur plusieurs lignes : chaque ligne est traduite à part, les sauts de ligne restent en place.
         const lines = msg.html ? [msg.text] : msg.text.split("\n");
         if (lines.length > 1) {
-            const results = await Promise.all(lines.map((line) => (line.trim() === ""
+            const one = (line, options = common) => (line.trim() === ""
                 ? Promise.resolve({ text: line, engineMs: 0 })
-                : aria.translate({ ...common, text: line }))));
+                : aria.translate({ ...options, text: line }));
+            let results = await Promise.all(lines.map((line) => one(line)));
+            // Registre « le plus présent » : décidé sur tout le texte, pas ligne par ligne.
+            if (register === "auto") {
+                const marks = results.map((r) => registerMarks(r.text));
+                const tu = marks.reduce((n, m) => n + m.tu, 0);
+                const vous = marks.reduce((n, m) => n + m.vous, 0);
+                if (tu && vous) {
+                    const goal = tu > vous ? "tu" : "vous";
+                    const other = goal === "tu" ? "vous" : "tu";
+                    results = await Promise.all(lines.map((line, i) => (marks[i][other] ? one(line, { ...common, register: goal }) : results[i])));
+                }
+            }
             return {
                 text: results.map((r) => r.text).join("\n"),
                 engineMs: Math.max(...results.map((r) => r.engineMs ?? 0)),

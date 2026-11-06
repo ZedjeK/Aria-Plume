@@ -2,7 +2,7 @@
 //
 //     const aria = createAria(platform);
 //     await aria.check({ text, lang: "fr", formal, repetitions, dialect });
-//     await aria.translate({ text, from: "fr", to: "en", html, glossary });
+//     await aria.translate({ text, from: "fr", to: "en", html, glossary, register, rewrite });
 //     await aria.conjugate({ verb: "prendre" });
 //     await aria.synonyms({ word: "rapide", lang: "fr" });
 //     await aria.close();
@@ -17,9 +17,11 @@
 // Contrat détaillé (entrées, sorties) : voir api.md.
 
 import { prepareGlossary } from "./translate/glossary.js";
+import { rewriteSource, fixTarget, keptTerms, maskNames } from "./translate/rewrite.js";
 import { createEnglishThesaurus } from "./en/thesaurus.js";
 import { findEnglishRepetitions } from "./en/repetitions.js";
 import { prepareText, filterProtected } from "./protect.js";
+import { filterNames } from "./shared/names.js";
 
 export const LANGUAGES = ["fr", "en"];
 const TRANSLATION_WORKERS = 2;
@@ -209,6 +211,53 @@ export function createAria(platform) {
         return translatorPromise;
     }
 
+    // Français traduit : tutoiement ou vouvoiement (register), masculin par défaut pour « je »
+    // (l'anglais ne dit pas le genre de celui qui parle), par le worker français (Grammalecte).
+    const FEMININE_SPEAKER = /\b(?:I['’]m|I\s+am|as)\s+(?:a|an|the|your|his|her|their|my\s+\w+['’]s)\s+(?:\w+\s+)?(?:woman|girl|mother|mom|mum|wife|sister|daughter|aunt|grandmother|grandma|lady|actress|waitress|queen|princess|bride|girlfriend|niece|nun|businesswoman|policewoman|hostess|stewardess)\b|\b(?:I['’]m|I\s+am)\s+(?:pregnant|a\s+mother|a\s+mom)\b/i;
+    const FIRST_PERSON = /\b(?:I|I['’]m|I['’]ve|I['’]ll|I['’]d|me|myself)\b/;
+    // Relecture du français produit par le modèle : seulement des fautes de grammaire sûres
+    // (accords surtout), jamais l'orthographe (noms propres, marques) ni le style.
+    const PROOFREAD_SKIP = /maj|capital|typo|neg|pleo|repet|style|apos|esp|nbsp|virg|ponct|eleu|registre/i;
+    async function proofread(output, lang) {
+        const client = await getChecker(lang);
+        const { clean, toOriginal } = prepareText(output);
+        if (toOriginal) {
+            return output;
+        }
+        const result = await client.call("check", { text: clean, dialect: "american", formal: false, repetitions: 0 });
+        const edits = [];
+        for (const m of filterProtected(output, result.matches).sort((a, b) => a.start - b.start)) {
+            if (m.kind !== "grammaire" || !m.suggestions?.length || PROOFREAD_SKIP.test(m.rule ?? "") || edits.some((e) => e.start < m.end && m.start < e.end)) {
+                continue;
+            }
+            edits.push({ start: m.start, end: m.end, text: m.suggestions[0] });
+        }
+        let fixed = output;
+        for (const e of edits.sort((a, b) => b.start - a.start)) {
+            fixed = fixed.slice(0, e.start) + e.text + fixed.slice(e.end);
+        }
+        return fixed;
+    }
+
+    async function finishFrench(output, source, register) {
+        const masculine = !FEMININE_SPEAKER.test(source) && FIRST_PERSON.test(source);
+        const target = ["tu", "vous", "auto"].includes(register) ? register : null;
+        let text = output;
+        try {
+            if (masculine || target) {
+                const client = await getChecker("fr");
+                const result = await client.call("register", { text, target, masculine });
+                text = result?.text ?? text;
+            }
+            text = await proofread(text, "fr");
+        } catch (error) {
+            if (globalThis.process?.env?.ARIA_DEBUG) {
+                console.error("finition du français :", error);
+            }
+        }
+        return text;  // au pire le texte du modèle, plutôt qu'une erreur
+    }
+
     return {
         // Fautes d'un texte. repetitions : distance en mots (0 = pas de répétitions).
         async check({ text, lang, dialect, formal = false, repetitions = 0 }) {
@@ -228,17 +277,30 @@ export function createAria(platform) {
             let matches = toOriginal ? result.matches.map((m) => ({ ...m, ...toOriginal(m.start, m.end) })) : result.matches;
             // Code, adresses, chemins, identifiants : rien à corriger.
             matches = filterProtected(text, matches).sort((a, b) => a.start - b.start);
+            // Noms propres (marques, personnes, lieux) et grossièretés : pas des fautes.
+            matches = filterNames(text, matches, lang);
             return { matches, engineMs: result.ms, loadMs: cold ? loadTimes[lang] : 0, cold };
         },
 
         // Traduction, avec le glossaire ({ glossary, keepTerms }) appliqué s'il est fourni.
-        async translate({ text, from, to, html = false, glossary, priority, jobId }) {
+        // Texte brut (pas en HTML) : réécritures avant et après le modèle (rewrite, par défaut),
+        // registre du français (register : "tu", "vous", "auto" = le plus présent, null = rien).
+        async translate({ text, from, to, html = false, glossary, priority, jobId, register = null, rewrite = true }) {
             const cold = !translatorPromise;
             const translator = await getTranslator();
             const pair = `${from}-${to}`;
             const pairCold = !warmPairs.has(pair);
             const start = performance.now();
-            const prepared = prepareGlossary({ text, html, from, to, glossary });
+            const original = String(text ?? "");
+            const plain = !html && rewrite !== false;
+            text = plain ? rewriteSource(original, from) : original;
+            // Prénoms et marques qui sont aussi des mots : cachés au modèle, remis après.
+            const masked = plain ? maskNames(text, from) : null;
+            text = masked ? masked.text : text;
+            // Adresses, courriels, code, chemins, identifiants : recopiés tels quels (le modèle les abîme).
+            const kept = plain ? keptTerms(text) : [];
+            const glossaryData = kept.length ? { glossary: glossary?.glossary ?? [], keepTerms: [...(glossary?.keepTerms ?? []), ...kept] } : glossary;
+            const prepared = prepareGlossary({ text, html, from, to, glossary: glossaryData });
             let reject;
             let timer;
             const failure = new Promise((_, fail) => {
@@ -272,9 +334,17 @@ export function createAria(platform) {
             }
             lastProgress = performance.now();
             warmPairs.add(pair);
+            let output = prepared ? prepared.finish(response.target.text) : response.target.text;
+            output = masked ? masked.restore(output) : output;
+            if (plain) {
+                output = fixTarget(output, to, { source: original });
+                if (to === "fr" && output.trim()) {
+                    output = await finishFrench(output, original, register);
+                }
+            }
             return {
-                text: prepared ? prepared.finish(response.target.text) : response.target.text,
-                glossaryHits: prepared?.hits ?? 0,
+                text: output,
+                glossaryHits: glossary ? prepared?.hits ?? 0 : 0,
                 engineMs: performance.now() - start,
                 loadMs: cold ? loadTimes.translation : 0,
                 cold,

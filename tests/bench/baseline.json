@@ -14,12 +14,12 @@
     },
     "grammalecte": {
         "sentences": 14160,
-        "outsideZone": 4,
-        "inZone": 178
+        "outsideZone": 6,
+        "inZone": 218
     },
     "wordnet": {
         "sentences": 47478,
-        "flagged": 5
+        "flagged": 8
     },
     "textes": {
         "found": 126,
@@ -48,10 +48,10 @@
     "controle2": {
         "found": 96,
         "fixed": 93,
-        "firstRank": 91,
+        "firstRank": 92,
         "total": 102,
         "falseAlerts": 1,
-        "oneClick": 113
+        "oneClick": 114
     },
     "textes3": {
         "found": 131,
@@ -68,5 +68,33 @@
         "total": 69,
         "falseAlerts": 3,
         "oneClick": 76
+    },
+    "textes4": {
+        "found": 331,
+        "fixed": 328,
+        "firstRank": 323,
+        "total": 378,
+        "falseAlerts": 20,
+        "oneClick": 366
+    },
+    "controle4": {
+        "found": 157,
+        "fixed": 147,
+        "firstRank": 143,
+        "total": 217,
+        "falseAlerts": 19,
+        "oneClick": 180
+    },
+    "traduction": {
+        "ok": 280,
+        "total": 287,
+        "register": 46,
+        "chrf": 79.2
+    },
+    "trcontrole": {
+        "ok": 126,
+        "total": 164,
+        "register": 26,
+        "chrf": 73.4
     }
 }

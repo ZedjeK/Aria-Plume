@@ -249,7 +249,7 @@ async function handle(msg, sender) {
         case "detect":
             return service.detectLanguage(msg.text);
         case "translate":
-            return service.translate(msg);
+            return service.translate({ ...msg, host: senderHost(sender) });
         case "synonyms":
             return service.synonyms(msg);
         case "exchange": {

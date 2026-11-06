@@ -253,7 +253,133 @@ export function findEnglishRules(text) {
         }
         moreRules(text, tokens, i, push);
     });
+    // Motifs de la campagne du 06/11/2026 : seulement là où aucune autre règle n'a parlé.
+    for (const found of campaignPatterns(text)) {
+        if (!results.some((r) => r.start < found.end && found.start < r.end)) {
+            results.push(found);
+        }
+    }
     return results;
+}
+
+// --- Campagne du 06/11/2026 : motifs sûrs, en contexte ---
+// Chaque motif : expression (avec un groupe nommé « w » : le passage à corriger), correction
+// (chaîne ou fonction des groupes), nom de règle, catégorie.
+const IRREGULAR_PAST = { brung: "brought", bringed: "brought", knowed: "knew", finded: "found", catched: "caught", teached: "taught", thinked: "thought", buyed: "bought", seeked: "sought", fighted: "fought", sended: "sent", spended: "spent", builded: "built", lended: "lent", feeled: "felt", keeped: "kept", sleeped: "slept", meeted: "met", losed: "lost", payed: "paid", sayed: "said", maked: "made", heared: "heard", winned: "won", sitted: "sat", standed: "stood", understanded: "understood", runned: "ran", comed: "came", goed: "went", taked: "took", gived: "gave", writed: "wrote", drived: "drove", eated: "ate", drinked: "drank", speaked: "spoke", breaked: "broke", choosed: "chose", freezed: "froze", throwed: "threw", growed: "grew", blowed: "blew", drawed: "drew", hided: "hid", shaked: "shook", stealed: "stole", swimmed: "swam", weared: "wore", rised: "rose", falled: "fell", forgetted: "forgot", hitted: "hit", cutted: "cut", setted: "set", shutted: "shut", hurted: "hurt", quitted: "quit", spreaded: "spread", readed: "read", feeded: "fed", holded: "held", telled: "told", selled: "sold", digged: "dug", stinged: "stung", swinged: "swung", wringed: "wrung" };
+const BASE_TO_PP = { send: "sent", spend: "spent", build: "built", lend: "lent", bend: "bent", bring: "brought", buy: "bought", think: "thought", teach: "taught", catch: "caught", fight: "fought", seek: "sought", sell: "sold", tell: "told", hold: "held", find: "found", leave: "left", feel: "felt", keep: "kept", sleep: "slept", meet: "met", lose: "lost", pay: "paid", say: "said", make: "made", hear: "heard", win: "won", sit: "sat", stand: "stood", understand: "understood", take: "taken", give: "given", write: "written", drive: "driven", eat: "eaten", speak: "spoken", break: "broken", choose: "chosen", forget: "forgotten", know: "known", see: "seen", go: "gone", do: "done", get: "gotten", fall: "fallen", grow: "grown", throw: "thrown", wear: "worn", steal: "stolen", begin: "begun", drink: "drunk", ring: "rung", sing: "sung", swim: "swum", fly: "flown", ride: "ridden", rise: "risen", wake: "woken", hide: "hidden", show: "shown" };
+const REGULAR_VERBS = "update stop search finish start try call check fix install test review merge push deploy ask answer open close add change clean cook help move play talk walk watch wait work want need use visit plan order email text reply contact receive return finish complete attach apply book cancel confirm create delete download upload save share submit sign print scan mention notice decide expect explain follow happen hope improve include join like love miss prepare remember report request schedule solve suggest support travel turn wash worry".split(" ");
+const PP_OF = (base) => BASE_TO_PP[base] ?? (/e$/.test(base) ? `${base}d` : /[^aeiou]y$/.test(base) ? `${base.slice(0, -1)}ied` : /^(stop|plan|drop|ship|chat|shop|skip|step|swap|tap|tag|log|jog|grab)$/.test(base) ? `${base}${base.slice(-1)}ed` : `${base}ed`);
+const THIRD = (verb) => ({ have: "has", do: "does", go: "goes", be: "is" }[verb] ?? (/(s|sh|ch|x|z|o)$/.test(verb) ? `${verb}es` : /[^aeiou]y$/.test(verb) ? `${verb.slice(0, -1)}ies` : `${verb}s`));
+// Verbes rarement employés comme noms (ni « work », ni « crash », ni « cost » : « the plane crash »,
+// « her work », « the cost of ») et dont le passé n'a pas la même forme (ni « shut », ni « put »).
+const PRESENT_VERBS = "return run lose last take make seem give get go come fail send load save throw handle know want like have say mean contain require include depend happen begin".split(" ");
+const PRESENT_RE = PRESENT_VERBS.join("|");
+const MODAL_OR_AUX = "is|was|has|are|were|have|had|will|would|could|should|can|may|might|must|does|did|do|also|always|never|often|still|just|really|usually|only|even";
+const NUMBER_WORD = "two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|a\\s+few|several|\\d+";
+const UNCOUNTABLE = { advices: "advice", informations: "information", feedbacks: "feedback", softwares: "software", equipments: "equipment", furnitures: "furniture", homeworks: "homework", knowledges: "knowledge", luggages: "luggage", baggages: "baggage", evidences: "evidence", trainings: "training", researchs: "research", staffs: "staff" };
+const HOLIDAYS = { thanksgiving: "Thanksgiving", christmas: "Christmas", easter: "Easter", halloween: "Halloween", hanukkah: "Hanukkah", ramadan: "Ramadan", renaissance: "Renaissance" };
+const PEOPLES = { thai: "Thai", english: "English", french: "French", spanish: "Spanish", german: "German", italian: "Italian", chinese: "Chinese", japanese: "Japanese", korean: "Korean", american: "American", canadian: "Canadian", mexican: "Mexican", indian: "Indian", british: "British", irish: "Irish", scottish: "Scottish", portuguese: "Portuguese", russian: "Russian", greek: "Greek", turkish: "Turkish", vietnamese: "Vietnamese", brazilian: "Brazilian", european: "European", african: "African", asian: "Asian", dutch: "Dutch", swedish: "Swedish", polish: "Polish", arabic: "Arabic" };
+const DAYS = { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday", january: "January", february: "February", april: "April", june: "June", july: "July", august: "August", september: "September", october: "October", november: "November", december: "December" };
+const MORE_TYPOS = { adn: "and", teh: "the", taht: "that", waht: "what", hte: "the", nad: "and", jsut: "just", allready: "already", alredy: "already", belive: "believe", beleive: "believe", pasword: "password", passwrod: "password", neice: "niece", dependancy: "dependency", dependancies: "dependencies", tryed: "tried", alot: "a lot", recieve: "receive", recieved: "received", wensday: "Wednesday", wendsday: "Wednesday", febuary: "February", chek: "check", contrat: "contract", wierdly: "weirdly", accomodation: "accommodation", accomodate: "accommodate", begining: "beginning", beggining: "beginning", finaly: "finally", realy: "really", usualy: "usually", actualy: "actually", tommorrow: "tomorrow", untill: "until", thru: "through", gaurd: "guard", grammer: "grammar", happend: "happened", neccessary: "necessary", necesary: "necessary", occassionally: "occasionally", publically: "publicly", recomendation: "recommendation", resturant: "restaurant", sincerly: "sincerely", suprise: "surprise", truely: "truly", vaccum: "vacuum", wich: "which" };
+const SINGULAR_HEADS = "list|number|set|collection|series|amount|lack|quality|cost|price|total|percentage|result|reason|cause|source|value|size|length";
+
+const PATTERNS = [
+    // Homophones.
+    [/\b(?<w>its)\s+(?=(?:fine|okay|ok|not|only|been|going|gonna|true|important|hard|easy|too|really|just|still|already|unavailable|available|broken|working|done|over|getting|raining|cold|hot|late|early|my|your|our|their|his|her|a|an|the|no|all|always|probably|almost|clear|possible|impossible|worth|free|ready|here|there|up|down)\b(?!-))/gi, "it's", "its_its"],
+    [/\b(?<w>it['’]s)\s+(?=(?:own|keycaps|keys|battery|screen|color|colour|owner|name|price|size|value|users|features|website|logo|engine|wheels|tail|paws|leaves|roof|walls|doors|cover|lid|case|interface|settings|contents|purpose|members|staff|employees|customers)\b)/gi, "its", "its_its"],
+    [/(?:^|[.!?]\s+)(?<w>Whose)\s+(?=(?:\w+ing|going|coming|there|ready|next|in|on|up|that)\b)/g, "Who's", "whose_whos"],
+    [/\b(?<w>[Ww]ho['’]s)\s+(?=(?:jacket|car|bag|phone|turn|fault|idea|coat|keys|laptop|book|pen|cup|mug|shoes|house|dog|cat|kid|kids|seat|desk|code|file|PR|commit|money|wallet|umbrella)\s+(?:is|are|was|were|this|that)\b)/g, (m) => (m[0] === "W" ? "Whose" : "whose"), "whos_whose"],
+    [/(?:^|[.!?]\s+)(?<w>There)\s+(?=(?:\w+ing\s+(?:out|up|the|a|an|our|their|to|on)|so\s+\w+|really\s+\w+|not\s+(?:coming|going|here|ready|sure)))/g, "They're", "there_theyre"],
+    [/\b(?:said|says|think|thought|know|knew|guess|bet|hope)\s+(?<w>there)\s+(?=the\s+\w+est\b)/gi, "they're", "there_theyre"],
+    [/\b(?:you|I|we|they|to|can['’]t|couldn['’]t|didn['’]t|can|could|did|do|don['’]t|will|would|never)\s+(?<w>here)\s+(?=(?:the|about|from|that|me|you|him|her|us|them|it|anything|something|what|of|a|an)\b)/gi, "hear", "here_hear"],
+    [/\b(?:I['’]m|I\s+am|so|very|really|getting|get|got|was|were|be|being|feel|feeling|always|kinda|super)\s+(?<w>board)(?=\s*(?:[.!?,;]|$|\s+(?:of|with|to|and|out|at|today|now|tonight)\b))/gi, "bored", "board_bored"],
+    [/\b(?:will|['’]ll|to|can|cannot|can['’]t|would|please|must|should|did|didn['’]t|won['’]t|happily|gladly|I|we)\s+(?<w>except)\s+(?=(?:the|your|my|this|that|an|a|our|their|his|her|it|them|all|any|payment|cookies|terms|offer|invitation)\b)/gi, "accept", "except_accept"],
+    [/\b(?:this|next|last|per|every|each|that)\s+(?<w>weak)(?=\s*(?:[.!?,;]|$|\s+(?:and|or|but|before|after|ago|again|end)\b))/gi, "week", "weak_week"],
+    [/\b(?:to|will|can|must|should|please|['’]ll|gonna|need\s+to|have\s+to|has\s+to|had\s+to)\s+(?<w>right)\s+(?=(?:an?|the|my|your|some|this|that|down|back)\s*(?:essay|letter|email|report|code|book|song|note|story|paper|article|review|message|test|tests|program|script|function|down|back|it)?\b)/gi, "write", "right_write"],
+    [/\b(?<w>brake)\s+(?=(?:the\s+(?:build|code|app|site|rules|news|law|ice|record|glass|deal|bank|internet|tests|pipeline)|my\s+heart|up\b|down\b|it\b|everything\b))/gi, "break", "brake_break"],
+    [/\b(?:know|knows|knew|wonder|wondering|ask|asking|asked|sure|decide|deciding|check|checking|see|tell|unclear|unsure|matter|doubt|question)\s+(?<w>weather)\b/gi, "whether", "weather_whether"],
+    [/\b(?:the|some|any|your|my|good|great|for|much|of|his|her|their|expert|legal|medical|financial|helpful)\s+(?<w>advise)(?=\s*(?:[.!?,;]|$|\s+(?:on|about|for|from|and|is|was|regarding)\b))/gi, "advice", "advise_advice"],
+    [/\b(?:all|the|our|medical|military|security|hospital)\s+(?<w>personal)\s+(?=(?:must|should|are|is|will|need|have|has|were|was|shall)\b)/gi, "personnel", "personal_personnel"],
+    [/\b(?:meeting|it|this|that|he|she|there|event|flight|game|class|launch|store|office|session|call|delivery|order|train|concert)\s+(?<w>maybe)\s+(?=(?:postponed|cancel+ed|delayed|late|closed|available|required|done|ready|necessary|moved|rescheduled|over|full|busy|free|open|a|an|the|too|possible)\b)/gi, "may be", "maybe_may_be"],
+    [/\b(?:was|is|be|so|very|stay|kept|keep|it['’]s|never|nice\s+and|really|pretty|too|remained|remain|totally)\s+(?<w>quite)(?=\s*(?:[.!?,;]|$|\s+(?:at|even|in|please|now|for|during|tonight|and|outside|inside)\b))/gi, "quiet", "quite_quiet"],
+    [/\b(?:results|data|evidence|tests|studies|they|we|can|to|will|would|could|might|this|these|experiments|numbers)\s+(?<w>proof)\s+(?=that\b)/gi, (m, g) => "prove", "proof_prove"],
+    [/(?<!\b(?:walk|walked|walking|go|went|going|get|got|look|looked|read|run|ran|pass|passed|see|saw|follow|guide|guided|take|took|put|talk|talked|help|helped|lead|led|sit|sat|live|lived|scroll|browse|flip|flipped|skim|dig|went)\s+)\b(?:he|she|I|they|we|someone|somebody)\s+(?<w>through)\s+(?=(?:the|a|an|his|her|my|their|our|your|it|them|up|away|out)\b)/gi, "threw", "through_threw"],
+    [/(?:,|;|^|[.!?])\s*(?<w>than)\s+(?=(?:roll|add|go|we|I|you|he|she|they|it|the|click|press|wait|mix|bake|put|let|turn|open|close|restart|run|try|check|enter|select|choose|cook|stir|serve|repeat|leave)\b)/gim, "then", "than_then"],
+    [/\b(?:will|can|could|would|might|may|did|do|does|shall|should)\s+(?:I|you|we|they|he|she|it)\s+(?<w>loose)\b/gi, "lose", "loose_lose"],
+    [/\b(?:email|e-mail|letter|message|call|note|text|gift|package|news|update|invite|invitation|notice|reply|response|request|feedback|answer|card|present)\s+(?<w>form)\s+(?=(?:HR|IT|the|my|your|our|their|his|her|a|an|[A-Z])\b)/g, "from", "form_from"],
+    [/\b(?:there|it|this|that|he|she|what|where|who|here)\s+(?<w>si)\s+(?=(?:a|an|the|no|not|nothing|something|\w+ing)\b)/gi, "is", "si_is"],
+    [/\b(?<w>during)\s+(?=(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|a\s+few|several|\d+)\s+(?:days|nights|weeks|months|years|hours|minutes|seconds|decades)\b)/gi, "for", "during_for"],
+    [/\b(?<w>economical)\s+(?=(?:crisis|growth|policy|policies|situation|development|reasons|factors|problems|system|sanctions|recovery|downturn|history|theory|crises)\b)/gi, "economic", "economical_economic"],
+    // Formes verbales.
+    [/\b(?:I|you|we|they|he|she)\s+(?<w>done)\s+(?=(?:all|the|my|your|it|that|this|everything|nothing|a|an|some|his|her|our|their)\b)/gi, "did", "done_did"],
+    [new RegExp(`\\b(?<w>${Object.keys(IRREGULAR_PAST).join("|")})\\b`, "gi"), (m) => IRREGULAR_PAST[m.toLowerCase()], "irregular_past", "grammaire"],
+    [/\b(?<w>founded)\s+(?=(?:nothing|anything|something|it|them|out|that|the\s+(?:bug|issue|problem|file|error|cause|solution|key|keys))\b)/gi, "found", "founded_found"],
+    [/\b(?:has|have|had|['’]ve)\s+(?:never\s+|already\s+|just\s+|not\s+)?(?<w>lead)\s+(?=(?:three|two|four|five|several|many|the|a|an|our|their|his|her|my|us|them|me|him|projects|teams|meetings)\b)/gi, "led", "lead_led"],
+    [/\b(?:yesterday|last\s+\w+|ago)\b[^.!?]*\b(?:the\s+\w+|he|she|they|we|I)\s+(?<w>lead)\s+(?=(?:us|them|me|him|her|the|a|our|their)\b)/gi, "led", "lead_led"],
+    [/\b(?:has|have|had|['’]ve|haven['’]t|hasn['’]t|hadn['’]t)\s+(?:never\s+|already\s+|just\s+|not\s+|ever\s+|finally\s+|recently\s+|also\s+)?(?<w>send|spend|build|lend|bring|buy|think|teach|catch|sell|tell|hold|find|leave|feel|keep|sleep|meet|lose|pay|say|make|hear|win|understand|take|give|write|drive|eat|speak|break|choose|forget|see|grow|throw|wear|steal|begin|fly|ride|wake|hide|show)\s+(?=(?:three|two|several|many|the|a|an|my|your|our|their|his|her|it|them|me|us|him|you|everything|nothing|some|all|this|that|these|those|emails|messages|everywhere|anything)\b)/gi, (m) => BASE_TO_PP[m.toLowerCase()], "perfect_pp"],
+    [new RegExp(`\\b(?:has|have|had|['’]ve|haven['’]t|hasn['’]t|hadn['’]t)\\s+(?:never\\s+|already\\s+|just\\s+|not\\s+|ever\\s+|finally\\s+|recently\\s+|also\\s+)?(?<w>${REGULAR_VERBS.join("|")})(?=\\s+(?:the|a|an|my|your|our|their|his|her|it|them|everything|everywhere|all|this|that|talking|accordingly|yet|already|since|for)\\b|\\s*[.!?,]|\\s*$)`, "gi"), (m) => PP_OF(m.toLowerCase()), "perfect_pp"],
+    [/\b(?:has|have)\s+(?<w>took)\b/gi, "taken", "perfect_pp"],
+    [/\b(?:when|as\s+soon\s+as|once|after|until|till)\s+(?:I|you|we|they|he|she|it)\s+(?<w>will\s+(?<v>[a-z]+))\b/gi, (m, g) => g.v, "will_after_when", "grammaire"],
+    [/\b(?:I|you|we|they)\s+(?<w>know)\s+(?=\p{Lu}\p{Ll}+\s+since\b|(?:him|her|them|each\s+other|it)\s+since\b)/gu, "have known", "present_since"],
+    [/\b(?<w>(?:is|am|are))\s+(?=(?:married|divorced|broken|closed|open|sick|down|here|there|engaged|retired|unemployed|pregnant|vegetarian|vegan|single|together|friends|offline|online|empty|full)\s+since\b)/gi, (m) => ({ is: "has been", am: "have been", are: "have been" })[m.toLowerCase()], "present_since"],
+    [/\b(?:I|you|we|they)\s+(?<w>am\s+agree|are\s+agree)\b/gi, "agree", "am_agree"],
+    [/\b(?:I|he|she|it)\s+(?<w>is\s+agree)\b/gi, "agrees", "am_agree"],
+    [/\b(?<w>must\s+to|should\s+to|can\s+to|could\s+to|might\s+to)\s+(?=[a-z]+\b)/gi, (m) => m.split(/\s+/)[0], "modal_to"],
+    [/\blook(?:ing|s|ed)?\s+forward\s+to\s+(?<w>hear|see|meet|work|speak|talk|receive|seeing|get|join|have|discuss)\b/gi, (m) => (/ing$/.test(m) ? m : m.toLowerCase().replace(/e$/, "") + "ing"), "look_forward_to"],
+    [/\b(?:would|could|should|might|must)\s+(?:never\s+|not\s+|just\s+|really\s+)?(?<w>of)\s+(?=[a-z]+(?:ed|en|t|wn|ne)\b)/gi, "have", "would_of"],
+    [/\b(?<w>a)\s+(?=(?:8|11|18|80|81|82|83|84|85|86|87|88|89|800|8000)(?:\b|-))/g, "an", "a_an"],
+    [/\b(?<w>much)\s+(?=(?:questions|people|things|friends|times|problems|issues|ideas|days|years|cars|books|errors|mistakes|users|options|changes|bugs|emails|files|reasons|tickets|requests|students|children|kids)\b)/gi, "many", "much_many"],
+    [/\b(?<w>(?:advices|informations|feedbacks|softwares|equipments|furnitures|homeworks|knowledges|luggages|baggages|evidences|researchs))\b/gi, (m) => UNCOUNTABLE[m.toLowerCase()], "uncountable", "grammaire"],
+    [/\b(?<w>(?:Davids|Sarahs|Marks|Johns|Toms|Emmas|Annas|Pauls|Peters|Lisas|Mikes|Daves|Kates|Sams|Bens|Jacks|Alexs|Chris's))\s+(?=(?:new|old|car|house|address|phone|office|birthday|wife|husband|mom|dad|mother|father|sister|brother|dog|cat|team|desk|email|laptop|room|party|place|idea|fault|turn)\b)/g, (m) => `${m.slice(0, -1)}'s`, "possessive_s"],
+    [new RegExp(`\\b(?<w>${Object.keys(MORE_TYPOS).join("|")})\\b`, "gi"), (m) => MORE_TYPOS[m.toLowerCase()], "orthographe_courante", "orthographe"],
+    [/\b(?<w>todays|tonights)\s+(?=(?:workshop|meeting|session|class|game|match|show|episode|news|lunch|dinner|menu|special|agenda|call|webinar|talk|event|weather|schedule|forecast|update|deal|deals|lesson|presentation)\b)/gi, (m) => `${m.slice(0, -1)}'s`, "possessive_s"],
+    // Accords.
+    [/(?<!\b(?:make|makes|made|making|let|lets|letting|help|helps|helped|have|has|had|watch|see|saw|seen|hear|heard|bid|does|did|do|doesn['’]t|didn['’]t|don['’]t|will|would|can|could|should|might|must|may|shall)\s+)\b(?:nobody|everybody|somebody|anybody|everyone|someone|anyone|no\s+one|everything)\s+(?<w>know|want|need|have|seem|care|think|remember|understand|believe|mind|use)\b(?!\s+(?:to\b)?\s*$)/gi, (m) => (/s$/.test(m) ? m : THIRD(m.toLowerCase())), "indefinite_3s"],
+    [/\b(?:does|did|doesn['’]t|didn['’]t)\s+(?:your|my|his|her|their|our|the|this|that|anybody|anyone|somebody|someone|everybody|everyone|nobody|he|she|it)(?:\s+[a-z]+)?\s+(?<w>[a-z]+s)\b(?=\s+(?:at|in|on|where|the|a|an|to|for|with|here|there|it|them|me|you|that|this)\b|\s*\?)/gi, (m) => (/(?:ss|us|is)$/.test(m) ? m : /ies$/.test(m) ? `${m.slice(0, -3)}y` : /(?:ches|shes|xes|sses|oes)$/.test(m) ? m.slice(0, -2) : m.slice(0, -1)), "does_base"],
+    // « the number of tickets have » → has ; mais « a number of customers have » (= plusieurs) reste.
+    [new RegExp(`\\b(?:the\\s+(?:${SINGULAR_HEADS})|a\\s+(?!number\\b)(?:${SINGULAR_HEADS}))\\s+(?:of|for)\\s+(?:[a-z-]+\\s+){1,4}?(?<w>are|were|have)\\b`, "gi"), (m) => ({ are: "is", were: "was", have: "has" })[m.toLowerCase()], "head_of_agreement"],
+    [/\b(?:one)\s+of\s+(?:the|my|your|our|their|his|her|these|those)\s+(?:[a-z-]+\s+){0,3}?[a-z]+s\s+(?:[a-z-]+\s+){0,4}?(?<w>are|were|have)\b/gi, (m) => ({ are: "is", were: "was", have: "has" })[m.toLowerCase()], "one_of_agreement"],
+    [/\b(?:most|many|some|all|both|several|none)\s+of\s+(?:the|my|your|our|their|his|her|these|those)\s+(?:[a-z-]+\s+)?[a-z]+s\s+(?:already\s+|now\s+|still\s+|just\s+)?(?<w>has|is|was)\b/gi, (m) => ({ has: "have", is: "are", was: "were" })[m.toLowerCase()], "most_of_agreement"],
+    [/\b(?:attached|enclosed|included|below|here)\s+(?<w>is)\s+(?=(?:the|my|our|your|two|three|all|some|both)\s+(?:[a-z-]+\s+)?[a-z]+s\b)/gi, "are", "attached_are"],
+    // Sujet singulier : « it », « mine », ou « this/that/the/my… + nom singulier » (pas un pluriel, pas un
+    // auxiliaire, pas un nom propre) ; « This function return `null` », « The battery last two days ».
+    [new RegExp(`(?:^|[.!?;:]\\s+|,\\s+(?:and|but|so|now)\\s+)(?:(?:it|mine|yours)\\s+|(?:this|that|the|my|your|our|their|his|her)\\s+(?!(?:${MODAL_OR_AUX})\\b)[a-z]{2,}(?<![sd]|ly|ing)\\s+)(?<w>${PRESENT_RE})\\b(?=\\s+(?:\`|on|in|about|every|two|three|all|the|a|an|null|true|false|down|up|out|over|at|with|when|to)\\b)`, "gm"), (m) => THIRD(m.toLowerCase()), "subject_3s"],
+    [/\b(?:the|my|your|our|this|that)\s+(?:[a-z]+\s+)?[a-z]*[^s\s]\s+(?<w>keep|start|stop)\s+(?=[a-z]+ing\b)/gi, (m) => `${m.toLowerCase()}s`, "keep_ing_3s"],
+    // Majuscules.
+    [new RegExp(`\\b(?<w>${Object.keys(HOLIDAYS).join("|")})\\b`, "g"), (m) => HOLIDAYS[m], "holiday_capital", "grammaire"],
+    [new RegExp(`\\b(?<w>${Object.keys(PEOPLES).join("|")})\\b(?=\\s+(?:food|restaurant|place|cuisine|homework|class|lesson|teacher|people|friend|friends|culture|language|guy|girl|team|version|book|movie|music|wine|cheese|accent|speaker|speakers|citizen|national|grammar|test|exam|course|essay|translation)\\b)`, "g"), (m) => PEOPLES[m], "nationality_capital", "grammaire"],
+    [new RegExp(`\\b(?:on|this|next|last|every|until|by|since|from|before|after|in|early|late|mid)\\s+(?<w>${Object.keys(DAYS).join("|")})\\b`, "g"), (m) => DAYS[m], "day_capital", "grammaire"],
+];
+
+function campaignPatterns(text) {
+    const out = [];
+    for (const [re, fix, rule, kind = "grammaire"] of PATTERNS) {
+        if (!rule) {
+            continue;
+        }
+        const pattern = new RegExp(re.source, re.flags.includes("d") ? re.flags : `${re.flags}d`);
+        for (const m of text.matchAll(pattern)) {
+            const span = m.indices?.groups?.w;
+            if (!span) {
+                continue;
+            }
+            const original = text.slice(span[0], span[1]);
+            const value = typeof fix === "function" ? fix(original, m.groups ?? {}) : fix;
+            if (!value || value === original) {
+                continue;
+            }
+            out.push({
+                start: span[0],
+                end: span[1],
+                kind: kind === "orthographe" ? "orthographe" : "grammaire",
+                detail: "aria",
+                message: MESSAGES[rule] ?? "Forme attendue ici.",
+                suggestions: [keepCase(original, value)],
+                rule: `aria_en_${rule}`,
+            });
+        }
+    }
+    return out;
 }
 
 function moreRules(text, tokens, i, push) {

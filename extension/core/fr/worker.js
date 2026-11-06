@@ -23,10 +23,12 @@ importScripts(...[
     "fr/gc_engine.js",
 ].map((file) => BASE + file));
 importScripts(new URL("homophones.js", self.location).href);
+importScripts(new URL("register.js", self.location).href);
 
 const MAX_SUGGESTIONS = 5;
 let spellChecker = null;
 let homophones = null;
+let register = null;
 
 function init() {
     const start = performance.now();
@@ -39,6 +41,7 @@ function init() {
         throw new Error("Dictionnaire principal de Grammalecte non chargé");
     }
     homophones = Homophones.create((word) => spellChecker.getMorph(word));
+    register = Register.create({ getMorph: (word) => spellChecker.getMorph(word), getConj: (verb, tense, who) => conj.getConj(verb, tense, who), getFemForm: (word, plural) => mfsp.getFemForm(word, plural) });
     // Apostrophe droite ' acceptée : pas de « l'homme » → « l’homme ».
     gc_engine.setOption("apos", false);
     return { ms: performance.now() - start };
@@ -1055,7 +1058,8 @@ function addHomophones(line, grammar) {
     // Règles d'accord d'Aria (pluriel, attribut, sujet-verbe…) : elles complètent Grammalecte. S'il
     // signale déjà quelque chose au même endroit, sa correction (pensée pour la phrase entière) prime ;
     // on remonte seulement la nôtre en tête si elle figure dans ses propositions.
-    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative)$/;
+    // Règles complémentaires (campagne du 06/11/2026) : elles aussi cèdent la place à Grammalecte.
+    const WEAK = /_(pluriel_nom|accord_attribut|accord_sujet_verbe|ppas_relative|a_ete|a_verbe_avoir|prep_infinitif|et_est_attribut|a_prep|imperatif_consigne|couleur_pluriel)$/;
     const found = all.filter((h) => !WEAK.test(h.rule) || !grammar.some((e) => e.start < h.end && e.end > h.start));
     if (found.length === 0) {
         return { grammar, extra: [] };
@@ -1453,6 +1457,13 @@ self.onmessage = (event) => {
             result = conjugate(payload.verb, payload.options);
         } else if (cmd === "synonyms") {
             result = synonyms(payload.word);
+        } else if (cmd === "register") {
+            // Traduction vers le français : tutoiement ou vouvoiement partout, masculin par défaut pour « je ».
+            let text = String(payload.text ?? "");
+            if (payload.masculine) {
+                text = register.masculine(text);
+            }
+            result = { text: payload.target ? register.convert(text, payload.target) : text, counts: register.counts(text) };
         } else if (cmd === "morph") {
             // Banc et mise au point : étiquettes du dictionnaire et type de verbe.
             result = (payload.words ?? []).map((word) => ({ word, morph: spellChecker.getMorph(word), vtyp: conj.isVerb(word) ? conj.getVtyp(word) : null }));

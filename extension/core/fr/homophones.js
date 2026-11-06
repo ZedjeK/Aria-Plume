@@ -1955,6 +1955,230 @@ const Homophones = (() => {
             }
         }
 
+        // --- Campagne du 06/11/2026 ---
+        const INF_PREPS = new Set(["à", "de", "d'", "pour", "sans", "par"]);
+        const INF_CLITICS = new Set(["le", "la", "les", "l'", "me", "m'", "te", "t'", "se", "s'", "nous", "vous", "lui", "leur", "y", "en", "ne", "n'", "pas", "plus", "jamais", "rien"]);
+        const DE_INF_LEMMAS = new Set(["oublier", "essayer", "décider", "arrêter", "cesser", "finir", "refuser", "accepter", "permettre", "demander", "choisir", "éviter", "tenter", "venir", "prier", "envisager", "rêver", "craindre", "risquer", "promettre", "proposer", "conseiller", "interdire", "empêcher", "menacer", "mériter", "négliger", "charger", "dépêcher", "souvenir", "rappeler", "penser", "permettre", "suggérer", "recommander", "ordonner", "dire", "écrire", "jurer"]);
+        const DE_INF_WORDS = new Set(["merci", "besoin", "envie", "temps", "moyen", "peur", "honte", "raison", "droit", "possibilité", "occasion", "intention", "façon", "manière", "afin", "capable", "content", "contente", "ravi", "ravie", "fier", "fière", "obligé", "obligée", "libre", "sûr", "sûre", "certain", "certaine", "important", "nécessaire", "possible", "impossible", "difficile", "facile", "utile", "inutile", "prière", "avant", "plutôt"]);
+        const IMPERATIVE_LINKS = new Set(["puis", "et", "ensuite", "enfin", "alors", "mais", "ou"]);
+        const STATE_ADJECTIVES = new Set(["malade", "malades", "absent", "absente", "occupé", "occupée", "prêt", "prête", "fatigué", "fatiguée", "content", "contente", "fermé", "fermée", "ouvert", "ouverte", "cassé", "cassée", "parti", "partie", "enceinte", "seul", "seule", "libre", "disponible", "désolé", "désolée", "ravi", "ravie", "gentil", "gentille", "sympa", "génial", "géniale", "nul", "nulle", "fini", "finie", "complet", "complète", "vide", "plein", "pleine", "loin", "proche", "sûr", "sûre", "heureux", "heureuse", "triste", "énervé", "énervée", "inquiet", "inquiète", "furieux", "furieuse", "déçu", "déçue", "en", "là"]);
+        const NATIONALITIES = new Set(["Belge", "Belges", "Français", "Française", "Françaises", "Anglais", "Anglaise", "Anglaises", "Américain", "Américaine", "Américains", "Américaines", "Allemand", "Allemande", "Allemands", "Allemandes", "Italien", "Italienne", "Italiens", "Italiennes", "Espagnol", "Espagnole", "Espagnols", "Espagnoles", "Suisse", "Suisses", "Canadien", "Canadienne", "Canadiens", "Canadiennes", "Japonais", "Japonaise", "Japonaises", "Chinois", "Chinoise", "Chinoises", "Portugais", "Portugaise", "Portugaises", "Marocain", "Marocaine", "Marocains", "Marocaines", "Algérien", "Algérienne", "Algériens", "Algériennes", "Tunisien", "Tunisienne", "Tunisiens", "Tunisiennes", "Russe", "Russes", "Grec", "Grecque", "Grecs", "Grecques", "Polonais", "Polonaise", "Polonaises", "Néerlandais", "Néerlandaise", "Néerlandaises", "Québécois", "Québécoise", "Québécoises", "Sénégalais", "Sénégalaise", "Ivoirien", "Ivoirienne", "Turc", "Turque", "Turcs", "Turques", "Brésilien", "Brésilienne", "Mexicain", "Mexicaine", "Irlandais", "Irlandaise", "Écossais", "Écossaise", "Suédois", "Suédoise", "Norvégien", "Norvégienne", "Danois", "Danoise", "Autrichien", "Autrichienne", "Roumain", "Roumaine", "Ukrainien", "Ukrainienne", "Libanais", "Libanaise", "Indien", "Indienne", "Coréen", "Coréenne", "Vietnamien", "Vietnamienne", "Breton", "Bretonne", "Corse", "Basque", "Alsacien", "Alsacienne", "Européen", "Européenne", "Européens", "Européennes", "Africain", "Africaine"]);
+        const LANGUAGE_NAMES = new Set(["Anglais", "Français", "Allemand", "Italien", "Espagnol", "Portugais", "Néerlandais", "Japonais", "Chinois", "Russe", "Arabe", "Coréen", "Polonais", "Grec", "Turc", "Suédois", "Hébreu", "Latin", "Breton", "Basque", "Corse", "Catalan", "Hindi", "Vietnamien", "Ukrainien", "Roumain"]);
+        const COPULA = new Set(["suis", "es", "est", "sommes", "êtes", "sont", "était", "étais", "étaient", "être", "devenu", "devenue", "reste", "semble", "paraît"]);
+        const SPEAK_VERBS = /^(?:parle|parles|parlent|parlons|parlez|parler|parlé|apprend|apprends|apprennent|apprendre|étudie|étudies|étudient|étudier|enseigne|enseignes|enseigner|comprend|comprends|comprendre|traduit|traduis|traduire|maîtrise|maîtriser|écrit|écris|écrire|lit|lis|lire)$/;
+
+        function infinitiveOf(token) {
+            for (const m of morph(token)) {
+                if (/:V/.test(m)) {
+                    const lemma = lemmaOf(m);
+                    if (lemma && lemma !== token.lower) {
+                        return lemma;
+                    }
+                }
+            }
+            return null;
+        }
+        const verbLemmas = (token) => morph(token).filter((m) => /:V/.test(m)).map(lemmaOf);
+        const hasNounReading = (token) => has(token, /:N/);
+
+        function campaignRules(tokens, push, line) {
+            const text = (k) => tokens[k]?.lower ?? "";
+            const imperativeLine = tokens.some((t, k) => !t.punct && has(t, /:E:2p/) && !hasNounReading(t)
+                && (k === 0 || tokens[k - 1].punct || IMPERATIVE_LINKS.has(tokens[k - 1].lower)) && tokens[k - 1]?.lower !== "vous");
+            tokens.forEach((token, i) => {
+                if (token.punct) {
+                    return;
+                }
+                const prev = tokens[i - 1];
+                const next = tokens[i + 1];
+
+                // 1. Préposition (+ pronom) + participe ou 2e personne → infinitif :
+                //    « pensez à vous déconnectez », « Pour le renouvelé », « N'hésitez pas à passé »,
+                //    « Merci de redémarrez », « laisse à désiré », « Points à traités », « de produirent ».
+                // « Il ne les leur à pas imposés » : ce « à » est le verbe avoir, pas une préposition.
+                const avoirMisspelt = token.lower === "à" && prev && (OBJECT_PRONOUNS.has(prev.lower) || SUBJECTS.has(prev.lower));
+                // « a pour nous cessé » : temps composé ; « de lui vous prenez » : le pronom est le
+                // complément de la préposition, la suite est une autre proposition.
+                const compound = tokens.slice(Math.max(0, i - 2), i).some((t) => ["a", "ai", "as", "avons", "avez", "ont", "avait", "avaient", "est", "sont", "était", "été"].includes(t.lower));
+                const stressedObject = ["lui", "elle", "eux", "elles", "moi", "toi", "soi"].includes(text(i + 1));
+                if (INF_PREPS.has(token.lower) && hasConj && !avoirMisspelt && !compound && !stressedObject) {
+                    let j = i + 1;
+                    let clitic = false;
+                    let objectClitic = false;
+                    while (j < tokens.length && INF_CLITICS.has(tokens[j].lower) && j - i <= 3) {
+                        clitic ||= !["ne", "n'", "pas", "plus", "jamais", "rien"].includes(tokens[j].lower);
+                        objectClitic ||= ["me", "m'", "te", "t'", "se", "s'", "nous", "vous", "lui", "leur", "y", "en"].includes(tokens[j].lower);
+                        j++;
+                    }
+                    const skipped = j > i + 1;
+                    const w = tokens[j];
+                    if (w && !w.punct && /^\p{Ll}/u.test(w.text) && !has(w, /:Y/) && !NOT_PARTICIPLE.has(w.lower)) {
+                        const participle = /(?:é|ée|és|ées)$/.test(w.lower) && has(w, /:Q/);
+                        const second = /ez$/.test(w.lower) && has(w, /:V[^/]*:2p/);
+                        // Un verbe conjugué juste après « de » (« permet aux plantes de produirent ») ; jamais
+                        // après un pronom (« de lui voulait », « de vous y contribuera » : le verbe principal).
+                        const finite = !participle && !second && !skipped && has(w, /:V[^/]*:(?:Ip|Iq|Is|If|K|Sp)/) && !has(w, /:[NAQWGRM]/);
+                        const lemma = infinitiveOf(w);
+                        if (lemma && (participle || second || finite) && /(?:er|ir|re|oir)$/.test(lemma)) {
+                            const head = [...tokens.slice(0, i)].reverse().find((t) => !t.punct && !["ne", "n'", "pas", "plus", "jamais", "vous", "te", "me", "nous"].includes(t.lower));
+                            const headVerb = head && verbLemmas(head).some((l) => (token.lower === "à" ? A_INFINITIVE_VERBS.has(l) || l === "laisser" || l === "arriver" : DE_INF_LEMMAS.has(l)));
+                            const headWord = head && token.lower !== "à" && DE_INF_WORDS.has(head.lower);
+                            // « tenir pour acquis », « laisser pour mort » : adjectif attendu.
+                            const pourAttribute = token.lower === "pour" && head && verbLemmas(head).some((l) => ["tenir", "considérer", "compter", "laisser", "prendre", "donner", "passer", "faire"].includes(l));
+                            const noun = hasNounReading(w);
+                            const determinerBefore = ["le", "la", "les", "l'"].includes(text(j - 1)) && !objectClitic;
+                            const pluralParticipleAfterNoun = token.lower === "à" && participle && /s$/.test(w.lower) && !noun && !skipped && prev && hasNounReading(prev) && !has(prev, /:V/);
+                            const ok = (objectClitic && !noun)
+                                || (second && !noun && !determinerBefore)
+                                || (finite && ["de", "d'", "pour"].includes(token.lower))
+                                || (["pour", "sans"].includes(token.lower) && !noun && (participle || second) && !pourAttribute && !(determinerBefore && token.lower !== "pour"))
+                                || (headVerb && (participle || second) && !determinerBefore)
+                                || (headWord && (participle || second) && !noun && !determinerBefore)
+                                || pluralParticipleAfterNoun;
+                            if (ok && !(token.lower === "par" && participle)) {
+                                push(w, w.end, keepCase(w.text, lemma), MESSAGES.infinitif ?? "Après une préposition, le verbe se met à l'infinitif.", "prep_infinitif", "conjugaison");
+                            }
+                        }
+                    }
+                }
+
+                // 2. Consignes à l'impératif : « Faites fondre le beurre, puis ajouté le sucre »,
+                //    « piquez-la et enfourné », « ne tarder pas ! » → ajoutez, enfournez, tardez.
+                const isNe = ["ne", "n'"].includes(prev?.lower);
+                if (hasConj && (imperativeLine || (isNe && /!\s*$/.test(line))) && (i === 0 || prev.punct || IMPERATIVE_LINKS.has(prev.lower) || isNe)) {
+                    const w = token;
+                    if ((/(?:é|er)$/.test(w.lower) && (has(w, /:Q/) || has(w, /:Y/))) && !hasNounReading(w) && (!isNe || ["pas", "plus", "jamais"].includes(next?.lower)) && next?.lower !== "par") {
+                        const lemma = has(w, /:Y/) ? w.lower : infinitiveOf(w);
+                        const form = lemma && /er$/.test(lemma) ? conj.getConj(lemma, ":E", ":2p") : null;
+                        // « est arrêté et redémarré » : deux participes coordonnés, pas une consigne.
+                        const afterLink = (i > 0 && (IMPERATIVE_LINKS.has(prev.lower) || prev.text === "," || prev.text === ";") && !(i > 1 && isParticiple(tokens[i - 2]) && !has(tokens[i - 2], /:E/))) || isNe;
+                        if (form && form !== w.lower && (afterLink || (i === 0 && imperativeLine && next && !next.punct))) {
+                            push(w, w.end, keepCase(w.text, form), "Consigne à l'impératif : « " + form + " ».", "imperatif_consigne", "conjugaison");
+                        }
+                    }
+                }
+
+                // 3. « Ma sœur et malade » → est : groupe nominal sujet + « et » + adjectif seul.
+                const npStart = token.lower === "et" && i >= 2 ? simpleNounPhrase(tokens, i, null) : -1;
+                if (token.lower === "et" && next && npStart >= 0 && clauseStart(tokens, npStart) && !has(prev, /:A/)
+                    && has(next, /:[AQ]/) && (!hasNounReading(next) || STATE_ADJECTIVES.has(next.lower)) && !ALL_DETS.has(next.lower) && (endOrPunct(tokens[i + 2]) || ["et", "aujourd'hui", "depuis", "ce", "cette", "donc", "alors"].includes(text(i + 2)))
+                    && !has(next, /:V[^/]*:(?:Ip|Iq|If|K)/) && !tokens.slice(0, i).some((t) => ["et", "ou"].includes(t.lower))) {
+                    push(token, token.end, "est", MESSAGES.est, "et_est_attribut", "homophone");
+                }
+
+                // 4. « Merci a tous », « Bonjour a toi » → à.
+                if (token.lower === "a" && prev && ["merci", "bonjour", "salut", "bonsoir", "bienvenue", "bravo", "félicitations", "courage", "rendez-vous"].includes(prev.lower)
+                    && next && (["tous", "toutes", "toi", "vous", "tout", "demain", "bientôt", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"].includes(next.lower) || /^\p{Lu}/u.test(next.text) || ["la", "l'", "ma", "ta", "notre", "votre", "mon", "ton"].includes(next.lower))) {
+                    push(token, token.end, "à", MESSAGES.aPrep ?? "Ici, il faut la préposition « à ».", "a_prep", "homophone");
+                }
+
+                // 5. « Victor Hugo à écrit », « l'avion à décollé », « Tu à pensé » → a, as.
+                if (token.lower === "à" && next && isParticiple(next) && hasConj) {
+                    const subjectTu = prev?.lower === "tu";
+                    // Un nom propre (« Victor Hugo à écrit ») : inconnu du dictionnaire ou marqué :M, pas un verbe
+                    // en tête de phrase (« Pensez à vérifié »).
+                    const nameSubject = prev && /^\p{Lu}/u.test(prev.text) && !ALL_DETS.has(prev.lower) && (morph(prev).length === 0 || (has(prev, /:M/) && !has(prev, /:V/)))
+                        && (i - 1 === 0 || tokens[i - 2].punct || /^\p{Lu}/u.test(tokens[i - 2].text));
+                    const nounSubject = prev && nounPhraseBefore(tokens, i, "s", false);
+                    const after = tokens[i + 2];
+                    const strongObject = after && (ALL_DETS.has(after.lower) || /^\p{Lu}/u.test(after.text));
+                    const objectFollows = !after || after.punct || strongObject || ["avec", "pendant", "hier", "depuis", "en", "à", "au", "aux", "de", "du", "des", "tout", "très", "beaucoup", "trop", "bien", "mal", "déjà", "encore"].includes(after.lower);
+                    if ((subjectTu || nameSubject || nounSubject) && objectFollows && (!hasNounReading(next) || strongObject || subjectTu)) {
+                        push(token, token.end, subjectTu ? "as" : "a", MESSAGES.a, "a_verbe_avoir", "homophone");
+                    }
+                }
+
+                // 5b. « son mot de passe à été changé » → a été.
+                if (token.lower === "à" && next?.lower === "été" && tokens[i + 2] && isParticiple(tokens[i + 2]) && prev && (nounPhraseBefore(tokens, i, null, false) || SUBJECTS.has(prev.lower) || (/^\p{Lu}/u.test(prev.text) && morph(prev).length === 0))) {
+                    push(token, token.end, ["ils", "elles"].includes(prev.lower) ? "ont" : "a", MESSAGES.a, "a_ete", "homophone");
+                }
+
+                // 6. « ne veut n'y manger ni boire » → ni.
+                if (token.lower === "n'" && next?.lower === "y" && tokens[i + 2] && has(tokens[i + 2], /:Y/) && tokens.slice(i + 3, i + 6).some((t) => t.lower === "ni")) {
+                    push(token, next.end, "ni", MESSAGES.ni ?? "Ici, la négation « ni… ni… ».", "ny_ni", "homophone");
+                }
+
+                // 7. Homophones d'usage : tâche, plus tôt, ses propres, ou, et, qu'en, balade, voix, foie.
+                const STAIN_VERBS = /^(?:effacer|enlever|nettoyer|ravoir|retirer|détacher|faire|partir|laver|cacher|masquer|traiter)$/;
+                if (token.lower === "tache" && (["urgente", "importante", "quotidienne", "ménagère", "ingrate", "prioritaire", "principale"].includes(text(i + 1)) || (text(i + 1) === "à" && tokens[i + 2] && has(tokens[i + 2], /:Y/) && !STAIN_VERBS.test(text(i + 2))))) {
+                    push(token, token.end, "tâche", "« tache » est une salissure ; un travail à faire est une « tâche ».", "tache_tache", "homophone");
+                }
+                if (token.lower === "taches" && (["urgentes", "importantes", "ménagères", "quotidiennes", "prioritaires"].includes(text(i + 1)) || (text(i + 1) === "à" && tokens[i + 2] && has(tokens[i + 2], /:Y/)))) {
+                    push(token, token.end, "tâches", "Un travail à faire : « tâches ».", "tache_tache", "homophone");
+                }
+                if (token.lower === "plutôt" && text(i + 1) === "que" && ["d'habitude", "prévu", "d'ordinaire", "hier", "la", "les", "moi", "toi", "lui", "nous", "vous", "eux", "elle", "elles", "les autres"].includes(text(i + 2)) && verbLemmas(prev ?? {}).some((l) => EARLY_VERBS.has(l))) {
+                    push(token, token.end, "plus tôt", MESSAGES.plusTot, "plutot_que_plus_tot", "homophone");
+                }
+                if (token.lower === "plutôt" && text(i + 1) === "que" && text(i + 2) === "d'" && text(i + 3) === "habitude") {
+                    push(token, token.end, "plus tôt", MESSAGES.plusTot, "plutot_que_plus_tot", "homophone");
+                }
+                if (token.lower === "ces" && next?.lower === "propres" && tokens.slice(0, i).some((t) => ["chacun", "chacune", "il", "elle", "on", "personne", "quiconque"].includes(t.lower))) {
+                    push(token, token.end, "ses", "Possessif : « ses propres… ».", "ces_ses_propres", "homophone");
+                }
+                if (token.lower === "où" && prev && i >= 2 && (hasNounReading(prev) || isAcronym(prev)) && ["du", "de", "des", "un", "une", "le", "la", "les", "d'"].includes(text(i + 1))
+                    && (/\?\s*$/.test(line) || tokens.slice(0, i).some((t) => /^(?:veux|voulez|veut|préfères|préférez|préfère|choisis|choisissez|prends|prenez|aimes|aimez)$/.test(t.lower)))) {
+                    push(token, token.end, "ou", "« où » indique le lieu ; pour une alternative, c'est « ou ».", "ou_alternative", "homophone");
+                }
+                if (token.lower === "est" && prev && TIME_NOUNS.has(prev.lower) && ["le", "la", "l'"].includes(text(i + 1)) && tokens[i + 2] && TIME_NOUNS.has(tokens[i + 2].lower)) {
+                    push(token, token.end, "et", "Ici, il faut la conjonction « et ».", "est_et", "homophone");
+                }
+                if (token.lower === "quand" && prev && tokens.slice(Math.max(0, i - 3), i).some((t) => ["ne", "n'"].includes(t.lower)) && has(prev, /:V/) && next
+                    && (LANGUAGES.has(next.lower) || ["cas", "fin", "partie", "dernier", "plus", "général", "début", "semaine", "été", "hiver", "voiture", "ligne", "anglais", "français", "privé", "public"].includes(next.lower))) {
+                    push(token, token.end, "qu'en", "Ne… qu'en (= seulement en).", "quand_quen", "homophone");
+                }
+                if (["ballade", "ballades"].includes(token.lower) && (["au", "à", "en", "dans", "le", "sur", "avec", "dans", "digestive", "en"].includes(text(i + 1)) || ["fait", "faire", "fais", "faisons", "faites", "font", "petite", "grande", "belle", "jolie"].includes(prev?.lower))) {
+                    push(token, token.end, token.lower === "ballades" ? "balades" : "balade", "Une promenade est une « balade » ; une « ballade » est un poème ou une chanson.", "ballade_balade", "homophone");
+                }
+                if (["voie"].includes(token.lower) && (["belle", "jolie", "douce", "grave", "aiguë", "superbe", "magnifique", "forte", "faible", "rauque", "cassée", "grosse"].includes(prev?.lower) || ["haute", "basse"].includes(next?.lower) && prev?.lower === "à")) {
+                    push(token, token.end, "voix", "Ici, il s'agit de la « voix » (celle qu'on entend).", "voie_voix", "homophone");
+                }
+                if (token.lower === "foi" && ["au", "du"].includes(prev?.lower) && ["mal", "crise", "pâté", "cancer"].some((w) => tokens.slice(Math.max(0, i - 3), i).some((t) => t.lower === w))) {
+                    push(token, token.end, "foie", "L'organe est le « foie ».", "foi_foie", "homophone");
+                }
+
+                // 8. Accords divers : couleurs variables, « Tous ce que », « quatre-vingt », « bel » devant consonne.
+                if (["rose", "mauve", "pourpre", "écarlate", "fauve", "violette", "violet", "verte", "vert", "bleue", "noire", "blanche", "grise", "jaune", "rouge"].includes(token.lower) && prev && noun(prev, "p") && hasPlural(prev) && !/s$/.test(token.lower)
+                    && (endOrPunct(next) && next?.text !== ",") && tokens[i - 2] && (DET_PLUR.has(tokens[i - 2].lower) || (has(tokens[i - 2], /:A[^/]*:p/) && DET_PLUR.has(text(i - 3)))) && prev.lower !== "couleurs") {
+                    push(token, token.end, `${token.text}s`, "La couleur s'accorde avec le nom au pluriel.", "couleur_pluriel", "accord");
+                }
+                if (token.lower === "tous" && ["ce", "ceux", "cela"].includes(text(i + 1)) && ["que", "qu'", "qui"].includes(text(i + 2)) && text(i + 1) === "ce") {
+                    push(token, token.end, "tout", "« Tout ce que » : « tout » est invariable ici.", "tous_ce_que", "accord");
+                }
+                if (token.lower === "quatre-vingt" && next && /^(?:ans|euros|personnes|kilomètres|km|mètres|pages|jours|mois|fois|élèves|invités|participants|minutes|degrés|kilos|kg|%|centimes|places|ans,)$/.test(next.lower)) {
+                    push(token, token.end, "quatre-vingts", "« quatre-vingts » prend un s quand il n'est pas suivi d'un autre nombre.", "quatre_vingts", "accord");
+                }
+                if (["bel", "nouvel", "vieil", "fol", "mol"].includes(token.lower) && next && /^[bcdfgjklmnpqrstvwxz]/i.test(next.lower) && has(next, /:N/) && !has(next, /:N[^/]*:f/)) {
+                    const fixed = { bel: "beau", nouvel: "nouveau", vieil: "vieux", fol: "fou", mol: "mou" }[token.lower];
+                    push(token, token.end, fixed, `Devant une consonne : « ${fixed} ».`, "bel_beau", "accord");
+                }
+
+                // 9. Majuscules : nationalité adjectif et langue en minuscule, « noël » → Noël.
+                if (NATIONALITIES.has(token.text) && prev && ["est", "suis", "es", "sont", "sommes", "êtes", "était", "étais", "étaient"].includes(prev.lower) && i > 1 && SUBJECTS.has(text(i - 2)) && (endOrPunct(next) || ["et", "mais", "depuis", "comme", "aussi", "d'origine"].includes(next.lower))) {
+                    push(token, token.end, token.text.toLowerCase(), "Adjectif de nationalité : minuscule (« il est belge », un Belge).", "nationalite_minuscule", "majuscule");
+                }
+                if (LANGUAGE_NAMES.has(token.text) && prev && (SPEAK_VERBS.test(prev.lower) || (prev.lower === "en" && i > 1 && SPEAK_VERBS.test(tokens[i - 2].lower)) || ["le", "l'"].includes(prev.lower) && tokens[i - 2] && SPEAK_VERBS.test(tokens[i - 2].lower))) {
+                    push(token, token.end, token.text.toLowerCase(), "Les noms de langues s'écrivent en minuscule.", "langue_minuscule", "majuscule");
+                }
+                if (token.text === "noël") {
+                    push(token, token.end, "Noël", "La fête s'écrit avec une majuscule : « Noël ».", "noel_majuscule", "majuscule");
+                }
+
+                // 10. « 12% » → 12 % (le signe pour cent se sépare du nombre).
+                if (/^\d+(?:[.,]\d+)?$/.test(token.text) && next?.text === "%" && next.start === token.end) {
+                    push(token, next.end, `${token.text} %`, "Une espace (insécable) avant « % ».", "pourcent_espace", "typographie");
+                }
+
+                // 11. « L'utilisateur signal que » : nom employé à la place du verbe (signale).
+                const subjectStart = prev ? simpleNounPhrase(tokens, i, "s") : -1;
+                if (subjectStart >= 0 && clauseStart(tokens, subjectStart) && hasNounReading(token) && !has(token, /:V/) && next && ["que", "qu'"].includes(next.lower)) {
+                    const verb = `${token.lower}e`;
+                    if (getMorph(verb).some((m) => /:V[^/]*:Ip[^/]*:3s/.test(m))) {
+                        push(token, token.end, keepCase(token.text, verb), `Verbe : « ${verb} ».`, "nom_verbe", "conjugaison");
+                    }
+                }
+            });
+        }
+
         function grammarRules(tokens, push, vetoes) {
             tokens.forEach((token, i) => {
                 if (token.punct) {
@@ -2172,6 +2396,7 @@ const Homophones = (() => {
                 }
             });
             grammarRules(tokens, push, results.vetoes);
+            campaignRules(tokens, push, line);
             if (options.formal) {
                 registerRules(tokens, push, (kind) => {
                     results.at(-1).kind = kind;
