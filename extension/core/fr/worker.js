@@ -1365,11 +1365,21 @@ function orderConjugation(line, grammar) {
 // Chaque suggestion d'orthographe est essayée dans la phrase : celle que Grammalecte accepte sans
 // nouvelle faute autour passe devant (« Il pleuvais » → pleuvait, pas « pleurais » ; « ils sachrnt »
 // → sachent). Les quatre premières seulement, et seulement si l'essai les départage.
+// Garde-fous : seule la phrase du mot est réanalysée (un texte peut tenir sur une seule ligne de 40 Ko),
+// et au plus FIT_BUDGET mots par analyse (un texte anglais vérifié en français : un mot sur deux est
+// « absent du dictionnaire »).
+const FIT_BUDGET = 40;
+let fitBudget = FIT_BUDGET;
 const fitCache = new Map();
 function fitInSentence(line, start, end, suggestions) {
-    if (suggestions.length < 2) {
+    if (suggestions.length < 2 || fitBudget <= 0) {
         return suggestions;
     }
+    fitBudget--;
+    const [from, to] = sentenceBounds(line, start, end);
+    line = line.slice(from, to);
+    start -= from;
+    end -= from;
     const top = suggestions.slice(0, 4);
     const counts = top.map((suggestion) => {
         const variant = line.slice(0, start) + suggestion + line.slice(end);
@@ -1613,6 +1623,7 @@ function capitalAtStart(line, previous) {
 
 function check(text, formal = false, repetitionDistance = 0) {
     setFormal(formal);
+    fitBudget = FIT_BUDGET;
     const start = performance.now();
     const matches = [];
     let offset = 0;

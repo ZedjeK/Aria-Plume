@@ -143,6 +143,7 @@ function rankTypos(original, suggestions, { prev = "", next = "" } = {}) {
 }
 
 const GRAMMAR_KINDS = /^(?:Agreement|Grammar|Miscellaneous|Usage|Word ?Choice)$/i;
+const fitCache = new Map();
 async function fitInSentence(text, start, end, suggestions) {
     // La phrase seulement (jusqu'aux ponctuations fortes), pour un essai rapide.
     const from = Math.max(text.lastIndexOf(".", start - 1), text.lastIndexOf("!", start - 1), text.lastIndexOf("?", start - 1), text.lastIndexOf("\n", start - 1)) + 1;
@@ -156,10 +157,17 @@ async function fitInSentence(text, start, end, suggestions) {
     for (const suggestion of top) {
         const sentence = text.slice(from, start) + suggestion + text.slice(end, to);
         const at = start - from;
-        const near = (s, e) => e > at - 20 && s < at + suggestion.length + 20;
-        const harper = (await linter.lint(sentence, { language: "plaintext" })).filter((lint) => GRAMMAR_KINDS.test(lint.lint_kind()) && near(lint.span().start, lint.span().end)).length;
-        const aria = findEnglishRules(sentence).filter((r) => r.kind === "grammaire" && near(r.start, r.end)).length;
-        counts.push(harper + aria);
+        const key = `${at}|${sentence}`;
+        if (!fitCache.has(key)) {
+            if (fitCache.size > 500) {
+                fitCache.clear();
+            }
+            const near = (s, e) => e > at - 20 && s < at + suggestion.length + 20;
+            const harper = (await linter.lint(sentence, { language: "plaintext" })).filter((lint) => GRAMMAR_KINDS.test(lint.lint_kind()) && near(lint.span().start, lint.span().end)).length;
+            const aria = findEnglishRules(sentence).filter((r) => r.kind === "grammaire" && near(r.start, r.end)).length;
+            fitCache.set(key, harper + aria);
+        }
+        counts.push(fitCache.get(key));
     }
     if (new Set(counts).size < 2) {
         return suggestions;
@@ -223,7 +231,9 @@ async function check(text, dialect) {
     // (« moring » → « mo ring », « tited » → « ti ted ») ou des mots rares (« dors » → dirs, dobs). On
     // cherche aussi les mots courants à une retouche (lettre oubliée, en trop, voisine, inversée),
     // validés par Harper, et on classe le tout : coût de frappe, puis fréquence d'usage.
-    const typos = matches.filter((m) => m.kind === "orthographe" && /^[A-Za-z]{3,}$/.test(text.slice(m.start, m.end)));
+    // Au plus 80 mots par analyse (un texte français vérifié en anglais : presque tous les mots), et
+    // seulement des mots de longueur raisonnable.
+    const typos = matches.filter((m) => m.kind === "orthographe" && /^[A-Za-z]{3,30}$/.test(text.slice(m.start, m.end))).slice(0, 80);
     const candidates = new Map(typos.map((m) => [m, editCandidates(text.slice(m.start, m.end).toLowerCase())]));
     const pool = [...new Set([...candidates.values()].flat())];
     if (pool.length) {
@@ -248,7 +258,7 @@ async function check(text, dialect) {
     }
     // Chaque suggestion est essayée dans la phrase (les trois premières) : celle qui ne crée pas de
     // faute de grammaire autour passe devant (« we arrie home » → arrive, pas « aerie »).
-    for (const m of typos) {
+    for (const m of typos.slice(0, 30)) {
         if (m.suggestions.length > 1) {
             m.suggestions = await fitInSentence(text, m.start, m.end, m.suggestions);
         }
