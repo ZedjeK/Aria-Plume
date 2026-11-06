@@ -3,7 +3,7 @@
     "name": "Aria Plume",
     "short_name": "Aria Plume",
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBHrMKJlN0afVrWWNPpp6aNgQQIfsQpdOmWxHw1UjcUCrgXF4g7kSC2p6lLigewAa1bfJ+g1FicBlGRcHkET4EGHguZGmi6WTQHoMTCnNblrC2XN8Ru++fUkZz7BekLQ+zr9tyU5Z2R7IDvW07inTBLzgywVSLM4AOI6ZiyqaC73JaNVGd8AKHWKsYXXq5n4g0TQ9G4m6z0+w7pmW4H1Dt4Galeq+8cE5hISGh0OgLsMKRHS5S8VouMx/tcdcRrJkx7bLhP4rArqFska7CZO/CEn7aIuCaVft3kNLJp7cF0EE4b4xkGvLGhp5P1RbmGPiQCR/vqB1ncf67ejZ2KhfQIDAQAB",
-    "version": "0.37.0",
+    "version": "0.38.0",
     "description": "Correcteur français/anglais et traduction, 100 % locaux : correction en direct, traduction de sélection et de page entière.",
     "icons": {
         "16": "icons/icon-16.png",
