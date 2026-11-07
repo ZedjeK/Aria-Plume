@@ -1,20 +1,20 @@
 /* Aria Plume — vagues des zones éditables (API CSS Custom Highlight).
    Feuille déclarée dans le manifeste : appliquée comme style d'extension, non bloquée par la CSP des pages. */
 ::highlight(aria-odl-orthographe) {
-    text-decoration: underline wavy #e5484d;
+    text-decoration: underline wavy #ff5c7a;
     text-decoration-thickness: 1.5px;
     text-decoration-skip-ink: none;
 }
 
 ::highlight(aria-odl-grammaire) {
-    text-decoration: underline wavy #f59e0b;
+    text-decoration: underline wavy #ff8a1f;
     text-decoration-thickness: 1.5px;
     text-decoration-skip-ink: none;
 }
 
 ::highlight(aria-odl-style),
 ::highlight(aria-odl-typographie) {
-    text-decoration: underline wavy #0ea5e9;
+    text-decoration: underline wavy #5c8bff;
     text-decoration-thickness: 1.5px;
     text-decoration-skip-ink: none;
 }

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" width="140" alt="Logo d'Aria Plume : un A néon glitché traversé d'une plume orange">
+  <img src="docs/logo.png" width="160" alt="Logo d'Aria Plume : un A néon glitché traversé d'une plume orange">
 </p>
 
 <h1 align="center">Aria Plume</h1>

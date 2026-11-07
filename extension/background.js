@@ -29,7 +29,7 @@ chrome.runtime.onInstalled.addListener(() => {
 async function flagError(tabId, error) {
     console.warn("Aria Plume : action impossible sur cette page", error);
     try {
-        await chrome.action.setBadgeBackgroundColor({ tabId, color: "#ff4fd8" });
+        await chrome.action.setBadgeBackgroundColor({ tabId, color: "#ff8a1f" });
         await chrome.action.setBadgeText({ tabId, text: "!" });
         await chrome.action.setTitle({ tabId, title: `Aria Plume : action impossible sur cette page (${error?.message ?? error})` });
         setTimeout(() => {

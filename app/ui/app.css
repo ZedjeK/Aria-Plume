@@ -73,7 +73,7 @@ body.app #bench {
 .app-options .hotkey:focus {
     outline: none;
     border-color: var(--cyan);
-    box-shadow: 0 0 0 2px rgba(62, 230, 255, 0.25);
+    box-shadow: 0 0 0 2px rgba(125, 249, 255, 0.25);
 }
 
 .app-options .status.error {
@@ -104,14 +104,14 @@ body.app #bench {
     padding: 10px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: #0f1220;
+    background: var(--surface-sunken);
     color: var(--text);
     font: 13px var(--mono);
     resize: vertical;
 }
 
 .app-options .status.available {
-    color: var(--cyan, #3ee6ff);
+    color: var(--cyan, var(--accent));
     font-weight: 600;
 }
 
@@ -140,15 +140,15 @@ body.app #bench {
 }
 
 .app-options .checks .ok .mark {
-    color: var(--ok, #3ddc97);
+    color: var(--ok, var(--accent));
 }
 
 .app-options .checks .ko .mark {
-    color: var(--ko, #ff6b6b);
+    color: var(--ko, var(--danger));
 }
 
 .app-options .checks small {
-    color: var(--muted, #a5a2b5);
+    color: var(--muted, var(--muted));
 }
 
 .app-options .steps {
@@ -169,6 +169,6 @@ body.app #bench {
     overflow-wrap: anywhere;
     padding: 8px;
     border-radius: 6px;
-    font: 12px Consolas, monospace;
+    font: 12px var(--font-body);
     background: rgba(0, 0, 0, 0.25);
 }

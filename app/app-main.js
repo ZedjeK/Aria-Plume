@@ -76,8 +76,9 @@ const SERVED = [
     { prefix: "content/", root: path.join(ENGINE_ROOT, "content") },
     { prefix: "icons/", root: path.join(ENGINE_ROOT, "icons") },
     { prefix: "core/shared/", root: path.join(ENGINE_ROOT, "core", "shared") },
+    { prefix: "fonts/", root: path.join(ENGINE_ROOT, "fonts") },
 ];
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml" };
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2" };
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'";
 const WINDOW_URL = "aria://app/popup/popup.html";
 const OPTIONS_URL = "aria://app/options/options.html";

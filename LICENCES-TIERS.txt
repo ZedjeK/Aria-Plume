@@ -96,6 +96,27 @@ Utilisées seulement par le banc de mesure, pas par l'extension.
       (fichiers data.* du paquet npm wordnet-db 3.1.14, voir plus haut), une par ligne.
       Licence : licence WordNet. SHA-256 86e3d37fbd1c71cc2f751b9e1a8aaa0c9f6387a84a7dfc7e691143094025ba1f
 
+== Polices Space Grotesk 5.2.8 et IBM Plex Mono 5.2.7 (Fontsource) ==
+
+Polices de l'interface (popup, réglages, appli de bureau), communes aux applis Aria.
+Source : paquets npm @fontsource/space-grotesk 5.2.8 et @fontsource/ibm-plex-mono 5.2.7,
+fichiers woff2 copiés sans modification (sous-ensembles latin et latin-ext)
+Licence : SIL Open Font License 1.1 (mentions et textes joints : OFL-Space-Grotesk.txt,
+OFL-IBM-Plex-Mono.txt)
+Dossier : extension/fonts/
+  ibm-plex-mono-latin-400-normal.woff2       SHA-256 08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7
+  ibm-plex-mono-latin-500-normal.woff2       SHA-256 01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22
+  ibm-plex-mono-latin-600-normal.woff2       SHA-256 0d1f0b8d0722224e32e9f28261bdc86c79115be73444ae5eceb73976a1bcdf83
+  ibm-plex-mono-latin-ext-400-normal.woff2   SHA-256 6bc0f226a5b7884a8170e3f62c63d7675609d4631bdc5931b5cdab81821f00eb
+  ibm-plex-mono-latin-ext-500-normal.woff2   SHA-256 6bb06407c97584b0867a959e05e8874693bfeb8c317de190811c51598f2d99ea
+  ibm-plex-mono-latin-ext-600-normal.woff2   SHA-256 32057cf50dd14bdb21a2c93766c4a2c43e4abe688ea3922df3203cac7751a98b
+  space-grotesk-latin-500-normal.woff2       SHA-256 b44b71f623fcf4a4ed91b70539e6cf4439599a5e3c746871e17703aa1aad90f3
+  space-grotesk-latin-600-normal.woff2       SHA-256 e5b2596788170dc4041f756cb56f2d9096b638a3d49dac9fc17e998908797b1e
+  space-grotesk-latin-700-normal.woff2       SHA-256 8640d7dcce31a093ed62b99472bf25c5159eb7d74f9f112f9b566dbe096a1222
+  space-grotesk-latin-ext-500-normal.woff2   SHA-256 ed7e064eda944f88ce2f40101ec20e214004decdf5c0b9ad9219ae21be2dbf13
+  space-grotesk-latin-ext-600-normal.woff2   SHA-256 0bdc872e2806e0eb2ecca08221ea0b49d36efd9b9239a5744b81afbc0376e9cf
+  space-grotesk-latin-ext-700-normal.woff2   SHA-256 7ce350b706d79c955ebf91314295f39fa82999f980b7e9beee743c2f3580a15e
+
 ==============================================================================
 GNU GENERAL PUBLIC LICENSE, version 3
 ==============================================================================

@@ -55,6 +55,7 @@
                     "popup/**",
                     "content/**",
                     "icons/**",
+                    "fonts/**",
                     "options/**",
                     "offscreen/**",
                     "test/**",
