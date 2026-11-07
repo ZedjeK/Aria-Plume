@@ -1,22 +1,70 @@
 <p align="center">
-  <img src="docs/logo.png" width="160" alt="Logo d'Aria Plume : un A néon glitché traversé d'une plume orange">
+  <img src="docs/logo.png" width="140" alt="Logo d'Aria Plume : un A néon glitché traversé d'une plume orange">
 </p>
 
 <h1 align="center">Aria Plume</h1>
 
+<p align="center"><b>Écris sans fautes. Traduis sans fuite.</b></p>
+
 <p align="center">
-  Un correcteur et un traducteur français ↔ anglais pour Opera GX et les navigateurs Chromium.<br>
-  Tout se passe sur ton PC : aucun serveur, aucun compte, pas un octet ne sort de ta machine.<br>
-  Rien à installer : une extension, et c'est tout.
+  Un correcteur et un traducteur français ↔ anglais qui tourne entièrement sur ton PC.<br>
+  Aucun serveur, aucun compte : ton texte ne quitte jamais ta machine.
 </p>
 
 <p align="center">
-  <a href="#installation"><b>Installer l'extension</b></a> · v0.38 · Opera GX et navigateurs Chromium récents · licence MIT (code d'Aria) / GPL-3.0 (ensemble)
+  <a href="https://github.com/ZedjeK/Aria-Plume/releases/latest"><img src="https://img.shields.io/github/v/release/ZedjeK/Aria-Plume?label=version&color=ff8a1f" alt="Dernière version"></a>
+  <img src="https://img.shields.io/badge/Windows%20%C2%B7%20Opera%20GX%20%C2%B7%20Chromium-0a1633" alt="Windows, Opera GX et navigateurs Chromium">
+  <img src="https://img.shields.io/badge/100%20%25-local-5ef2f5?labelColor=0a1633" alt="100 % local">
+  <img src="https://img.shields.io/badge/licence-MIT%20%2F%20GPL--3.0-5b8cff" alt="Licence MIT (code d'Aria) et GPL-3.0 (ensemble)">
+</p>
+
+<p align="center">
+  <a href="https://github.com/ZedjeK/Aria-Plume/releases/latest"><b>Télécharger</b></a> ·
+  <a href="#installation"><b>Installer</b></a> ·
+  <a href="#en-images"><b>En images</b></a> ·
+  <a href="#sécurité"><b>Sécurité</b></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/mail-infobulle.webp" width="780" alt="Un mail en cours d'écriture : quatre fautes soulignées en orange, et l'infobulle d'Aria Plume qui propose « est » à la place de « et ».">
 </p>
 
 La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O**util **D**e **L**angage).
 
+## En bref
+
+- **Correction en direct** dans tes pages web (Gmail, Discord, claude.ai…) : clic droit sur une faute soulignée, l'infobulle explique et corrige. Homophones, accords à distance, concordance des temps : ce que les correcteurs laissent passer.
+- **Traduction** d'une sélection ou d'une page entière, dans les deux sens, avec ton glossaire et un registre cohérent (tu ou vous).
+- **Popup** avec traduction rapide, correcteur et conjugueur complet.
+- **Application Windows** : <kbd>Alt+Maj+C</kbd> sur une sélection dans n'importe quel logiciel, compléments **Word** et **Outlook**, serveur **MCP** pour prêter ces outils à ton IA.
+- **100 % local** : les moteurs (Grammalecte, Harper, Bergamot et les modèles de Mozilla) tournent chez toi, et l'extension n'a aucun accès au réseau.
+- **Gratuit et libre**, sans compte ni pistage.
+
+## En images
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/page-traduite.webp" alt="Un article anglais sur l'auto-hébergement, affiché en français, avec la barre d'Aria Plume : EN vers FR, Voir l'original."></td>
+    <td width="50%"><img src="docs/images/appli-correction.webp" alt="L'application Aria Plume : « Les enfant sont partit a la plage », trois fautes expliquées et leurs corrections."></td>
+  </tr>
+  <tr>
+    <td><b>Une page entière traduite</b>, liens et mise en forme gardés, un clic pour revoir l'original.</td>
+    <td><b>L'application Windows</b> : correction, traduction et conjugaison, aussi sur une sélection dans n'importe quel logiciel (<kbd>Alt+Maj+C</kbd>).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/popup.webp" alt="La popup d'Aria Plume : correction en direct activée, et une phrase française traduite en anglais."></td>
+    <td>
+      <b>La popup</b> : traduction rapide dans les deux sens, correcteur, conjugueur et réglages pour le site ouvert. Elle s'ouvre aussi dans une fenêtre séparée qui reste à côté de ton travail.
+      <br><br>
+      Captures prises sur la version 0.38, sans retouche.
+    </td>
+  </tr>
+</table>
+
 ## Ce qu'il fait
+
+<details>
+<summary><b>Toutes les fonctions en détail</b> (cliquer pour déplier)</summary>
 
 | Fonction | Ce que ça fait | Moteur |
 | --- | --- | --- |
@@ -43,6 +91,8 @@ La plume de l'écrivain, pour des textes soignés. Anciennement *Aria ODL* (**O*
 | **Correcteur dans la popup** | Onglet *Correction* de la popup et de la fenêtre séparée : écris ou colle un texte, les fautes se soulignent comme dans les pages (clic droit pour corriger, *Tout corriger*, Copier). Langue automatique, ou imposée en français ou en anglais. **Récupérer** prend le texte sélectionné dans la page, **Renvoyer** l'y remet corrigé ; **Traduire** l'envoie dans l'onglet Traduction ; un compteur donne fautes, répétitions, mots et temps de lecture ; dans la fenêtre séparée assez large, la liste des fautes s'affiche à droite du texte. Marche même si la correction en direct est coupée | Grammalecte, Harper |
 | **Traduction rapide** | Deux bulles dans la popup ou dans une fenêtre séparée : écrire dans l'une traduit vers l'autre, dans les deux sens | Bergamot + modèles Mozilla |
 | **Avec l'application** | Si l'application de bureau est installée (version zip) et les navigateurs connectés, l'extension lui confie l'analyse, la traduction, la conjugaison et les synonymes, et partage ses réglages avec elle : un seul dictionnaire, un seul glossaire partout. La popup affiche « Moteur : application ✓ ». L'application démarre toute seule en arrière-plan quand l'extension en a besoin ; si elle ne répond pas, l'extension reprend son propre moteur | Le moteur de l'application, par la messagerie native du navigateur |
+
+</details>
 
 La langue est détectée toute seule. Le banc d'essai, accessible depuis la popup, mesure les temps de réponse et vérifie que le navigateur accepte l'extension.
 
