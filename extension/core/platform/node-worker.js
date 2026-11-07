@@ -15,8 +15,8 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 // Harper lit son WebAssembly avec new URL(…).pathname : les accents et les espaces y restent
-// encodés (« Jérémy » → « J%C3%A9r%C3%A9my ») et un chemin Windows y garde la forme « /C:/… ».
-// Dès que le dossier de l'application contient un accent ou un espace (C:\Users\Jérémy…), le
+// encodés (« Héléna » → « H%C3%A9l%C3%A9na ») et un chemin Windows y garde la forme « /C:/… ».
+// Dès que le dossier de l'application contient un accent ou un espace (C:\Users\Héléna…), le
 // fichier est introuvable et la correction anglaise ne trouve plus rien. Sans toucher à Harper
 // (copié sans modification) : dans ce worker seulement, un chemin introuvable de cette forme est
 // relu une fois décodé.

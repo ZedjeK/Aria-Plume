@@ -1,7 +1,7 @@
 // Inscriptions dans le registre de Windows (complément Word, pont avec l'extension), avec un faux
 // PowerShell : ce que l'application lui envoie (script, variables), et ce qu'elle fait de ses
 // réponses (succès relu, échec, valeur relue différente, aucune sortie).
-// Le vrai PowerShell ne tourne que sous Windows : la vérification finale se fait chez Jérémy.
+// Le vrai PowerShell ne tourne que sous Windows : la vérification finale se fait sur un vrai poste Windows.
 //     node tests/registry.mjs
 import fs from "node:fs";
 import os from "node:os";
@@ -16,7 +16,7 @@ const check = (label, ok, detail = "") => {
     failures += ok ? 0 : 1;
 };
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-registre-"));
-const dir = path.join(root, "Jérémy Zémani", ".Aria-Plume", "office");
+const dir = path.join(root, "Héléna Bérani", ".Aria-Plume", "office");
 const manifest = path.join(dir, "manifeste-word.xml");
 const calls = [];
 // Faux PowerShell : enregistre l'appel, répond ce qu'on lui dit.
@@ -33,7 +33,7 @@ check("sortie en UTF-8 sans BOM, erreurs bloquantes", PREAMBLE.includes("UTF8Enc
 const word = await registerWord({ dir, origin: "https://localhost:47823", version: "0.36.1", platform: "win32", run: fake((script, env) => ({ ok: true, output: env.ARIA_MANIFESTE, error: "" })) });
 const sent = calls.at(-1);
 check("Word : chemin du manifeste passé par une variable, pas dans le script", sent.env.ARIA_MANIFESTE === manifest && !sent.script.includes(manifest) && fs.existsSync(manifest));
-check("Word : script de Jérémy (clé, écriture, relecture)", sent.script.includes("'HKCU:\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer'") && sent.script.includes("Set-ItemProperty -Path $cle -Name $manifeste -Value $manifeste") && sent.script.includes("(Get-ItemProperty -Path $cle -ErrorAction Stop).$manifeste"), sent.script);
+check("Word : script vérifié sous Windows (clé, écriture, relecture)", sent.script.includes("'HKCU:\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer'") && sent.script.includes("Set-ItemProperty -Path $cle -Name $manifeste -Value $manifeste") && sent.script.includes("(Get-ItemProperty -Path $cle -ErrorAction Stop).$manifeste"), sent.script);
 check("Word : inscrit seulement si la relecture donne le chemin", word.registered === true && word.error === null);
 const unreadable = await registerWord({ dir, origin: "https://localhost:47823", version: "0.36.1", platform: "win32", run: fake({ ok: true, output: "", error: "" }) });
 check("Word : relecture vide → pas inscrit, raison donnée", unreadable.registered === false && /relue/.test(unreadable.error), unreadable.error);

@@ -1368,8 +1368,11 @@ function orderConjugation(line, grammar) {
 // Garde-fous : seule la phrase du mot est réanalysée (un texte peut tenir sur une seule ligne de 40 Ko),
 // et au plus FIT_BUDGET mots par analyse (un texte anglais vérifié en français : un mot sur deux est
 // « absent du dictionnaire »).
-// Modèle de langue (paires de mots, Tatoeba) : chargé à la première faute d'orthographe. Il remonte la
-// suggestion que les mots voisins rendent nettement plus probable (« Nous paryons à Paris » → partons).
+// Modèle de langue (paires de mots, Tatoeba) : il remonte la suggestion que les mots voisins rendent
+// nettement plus probable (« Nous paryons à Paris » → partons) et repère les homophones (voir check()).
+// Chargé à la première vérification, même sans faute (les homophones en ont besoin) : importScripts
+// synchrone de ngrammes-fr.js (≈ 6 Mo), puis tables construites au premier ready(). Une seule fois
+// par worker ; ce premier check() attend.
 let ngramsLoaded = false;
 function loadNgrams() {
     if (!ngramsLoaded) {

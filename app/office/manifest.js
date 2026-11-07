@@ -246,8 +246,8 @@ export function writeOutlookManifest({ dir, origin, version }) {
 }
 
 // --- Inscription dans Word (Windows) ---
-// Par PowerShell, avec les commandes vérifiées chez Jérémy (l'appel direct à reg.exe depuis
-// l'application ne laissait aucune trace dans le registre sur son PC). Le chemin du manifeste passe
+// Par PowerShell, avec les commandes vérifiées sous Windows (l'appel direct à reg.exe depuis
+// l'application ne laissait aucune trace dans le registre lors d'un essai réel). Le chemin du manifeste passe
 // par une variable d'environnement : aucun souci de guillemets ni de caractères spéciaux.
 const KEY = "HKCU:\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer";
 export const POWERSHELL_SCRIPTS = {

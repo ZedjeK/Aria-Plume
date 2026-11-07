@@ -33,8 +33,8 @@ const check = (label, ok, detail = "") => {
 
 // --- 1. Historique cité ---
 const REPLIES = {
-    "Outlook (fr)": "Merci, c'est noté.\n\nDe : Paul Martin <paul@exemple.fr>\nEnvoyé : lundi 2 novembre 2026 10:00\nÀ : Jérémy\nObjet : Serveur\n\nLe serveur est tombé.",
-    "Outlook (en)": "Thanks, noted.\r\n\r\nFrom: Paul Martin <paul@example.com>\r\nSent: Monday, November 2, 2026 10:00 AM\r\nTo: Jérémy\r\n\r\nThe server is down.",
+    "Outlook (fr)": "Merci, c'est noté.\n\nDe : Paul Martin <paul@exemple.fr>\nEnvoyé : lundi 2 novembre 2026 10:00\nÀ : Héléna\nObjet : Serveur\n\nLe serveur est tombé.",
+    "Outlook (en)": "Thanks, noted.\r\n\r\nFrom: Paul Martin <paul@example.com>\r\nSent: Monday, November 2, 2026 10:00 AM\r\nTo: Héléna\r\n\r\nThe server is down.",
     "Gmail (fr)": "D'accord pour demain.\n\nLe lun. 2 nov. 2026 à 10:00, Paul Martin <paul@exemple.fr> a écrit :\n> On se voit demain ?",
     "Gmail (en)": "Sounds good.\n\nOn Mon, Nov 2, 2026 at 10:00 AM Paul Martin <paul@example.com> wrote:\n> See you tomorrow?",
     "ancien Outlook": "Vu.\n\n-----Original Message-----\nFrom: Paul\nIl faut redémarrer.",
@@ -44,7 +44,7 @@ for (const [label, text] of Object.entries(REPLIES)) {
     const { text: part, note } = messageToTranslate(text);
     check(`historique coupé : ${label}`, !/Paul|redémarrer|server is down|serveur est tombé|tomorrow|demain \?/.test(part) && part.length > 0 && /historique/.test(note), JSON.stringify(part));
 }
-check("sans historique : message entier, pas de note", messageToTranslate("Bonjour,\n\nLe serveur redémarre à 22 h.\nJérémy").text === "Bonjour,\n\nLe serveur redémarre à 22 h.\nJérémy" && messageToTranslate("Bonjour").note === "");
+check("sans historique : message entier, pas de note", messageToTranslate("Bonjour,\n\nLe serveur redémarre à 22 h.\nHéléna").text === "Bonjour,\n\nLe serveur redémarre à 22 h.\nHéléna" && messageToTranslate("Bonjour").note === "");
 check("message transféré sans mot : le début ne compte pas", quoteStart("-----Original Message-----\nFrom: Paul\nTexte") === -1);
 check("« De : » seul dans une phrase : pas un historique", quoteStart("Bonjour,\nDe : mon côté, tout va bien.\nMerci") === -1);
 const huge = messageToTranslate("mot ".repeat(8000));

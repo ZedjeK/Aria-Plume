@@ -1,5 +1,5 @@
 // Banc « textes2 » : deuxième série de textes du quotidien (français et anglais), écrite le
-// 29/10/2026 à la demande de Jérémy (« perfectionner au maximum les règles ») AVANT tout correctif
+// 29/10/2026 à la demande du mainteneur (« perfectionner au maximum les règles ») AVANT tout correctif
 // de cette campagne, sans regarder ce que le moteur sait faire. Même balisage que textes.mjs :
 //
 //     {{faute=>correction|catégorie}}

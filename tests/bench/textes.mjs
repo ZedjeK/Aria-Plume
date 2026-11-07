@@ -8,7 +8,7 @@
 // Tout ce qui n'est pas balisé est censé être juste : une alerte d'orthographe ou de grammaire
 // ailleurs compte comme fausse alerte.
 //
-// Textes écrits par Claude le 26/10/2026 à la demande de Jérémy, sans regarder ce que le moteur
+// Textes écrits par Claude le 26/10/2026 à la demande du mainteneur, sans regarder ce que le moteur
 // sait faire : des fautes courantes, y compris celles qu'il ne trouve pas encore.
 
 export const textes = [
