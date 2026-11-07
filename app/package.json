@@ -63,6 +63,14 @@
                     "bridge-client.js",
                     "THIRD_PARTY.md"
                 ]
+            },
+            {
+                "from": "../LICENSE",
+                "to": "LICENSE"
+            },
+            {
+                "from": "../LICENCES-TIERS.txt",
+                "to": "LICENCES-TIERS.txt"
             }
         ],
         "win": {

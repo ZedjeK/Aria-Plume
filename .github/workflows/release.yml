@@ -93,7 +93,16 @@ jobs:
               run: npx electron-builder --win --x64 --publish never
 
             - name: Construire l'extension
-              run: git archive --format=zip --prefix=extension/ -o "Aria-Plume-extension-${TAG#v}.zip" HEAD:extension
+              run: |
+                  zip_ext="$PWD/Aria-Plume-extension-${TAG#v}.zip"
+                  git archive --format=zip --prefix=extension/ -o "$zip_ext" HEAD:extension
+                  # La GPL-3.0 et la MPL-2.0 exigent que leurs textes accompagnent chaque copie :
+                  # LICENSE et LICENCES-TIERS.txt vivent à la racine, hors de extension/.
+                  tmp="$(mktemp -d)"
+                  mkdir "$tmp/extension"
+                  cp LICENSE LICENCES-TIERS.txt "$tmp/extension/"
+                  (cd "$tmp" && zip -q "$zip_ext" extension/LICENSE extension/LICENCES-TIERS.txt)
+                  unzip -l "$zip_ext" extension/LICENSE extension/LICENCES-TIERS.txt
 
             - name: Publier la release
               env:
