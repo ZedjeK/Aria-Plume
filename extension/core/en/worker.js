@@ -144,6 +144,9 @@ function rankTypos(original, suggestions, { prev = "", next = "" } = {}) {
 
 const GRAMMAR_KINDS = /^(?:Agreement|Grammar|Miscellaneous|Usage|Word ?Choice)$/i;
 const fitCache = new Map();
+// Modèle de langue (paires de mots, Tatoeba) : chargé à la première vérification, même sans faute (les
+// homophones en ont besoin) : import de ngrammes-en.js (≈ 10 Mo), puis tables construites au premier
+// ready(). Une seule fois par worker ; ce premier check() attend.
 let ngramsLoaded = false;
 async function loadNgrams() {
     if (!ngramsLoaded) {
@@ -270,7 +273,7 @@ async function check(text, dialect) {
     }
     // Chaque suggestion est essayée dans la phrase (les trois premières) : celle qui ne crée pas de
     // faute de grammaire autour passe devant (« we arrie home » → arrive, pas « aerie »).
-    // Modèle de langue (paires de mots, Tatoeba), chargé au premier besoin : la suggestion que les
+    // Modèle de langue (paires de mots, Tatoeba) : la suggestion que les
     // voisins rendent nettement plus probable passe devant (« when we arrie home » → arrive).
     if (typos.length) {
         await loadNgrams();
