@@ -48,10 +48,10 @@
     "controle2": {
         "found": 97,
         "fixed": 94,
-        "firstRank": 93,
+        "firstRank": 94,
         "total": 102,
         "falseAlerts": 1,
-        "oneClick": 115
+        "oneClick": 116
     },
     "textes3": {
         "found": 131,
@@ -80,10 +80,10 @@
     "controle4": {
         "found": 179,
         "fixed": 172,
-        "firstRank": 169,
+        "firstRank": 170,
         "total": 217,
         "falseAlerts": 15,
-        "oneClick": 206
+        "oneClick": 207
     },
     "traduction": {
         "ok": 284,
@@ -100,18 +100,18 @@
     "grandfr": {
         "found": 1097,
         "fixed": 1096,
-        "firstRank": 1091,
+        "firstRank": 1094,
         "total": 1143,
         "falseAlerts": 1,
-        "oneClick": 2221
+        "oneClick": 2224
     },
     "granden": {
         "found": 701,
         "fixed": 700,
-        "firstRank": 699,
+        "firstRank": 700,
         "total": 706,
         "falseAlerts": 2,
-        "oneClick": 1362
+        "oneClick": 1363
     },
     "grandtr": {
         "ok": 580,

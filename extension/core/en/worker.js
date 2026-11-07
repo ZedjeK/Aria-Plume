@@ -144,6 +144,7 @@ function rankTypos(original, suggestions, { prev = "", next = "" } = {}) {
 
 const GRAMMAR_KINDS = /^(?:Agreement|Grammar|Miscellaneous|Usage|Word ?Choice)$/i;
 const fitCache = new Map();
+let ngramsLoaded = false;
 async function fitInSentence(text, start, end, suggestions) {
     // La phrase seulement (jusqu'aux ponctuations fortes), pour un essai rapide.
     const from = Math.max(text.lastIndexOf(".", start - 1), text.lastIndexOf("!", start - 1), text.lastIndexOf("?", start - 1), text.lastIndexOf("\n", start - 1)) + 1;
@@ -258,6 +259,22 @@ async function check(text, dialect) {
     }
     // Chaque suggestion est essayée dans la phrase (les trois premières) : celle qui ne crée pas de
     // faute de grammaire autour passe devant (« we arrie home » → arrive, pas « aerie »).
+    // Modèle de langue (paires de mots, Tatoeba), chargé au premier besoin : la suggestion que les
+    // voisins rendent nettement plus probable passe devant (« when we arrie home » → arrive).
+    if (typos.length && !ngramsLoaded) {
+        ngramsLoaded = true;
+        try {
+            await import("../shared/ngrammes-en.js");
+            await import("../shared/ngrammes.js");
+        } catch {
+            // sans modèle, l'ordre reste celui des retouches et des fréquences
+        }
+    }
+    if (self.AriaNgrammes?.ready("en")) {
+        for (const m of typos) {
+            m.suggestions = self.AriaNgrammes.rerank("en", text, m.start, m.end, m.suggestions);
+        }
+    }
     for (const m of typos.slice(0, 30)) {
         if (m.suggestions.length > 1) {
             m.suggestions = await fitInSentence(text, m.start, m.end, m.suggestions);

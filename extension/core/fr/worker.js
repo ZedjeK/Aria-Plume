@@ -1368,6 +1368,21 @@ function orderConjugation(line, grammar) {
 // Garde-fous : seule la phrase du mot est réanalysée (un texte peut tenir sur une seule ligne de 40 Ko),
 // et au plus FIT_BUDGET mots par analyse (un texte anglais vérifié en français : un mot sur deux est
 // « absent du dictionnaire »).
+// Modèle de langue (paires de mots, Tatoeba) : chargé à la première faute d'orthographe. Il remonte la
+// suggestion que les mots voisins rendent nettement plus probable (« Nous paryons à Paris » → partons).
+let ngramsLoaded = false;
+function contextRerank(line, start, end, suggestions) {
+    if (!ngramsLoaded) {
+        ngramsLoaded = true;
+        try {
+            importScripts(new URL("../shared/ngrammes-fr.js", self.location).href, new URL("../shared/ngrammes.js", self.location).href);
+        } catch {
+            // sans modèle, l'ordre reste celui des retouches et des fréquences
+        }
+    }
+    return self.AriaNgrammes?.ready("fr") ? self.AriaNgrammes.rerank("fr", line, start, end, suggestions) : suggestions;
+}
+
 const FIT_BUDGET = 40;
 let fitBudget = FIT_BUDGET;
 const fitCache = new Map();
@@ -1680,7 +1695,7 @@ function check(text, formal = false, repetitionDistance = 0) {
                     kind: "orthographe",
                     detail: "spelling",
                     message: "Mot absent du dictionnaire.",
-                    suggestions: withApostrophe(fitInSentence(line, err.nStart, err.nEnd, spellSuggestions(err.sValue, context))),
+                    suggestions: withApostrophe(fitInSentence(line, err.nStart, err.nEnd, contextRerank(line, err.nStart, err.nEnd, spellSuggestions(err.sValue, context)))),
                     rule: "spelling",
                 });
             }

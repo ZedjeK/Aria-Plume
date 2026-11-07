@@ -50,6 +50,17 @@ Dérivé : extension/core/shared/frequences-data.js (fréquences d'usage des mot
 des suggestions d'orthographe) est extrait du vocabulaire ci-dessus (vocab.fren.spm) par
 tools/build-frequences.mjs : morceaux du vocabulaire et leur log-probabilité, même licence (MPL-2.0).
 
+== Phrases de Tatoeba (modèle de langue par paires de mots) ==
+
+Source : Tatoeba, https://tatoeba.org — exports par langue du 31/10/2026
+  https://downloads.tatoeba.org/exports/per_language/fra/fra_sentences.tsv.bz2 (729 625 phrases)
+  https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2 (2 040 024 phrases)
+Licence : Creative Commons Attribution 2.0 France (CC BY 2.0 FR), certaines phrases en CC0
+  https://creativecommons.org/licenses/by/2.0/fr/
+Dérivés : extension/core/shared/ngrammes-fr.js et ngrammes-en.js, construits par
+tools/build-ngrammes.mjs : nombre d'occurrences des mots et des paires de mots voisins vus au moins
+deux fois (aucune phrase n'y est recopiée). Ils servent à classer les suggestions de correction.
+
 
 == Thésaurus français de Grammalecte 2.3.0 ==
 
