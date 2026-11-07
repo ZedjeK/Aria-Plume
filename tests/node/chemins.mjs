@@ -1,5 +1,5 @@
 // Le moteur installé dans un dossier « difficile » : accents et espaces, comme
-// C:\Users\Jérémy Zémani\AppData\Local\Temp\… où se décompresse l'exe portable.
+// C:\Users\Héléna Bérani\AppData\Local\Temp\… où se décompresse l'exe portable.
 // Avant la 0.36, la traduction y attendait sans fin (Bergamot lisait son WebAssembly avec un
 // chemin encodé). Vérifie aussi qu'un moteur de traduction cassé donne vite une erreur en
 // français, puis repart une fois réparé.
@@ -27,7 +27,7 @@ function within(promise, ms) {
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-chemins-"));
-const target = path.join(root, "Users", "Jérémy Zémani", "AppData", "Local", "Temp", "2k9x Aria Plume", "resources", "aria");
+const target = path.join(root, "Users", "Héléna Bérani", "AppData", "Local", "Temp", "2k9x Aria Plume", "resources", "aria");
 for (const folder of ["core", "engines", "models", "data"]) {
     fs.cpSync(path.join(SOURCE, folder), path.join(target, folder), { recursive: true });
 }
@@ -37,14 +37,14 @@ const aria = createAria(nodePlatform);
 
 try {
     const check1 = await within(aria.check({ text: "Il à fini.", lang: "fr" }), 30000);
-    check("correction française depuis « Jérémy Zémani »", check1.value?.matches?.length === 1, check1.error?.message ?? "");
+    check("correction française depuis « Héléna Bérani »", check1.value?.matches?.length === 1, check1.error?.message ?? "");
     const check2 = await within(aria.check({ text: "Your welcome, I would rather walk then drive.", lang: "en" }), 30000);
     const enWords = (check2.value?.matches ?? []).map((m) => "Your welcome, I would rather walk then drive.".slice(m.start, m.end));
-    check("correction anglaise depuis « Jérémy Zémani »", enWords.includes("Your") && enWords.includes("then"), check2.timeout ? "BLOQUÉE" : enWords.join(", ") || check2.error?.message || "aucune faute trouvée");
+    check("correction anglaise depuis « Héléna Bérani »", enWords.includes("Your") && enWords.includes("then"), check2.timeout ? "BLOQUÉE" : enWords.join(", ") || check2.error?.message || "aucune faute trouvée");
     const fr = await within(aria.translate({ text: "Le serveur est tombé en panne.", from: "fr", to: "en" }), 30000);
-    check("traduction FR → EN depuis « Jérémy Zémani »", /server|waiter/i.test(fr.value?.text ?? ""), fr.timeout ? "BLOQUÉE" : fr.value?.text ?? fr.error?.message);
+    check("traduction FR → EN depuis « Héléna Bérani »", /server|waiter/i.test(fr.value?.text ?? ""), fr.timeout ? "BLOQUÉE" : fr.value?.text ?? fr.error?.message);
     const en = await within(aria.translate({ text: "Hello everyone.", from: "en", to: "fr" }), 30000);
-    check("traduction EN → FR depuis « Jérémy Zémani »", /Bonjour/i.test(en.value?.text ?? ""), en.timeout ? "BLOQUÉE" : en.value?.text ?? en.error?.message);
+    check("traduction EN → FR depuis « Héléna Bérani »", /Bonjour/i.test(en.value?.text ?? ""), en.timeout ? "BLOQUÉE" : en.value?.text ?? en.error?.message);
 } finally {
     await aria.close();
 }

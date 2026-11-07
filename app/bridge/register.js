@@ -49,7 +49,7 @@ export function bridgeSupport({ env = process.env, platform = process.platform }
 }
 
 // Registre de Windows : par PowerShell, puis relu (l'appel direct à reg.exe depuis l'application ne
-// laissait aucune trace dans le registre chez Jérémy). Clés et manifeste passent par des
+// laissait aucune trace dans le registre lors d'un essai réel). Clés et manifeste passent par des
 // variables d'environnement. Une ligne de sortie par clé : « clé|ok » ou « clé|raison ».
 export const BRIDGE_SCRIPTS = {
     register: `$manifeste = $env:ARIA_MANIFESTE

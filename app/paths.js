@@ -1,6 +1,6 @@
 // Aria Plume (application) — où Aria Plume range ses fichiers.
 //
-// Tout est dans un seul dossier, dans le dossier personnel (demande de Jérémy) :
+// Tout est dans un seul dossier, dans le dossier personnel :
 //   C:\Users\<toi>\.Aria-Plume\
 //   ├── aria-plume-reglages.json   réglages (dictionnaire, glossaire, mots ignorés…)
 //   ├── extension\                 copie de l'extension que lit le navigateur

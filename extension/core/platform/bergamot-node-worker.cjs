@@ -2,7 +2,7 @@
 //
 // Bergamot (engines/bergamot, copié sans modification) a sa propre couche Node, qui lit son
 // fichier WebAssembly avec url.pathname : les accents et les espaces y restent encodés
-// (« Jérémy » → « J%C3%A9r%C3%A9my ») et un chemin Windows y garde la forme d'une adresse
+// (« Héléna » → « H%C3%A9l%C3%A9na ») et un chemin Windows y garde la forme d'une adresse
 // (« /C:/… »). Résultat : fichier introuvable dès que le dossier de l'application contient un
 // accent ou un espace, et une traduction qui attend sans fin. Cette amorce pose à la place un
 // environnement de worker correct (vrais chemins de fichiers), puis exécute le worker de Bergamot

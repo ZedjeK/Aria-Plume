@@ -355,7 +355,7 @@ export const corpus = [
   ["Ma Captur roule bien. La Captur est hybride, et la Captur consomme peu.", null, null, { repetitions: 30 }],
   ["J'ai configuré le VLAN 10, puis le VLAN 20 et le VLAN 30 sur le switch.", null, null, { repetitions: 30 }],
   ["Salut Julie, merci pour ton message. Je suis d'accord avec ta proposition pour le planning de la migration. On pourrait commencer par les postes de la comptabilité, puis enchaîner avec le service commercial la semaine suivante.", null, null, { repetitions: 30 }],
-  // Retour de Jérémy (26/10) : salutation, nombre collé, suggestions d'orthographe mieux classées
+  // Retour d'essai (26/10) : salutation, nombre collé, suggestions d'orthographe mieux classées
   ["bonjours, je m'appelle Paul.", "bonjours", "Bonjour"],  // majuscule en début de texte (choix du 26/10)
   ["Bonjours Marc !", "Bonjours", "Bonjour"],
   ["J'ai 21an.", "21an", "21 ans"],
