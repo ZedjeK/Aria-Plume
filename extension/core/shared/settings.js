@@ -24,9 +24,9 @@ export const REGISTERS = {
 };
 
 export const DEFAULT_COLORS = {
-    orthographe: "#e5484d",
-    grammaire: "#f59e0b",
-    style: "#0ea5e9",
+    orthographe: "#ff5c7a",
+    grammaire: "#ff8a1f",
+    style: "#5c8bff",
 };
 
 export const DEFAULTS = {

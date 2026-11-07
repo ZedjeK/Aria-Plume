@@ -2,54 +2,56 @@
    (data-theme posé par panel.js) ou, à défaut, celui du système. */
 
 :root {
+    /* Palette de la famille Aria, version claire (celle de l'impression d'Aria Scope) : Word est clair par défaut. */
     --bg: #ffffff;
-    --surface: #f4f3f9;
-    --text: #1d1b26;
-    --muted: #5d5a6b;
-    --line: #dddbe8;
-    --accent: #6b3fd6;
+    --surface: #f2f5fa;
+    --text: #10182a;
+    --muted: #3a4a66;
+    --line: #c9d3e3;
+    --accent: #006f80;
     --accent-text: #ffffff;
-    --ortho: #d92d32;
-    --gram: #c26a00;
-    --style: #0b84c6;
-    --ok: #0b7a4b;
-    --warn: #9a5b00;
-    --error: #b42318;
+    --ortho: #c8284a;
+    --gram: #c45a00;
+    --style: #2850c8;
+    --ok: #006f80;
+    --warn: #8a5a00;
+    --error: #c8284a;
     color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-    --bg: #1b1a22;
-    --surface: #25232f;
-    --text: #ecebf3;
-    --muted: #a5a2b5;
-    --line: #3a3747;
-    --accent: #3ee6ff;
-    --accent-text: #10131a;
-    --ortho: #ff6b6f;
-    --gram: #f5a524;
-    --style: #4cc3ff;
-    --ok: #3ddc97;
-    --warn: #f5c451;
-    --error: #ff6b6b;
+    /* Palette de la famille Aria (Vault, Scope, Shield). */
+    --bg: #030812;
+    --surface: #06101f;
+    --text: #ddebff;
+    --muted: #93a8c8;
+    --line: #1a2d4d;
+    --accent: #7df9ff;
+    --accent-text: #030812;
+    --ortho: #ff5c7a;
+    --gram: #ff8a1f;
+    --style: #5c8bff;
+    --ok: #7df9ff;
+    --warn: #ffd166;
+    --error: #ff5c7a;
     color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-        --bg: #1b1a22;
-        --surface: #25232f;
-        --text: #ecebf3;
-        --muted: #a5a2b5;
-        --line: #3a3747;
-        --accent: #3ee6ff;
-        --accent-text: #10131a;
-        --ortho: #ff6b6f;
-        --gram: #f5a524;
-        --style: #4cc3ff;
-        --ok: #3ddc97;
-        --warn: #f5c451;
-        --error: #ff6b6b;
+        --bg: #030812;
+        --surface: #06101f;
+        --text: #ddebff;
+        --muted: #93a8c8;
+        --line: #1a2d4d;
+        --accent: #7df9ff;
+        --accent-text: #030812;
+        --ortho: #ff5c7a;
+        --gram: #ff8a1f;
+        --style: #5c8bff;
+        --ok: #7df9ff;
+        --warn: #ffd166;
+        --error: #ff5c7a;
         color-scheme: dark;
     }
 }
