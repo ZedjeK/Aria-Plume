@@ -119,5 +119,104 @@
         return [best.suggestion, ...suggestions.filter((s) => s !== best.suggestion)];
     }
 
-    self.AriaNgrammes = { tokens, score, rerank, ready: (lang) => !!model(lang) };
+    // --- Détection des homophones par le contexte (sans règle par paire) ---
+    // Familles de mots qui se prononcent pareil (ou presque) et qu'on confond à l'écrit. Seulement des
+    // confusions de sens : les accords (leur/leurs, tout/tous) restent à Grammalecte et à Harper.
+    const FAMILIES = {
+        fr: ["sans sang cent", "mer mère maire", "vers vert verre ver", "voie voix", "cour cours court", "foi fois foie",
+            "tant temps", "près prêt", "sur sûr", "pain pin", "compte conte comte", "faim fin", "cou coup coût",
+            "champ chant", "chêne chaîne", "poids pois", "signe cygne", "tante tente", "date datte", "père paire",
+            "chair chère", "vain vin vingt", "mal mâle malle", "dessin dessein", "porc port", "golf golfe",
+            "cœur chœur", "pause pose", "balade ballade", "tâche tache", "sceau seau saut", "air aire", "fée fait",
+            "cuir cuire", "verre vers", "sel selle", "plaine pleine", "vice vis", "mur mûr", "dû du", "pâte patte",
+            "boue bout", "cane canne", "chaud chaux", "conter compter", "dans dent", "pair père"],
+        en: ["there their", "your you're", "its it's", "to too two", "then than", "lose loose", "affect effect",
+            "accept except", "weather whether", "brake break", "peace piece", "weak week", "know no", "buy by bye",
+            "hear here", "right write", "sea see", "sun son", "hole whole", "meat meet", "mail male", "tail tale",
+            "flour flower", "plain plane", "principal principle", "stationary stationery", "complement compliment",
+            "desert dessert", "quite quiet", "advice advise", "passed past", "threw through", "waist waste",
+            "wait weight", "bare bear", "fair fare", "pair pear", "steal steel", "which witch", "whose who's",
+            "where were", "of off", "allowed aloud", "board bored", "cell sell", "die dye", "flu flew", "hour our",
+            "knew new", "not knot", "one won", "road rode", "role roll", "scene seen", "sole soul", "sore soar",
+            "suite sweet", "tide tied", "toe tow", "wear where", "weigh way", "whole hole", "wood would"],
+    };
+    const confusable = {};
+    for (const [lang, families] of Object.entries(FAMILIES)) {
+        confusable[lang] = new Map();
+        for (const family of families) {
+            const words = family.split(" ");
+            for (const word of words) {
+                confusable[lang].set(word, [...new Set([...(confusable[lang].get(word) ?? []), ...words.filter((w) => w !== word)])]);
+            }
+        }
+    }
+
+    // Mots du texte avec leur position ; les élisions françaises sont séparées comme dans tokens().
+    function positioned(text, lang) {
+        const out = [];
+        for (const m of String(text).matchAll(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*['’]?/gu)) {
+            const lower = m[0].toLowerCase().replace(/[’`]/g, "'");
+            const elided = lang === "fr" ? ELISION.exec(lower) : null;
+            if (elided && lower.length > elided[0].length) {
+                out.push({ word: elided[0], start: m.index, end: m.index + elided[0].length });
+                out.push({ word: lower.slice(elided[0].length), start: m.index + elided[0].length, end: m.index + m[0].length });
+            } else {
+                out.push({ word: lower, start: m.index, end: m.index + m[0].length });
+            }
+        }
+        return out;
+    }
+
+    // Une paire vue dans le corpus (pas un repli) : c'est elle qui fait la preuve.
+    const seen = (m, a, b) => m.bigrams.has(`${a} ${b}`);
+
+    // Mots d'une famille d'homophones que le contexte contredit nettement : une autre forme de la
+    // famille est au moins e^THRESHOLD fois (≈ 3 000 fois) plus probable entre les deux voisins, ses deux paires
+    // ont été vues dans le corpus, et au moins une paire du mot écrit ne l'a jamais été.
+    const THRESHOLD = 8;
+    function confusions(lang, text, threshold = THRESHOLD) {
+        const m = model(lang);
+        if (!m || !confusable[lang]) {
+            return [];
+        }
+        const words = positioned(text, lang);
+        const found = [];
+        words.forEach((token, i) => {
+            const alternatives = confusable[lang].get(token.word);
+            if (!alternatives) {
+                return;
+            }
+            const before = words[i - 1];
+            const after = words[i + 1];
+            const prev = before && !/[.!?;:\n«»"“”()]/.test(text.slice(before.end, token.start)) ? before.word : "<s>";
+            const next = after && !/[.!?;:\n«»"“”()]/.test(text.slice(token.end, after.start)) ? after.word : "</s>";
+            // Il faut au moins un vrai voisin (pas deux bords de phrase).
+            if (prev === "<s>" && next === "</s>") {
+                return;
+            }
+            const value = (w) => logPair(m, prev, w) + logPair(m, w, next);
+            const own = value(token.word);
+            if (seen(m, prev, token.word) && seen(m, token.word, next)) {
+                return;  // le mot écrit est attesté dans ce contexte : on ne dit rien
+            }
+            let best = null;
+            for (const alternative of alternatives) {
+                if (!seen(m, prev, alternative) || !seen(m, alternative, next)) {
+                    continue;
+                }
+                const gain = value(alternative) - own;
+                if (gain >= threshold && (!best || gain > best.gain)) {
+                    best = { alternative, gain };
+                }
+            }
+            if (best) {
+                const original = text.slice(token.start, token.end);
+                const suggestion = /^\p{Lu}/u.test(original) ? best.alternative[0].toUpperCase() + best.alternative.slice(1) : best.alternative;
+                found.push({ start: token.start, end: token.end, word: original, suggestion, gain: best.gain });
+            }
+        });
+        return found;
+    }
+
+    self.AriaNgrammes = { tokens, score, rerank, confusions, ready: (lang) => !!model(lang) };
 })();

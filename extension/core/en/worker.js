@@ -145,6 +145,17 @@ function rankTypos(original, suggestions, { prev = "", next = "" } = {}) {
 const GRAMMAR_KINDS = /^(?:Agreement|Grammar|Miscellaneous|Usage|Word ?Choice)$/i;
 const fitCache = new Map();
 let ngramsLoaded = false;
+async function loadNgrams() {
+    if (!ngramsLoaded) {
+        ngramsLoaded = true;
+        try {
+            await import("../shared/ngrammes-en.js");
+            await import("../shared/ngrammes.js");
+        } catch {
+            // sans modèle, l'ordre reste celui des retouches et des fréquences
+        }
+    }
+}
 async function fitInSentence(text, start, end, suggestions) {
     // La phrase seulement (jusqu'aux ponctuations fortes), pour un essai rapide.
     const from = Math.max(text.lastIndexOf(".", start - 1), text.lastIndexOf("!", start - 1), text.lastIndexOf("?", start - 1), text.lastIndexOf("\n", start - 1)) + 1;
@@ -261,14 +272,8 @@ async function check(text, dialect) {
     // faute de grammaire autour passe devant (« we arrie home » → arrive, pas « aerie »).
     // Modèle de langue (paires de mots, Tatoeba), chargé au premier besoin : la suggestion que les
     // voisins rendent nettement plus probable passe devant (« when we arrie home » → arrive).
-    if (typos.length && !ngramsLoaded) {
-        ngramsLoaded = true;
-        try {
-            await import("../shared/ngrammes-en.js");
-            await import("../shared/ngrammes.js");
-        } catch {
-            // sans modèle, l'ordre reste celui des retouches et des fréquences
-        }
+    if (typos.length) {
+        await loadNgrams();
     }
     if (self.AriaNgrammes?.ready("en")) {
         for (const m of typos) {
@@ -318,7 +323,17 @@ async function check(text, dialect) {
     // endroit (« Your the best » : Harper propose « Your » ou « The », Aria « You're »).
     const extra = findEnglishRules(text);
     const kept = matches.filter((m) => !vetoed(m) && !extra.some((e) => m.start < e.end && m.end > e.start));
-    const all = [...kept, ...extra].sort((a, b) => a.start - b.start);
+    const all = [...kept, ...extra];
+    // Homophones que le contexte contredit nettement (modèle de langue), là où rien d'autre n'a parlé.
+    await loadNgrams();
+    if (self.AriaNgrammes?.ready("en")) {
+        for (const c of self.AriaNgrammes.confusions("en", text)) {
+            if (!all.some((m) => m.start < c.end && c.start < m.end)) {
+                all.push({ start: c.start, end: c.end, kind: "grammaire", detail: "aria", message: `Homophone: from the sentence, « ${c.suggestion} » is expected here.`, suggestions: [c.suggestion], rule: "aria_en_homophone_contexte" });
+            }
+        }
+    }
+    all.sort((a, b) => a.start - b.start);
     return { matches: all, ms: performance.now() - start };
 }
 

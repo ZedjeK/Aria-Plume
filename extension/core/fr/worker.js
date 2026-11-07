@@ -1371,7 +1371,7 @@ function orderConjugation(line, grammar) {
 // Modèle de langue (paires de mots, Tatoeba) : chargé à la première faute d'orthographe. Il remonte la
 // suggestion que les mots voisins rendent nettement plus probable (« Nous paryons à Paris » → partons).
 let ngramsLoaded = false;
-function contextRerank(line, start, end, suggestions) {
+function loadNgrams() {
     if (!ngramsLoaded) {
         ngramsLoaded = true;
         try {
@@ -1380,7 +1380,10 @@ function contextRerank(line, start, end, suggestions) {
             // sans modèle, l'ordre reste celui des retouches et des fréquences
         }
     }
-    return self.AriaNgrammes?.ready("fr") ? self.AriaNgrammes.rerank("fr", line, start, end, suggestions) : suggestions;
+    return !!self.AriaNgrammes?.ready("fr");
+}
+function contextRerank(line, start, end, suggestions) {
+    return loadNgrams() ? self.AriaNgrammes.rerank("fr", line, start, end, suggestions) : suggestions;
 }
 
 const FIT_BUDGET = 40;
@@ -1707,6 +1710,23 @@ function check(text, formal = false, repetitionDistance = 0) {
     }
     if (repetitionDistance > 0) {
         matches.push(...findRepetitions(text, repetitionDistance, matches));
+    }
+    // Homophones que le contexte contredit nettement (modèle de langue) : seulement là où rien d'autre
+    // n'a parlé (« Il a signé le contrat sang le lire » → sans).
+    if (loadNgrams()) {
+        for (const c of self.AriaNgrammes.confusions("fr", text)) {
+            if (!matches.some((m) => m.start < c.end && c.start < m.end)) {
+                matches.push({
+                    start: c.start,
+                    end: c.end,
+                    kind: "grammaire",
+                    detail: "homophone",
+                    message: `Homophone : d'après la phrase, on attend plutôt « ${c.suggestion} ».`,
+                    suggestions: [c.suggestion],
+                    rule: "aria_homophone_contexte",
+                });
+            }
+        }
     }
     matches.sort((a, b) => a.start - b.start);
     return { matches, ms: performance.now() - start };

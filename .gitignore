@@ -3,6 +3,9 @@
 *.crx
 *.pem
 
+# Exécutables construits ou téléchargés (ils vont dans les Releases, pas dans le dépôt)
+*.exe
+
 # Divers
 *.log
 .DS_Store
