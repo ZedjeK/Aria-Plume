@@ -1,0 +1,63 @@
+# Tests d'Aria Plume à chaque pull request et à chaque push sur main : banc du moteur, puis tests
+# de l'application et du complément Office. La release (tag v*) refait les mêmes tests, plus l'empaquetage.
+
+name: Tests
+
+on:
+    pull_request:
+        branches: [main]
+        paths-ignore: ["**.md", "docs/**", "LICENSE"]
+    push:
+        branches: [main]
+        paths-ignore: ["**.md", "docs/**", "LICENSE"]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: tests-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    tests:
+        # Même version que release.yml : Chromium de Playwright 1.56 n'est pas encore pris en charge sur 26.04.
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - name: Récupérer le code
+              uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+              with:
+                  persist-credentials: false
+
+            - name: Installer Node 22
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version: "22"
+                  cache: npm
+                  cache-dependency-path: app/package-lock.json
+
+            - name: Banc de mesure du moteur (sans recul toléré)
+              run: |
+                  node tests/node/smoke.mjs
+                  node tests/node/chemins.mjs
+                  node tests/bench/run.mjs
+                  node tests/bench/robustesse.mjs
+
+            - name: Installer les dépendances de l'application
+              working-directory: app
+              run: npm ci
+
+            # Les tests du complément Office ouvrent ses pages dans un vrai Chromium.
+            - name: Installer Chromium pour les tests
+              working-directory: app
+              run: npx playwright install --with-deps chromium
+
+            - name: Tests de l'application
+              working-directory: app
+              run: |
+                  node tests/bridge.mjs
+                  node tests/office.mjs
+                  node tests/office-word.mjs
+                  node tests/office-outlook.mjs
+                  node tests/registry.mjs
+                  node tests/updates.mjs
