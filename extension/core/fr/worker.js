@@ -1196,6 +1196,149 @@ function addHomophones(line, grammar) {
     return { grammar: kept, extra: found };
 }
 
+// Remarque de Grammalecte sans correction à proposer, qui disparaît quand on corrige sa voisine
+// (« C'est chaussures me font mal » : « chaussures » ne tient qu'à « C'est » → Ces) : on la retire.
+// On n'en déduit pas plus : une faute qui a sa propre correction est gardée même si elle disparaît
+// avec sa voisine, car c'est parfois une vraie faute que Grammalecte ne voit plus (« Les piles usagé
+// doivent être déposé »), et entre deux corrections qui se valent, rien ne dit laquelle est la bonne
+// (mesuré sur les contrôles le 11/11/2026 : les deux variantes faisaient perdre des fautes).
+const MAX_DEPENDENT_ERRORS = 6;
+
+function dropDependents(line, grammar) {
+    if (grammar.length < 2 || grammar.length > MAX_DEPENDENT_ERRORS || grammar.every((e) => e.suggestions.some((sugg) => sugg !== ""))) {
+        return grammar;
+    }
+    const fixOf = (e) => e.suggestions.find((sugg) => sugg !== "");
+    // b disparaît-elle une fois a corrigée ?
+    const settles = (a, b) => {
+        const fix = fixOf(a);
+        const shift = b.start >= a.end ? fix.length - (a.end - a.start) : 0;
+        return !gc_engine.parse(line.slice(0, a.start) + fix + line.slice(a.end), "FR", false, null, false)
+            .some((e) => e.sRuleId === b.rule && e.nStart === b.start + shift && e.nEnd === b.end + shift);
+    };
+    return grammar.filter((b) => fixOf(b) !== undefined || !grammar.some((a) => a !== b && fixOf(a) !== undefined
+        && !(a.start < b.end && b.start < a.end)
+        && sentenceBounds(line, a.start, a.end)[0] === sentenceBounds(line, b.start, b.end)[0]
+        && settles(a, b)));
+}
+
+// Homophone grammatical mal choisi à côté d'une faute de Grammalecte : il signale souvent le voisin
+// (« Les maçons on travaillé » → travaillait, « Où son passés les ciseaux » → passé) alors que c'est
+// l'homophone qui est faux. Pour chaque faute de grammaire, on essaie les autres formes des
+// homophones voisins : si la phrase n'a plus cette faute, n'en a aucune nouvelle, que Grammalecte ne
+// trouve rien à redire à la forme essayée, et que le modèle de langue l'appuie (il l'a déjà vue entre
+// ces deux mots et la juge plus probable que la forme écrite, ou la nature des voisins la désigne),
+// c'est elle qu'on propose, à la place de la faute. Sans le modèle de langue, la règle se trompe : remplacer un mot suffit parfois à faire
+// taire Grammalecte (« de la col forte » → « là col »).
+const SWAP_FAMILIES = ["a à as", "on ont", "son sont", "et est", "ou où", "la là l'a l'as", "ça sa", "mais mes m'est met mets", "ma m'a", "ta t'a",
+    "mon m'ont", "ton t'ont", "ce se", "ces ses c'est s'est", "ni n'y", "si s'y", "sans s'en", "dans d'en", "quand qu'en quant",
+    "quelle qu'elle", "quelles qu'elles", "peu peut peux", "du dû", "quelque quelques", "cette sept", "tout tous", "leur leurs"];
+const SWAPS = new Map();
+for (const family of SWAP_FAMILIES) {
+    const forms = family.split(" ");
+    for (const form of forms) {
+        SWAPS.set(form, [...new Set([...(SWAPS.get(form) ?? []), ...forms.filter((other) => other !== form)])]);
+    }
+}
+const SWAP_RULES = /conj|gn_|ppas|conf_|infi|vmode|imp_|sgpl|eleu/;
+const SWAP_WINDOW = 3;        // mots regardés avant la faute
+const MAX_SWAP_ERRORS = 4;    // au-delà, la phrase est trop abîmée pour raisonner ainsi
+
+// Nature d'un mot voisin, d'après le dictionnaire : même calcul que tools/build-contextes.mjs.
+function natureOfWord(original) {
+    const lower = original.toLowerCase().replace(/[’`]/g, "'");
+    const morphs = spellChecker.getMorph(lower);
+    return self.AriaNgrammes.natureOf(lower, morphs.length ? morphs : spellChecker.getMorph(original), /^\p{Lu}/u.test(original));
+}
+
+const TIME_NOUNS = /(?:lundis?|mardis?|mercredis?|jeudis?|vendredis?|samedis?|dimanches?|jours?|soirs?|matins?|nuits?|week-ends?|fois|étés?|hivers?|vacances|temps|soirées?|matinées?|après-midi|semaines?|mois|années?|ans?)\s+$/i;
+
+function swapHomophones(line, grammar) {
+    const candidates = grammar.filter((e) => SWAP_RULES.test(e.rule) && !/pleo|typo|esp|apos|maj|nbsp|redon/.test(e.rule));
+    if (candidates.length === 0 || grammar.length > MAX_SWAP_ERRORS || !loadNgrams()) {
+        return grammar;
+    }
+    const words = [...line.matchAll(/[\p{L}]+(?:['’][\p{L}]+)?/gu)].map((m) => ({ text: m[0], start: m.index, end: m.index + m[0].length }));
+    const keyOf = (e, shift = 0) => `${e.rule}|${e.start + shift}|${e.end + shift}`;
+    // Ce que la nature des voisins suggère, avec des seuils plus bas que pour signaler seul : ici
+    // Grammalecte a déjà vu que quelque chose cloche.
+    const hints = self.AriaNgrammes.confusions("fr", line, { natureOfWord, threshold: 3, acrossCommas: true, context: { min: 3, ratio: 10, maxOwn: 2 } });
+    let result = grammar;
+    const replaced = new Set();
+    const added = [];
+    for (const error of candidates) {
+        if (replaced.has(error)) {
+            continue;
+        }
+        const [from, to] = sentenceBounds(line, error.start, error.end);
+        const first = words.findIndex((w) => w.end > error.start);
+        if (first < 0) {
+            continue;
+        }
+        // L'homophone : dans la faute, juste après, ou dans les quelques mots qui la précèdent.
+        let last = first;
+        while (last + 1 < words.length && words[last + 1].start < error.end) {
+            last++;
+        }
+        const around = words.filter((w, k) => k >= first - SWAP_WINDOW && k <= last + 1 && w.start >= from && w.end <= to);
+        let chosen = null;
+        for (const word of around) {
+            const own = self.AriaNgrammes.fit("fr", line.slice(0, word.start), word.text, line.slice(word.end));
+            const forms = SWAPS.get(word.text.toLowerCase().replace("’", "'"));
+            if (!forms) {
+                continue;
+            }
+            const fixes = [];
+            for (const form of forms) {
+                const fix = matchCase(word.text, form);
+                const fits = self.AriaNgrammes.fit("fr", line.slice(0, word.start), fix, line.slice(word.end));
+                const byWords = own && fits && !fits.edge && fits.attested && !own.attested && fits.value > own.value;
+                const byNature = hints.some((h) => h.start === word.start && h.end === word.end && h.suggestion.toLowerCase() === fix.toLowerCase());
+                if (!byWords && !byNature) {
+                    continue;
+                }
+                const text = line.slice(0, word.start) + fix + line.slice(word.end);
+                const delta = fix.length - (word.end - word.start);
+                const after = gc_engine.parse(text, "FR", false, null, false).map((e) => ({ rule: e.sRuleId, start: e.nStart, end: e.nEnd }));
+                const before = new Set(grammar.map((e) => keyOf(e, e.start >= word.end ? delta : 0)));
+                const errorKey = keyOf(error, error.start >= word.end ? delta : 0);
+                const touchesFix = (e) => e.start < word.start + fix.length && e.end > word.start;
+                if (!after.some((e) => keyOf(e) === errorKey || !before.has(keyOf(e)) || touchesFix(e))) {
+                    fixes.push({ fix, remaining: new Set(after.map((e) => keyOf(e))), delta, value: byNature ? 100 : fits.value - own.value });
+                }
+            }
+            fixes.sort((a, b) => b.value - a.value);
+            // Entre plusieurs homophones voisins, celui que le contexte appuie le plus.
+            if (fixes.length > 0 && (!chosen || fixes[0].value > chosen.fixes[0].value)) {
+                chosen = { word, fixes };
+            }
+        }
+        if (!chosen) {
+            continue;
+        }
+        const { word, fixes } = chosen;
+        // Les fautes de la phrase que la nouvelle forme règle disparaissent avec elle.
+        for (const e of grammar) {
+            if (e.start >= from && e.end <= to && !fixes[0].remaining.has(keyOf(e, e.start >= word.end ? fixes[0].delta : 0))) {
+                replaced.add(e);
+            }
+        }
+        added.push({
+            start: word.start,
+            end: word.end,
+            kind: "grammaire",
+            detail: "homophone",
+            message: `Homophone : avec « ${fixes[0].fix} », la phrase est correcte.`,
+            suggestions: fixes.map((f) => f.fix),
+            rule: "aria_homophone_voisin",
+        });
+    }
+    if (added.length > 0) {
+        result = [...grammar.filter((e) => !replaced.has(e) && !added.some((a) => e.start < a.end && e.end > a.start)), ...added].sort((a, b) => a.start - b.start);
+    }
+    return result;
+}
+
 // « Français écrit soigné » : règle du « ne » oublié de Grammalecte et règles de registre d'Aria.
 // Les caches de réanalyse dépendent des options : on les vide quand le réglage change.
 let formalMode = false;
@@ -1378,7 +1521,7 @@ function loadNgrams() {
     if (!ngramsLoaded) {
         ngramsLoaded = true;
         try {
-            importScripts(new URL("../shared/ngrammes-fr.js", self.location).href, new URL("../shared/ngrammes.js", self.location).href);
+            importScripts(new URL("../shared/ngrammes-fr.js", self.location).href, new URL("../shared/contextes-fr.js", self.location).href, new URL("../shared/ngrammes.js", self.location).href);
         } catch {
             // sans modèle, l'ordre reste celui des retouches et des fréquences
         }
@@ -1664,7 +1807,7 @@ function check(text, formal = false, repetitionDistance = 0) {
             }));
             const { grammar: independent, extra: aria } = addHomophones(line, participleAfterNoun(line, orderParticiples(line, resolveAOrInfinitive(line, vetoPretPres(line, grammar)))));
             const extra = orderFutureConditional(line, orderConjugation(line, aria));
-            const grouped = preferNounGender(line, orderSubjunctive(line, orderFutureConditional(line, orderConjugation(line, orderParticiples(line, groupLinkedErrors(line, independent).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start)))))));
+            const grouped = preferNounGender(line, orderSubjunctive(line, orderFutureConditional(line, orderConjugation(line, orderParticiples(line, groupLinkedErrors(line, dropDependents(line, swapHomophones(line, independent))).filter((m) => !extra.some((h) => m.start < h.end && m.end > h.start)))))));
             // Les suggestions suivent l'apostrophe du texte : droite ('), sauf si le texte n'emploie que la courbe (’).
             const apostrophe = line.includes("’") && !line.includes("'") ? "’" : "'";
             const withApostrophe = (list) => list.map((sugg) => sugg.replace(/['’]/g, apostrophe));
@@ -1717,8 +1860,12 @@ function check(text, formal = false, repetitionDistance = 0) {
     // Homophones que le contexte contredit nettement (modèle de langue) : seulement là où rien d'autre
     // n'a parlé (« Il a signé le contrat sang le lire » → sans).
     if (loadNgrams()) {
-        for (const c of self.AriaNgrammes.confusions("fr", text)) {
-            if (!matches.some((m) => m.start < c.end && c.start < m.end)) {
+        for (const c of self.AriaNgrammes.confusions("fr", text, { natureOfWord })) {
+            // Une autre faute sur l'homophone ou sur l'un de ses voisins : le contexte n'est pas fiable
+            // (« il reste plein de choses à organisé » : c'est « organisé » qui est faux, pas « à »).
+            // « Les dimanches on fait du vélo » : après un nom de moment, « on » est bien le sujet.
+            const afterTime = /^on$/i.test(c.word) && TIME_NOUNS.test(text.slice(0, c.start));
+            if (!afterTime && !matches.some((m) => m.start < c.to && c.from < m.end)) {
                 matches.push({
                     start: c.start,
                     end: c.end,

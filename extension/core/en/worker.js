@@ -2,6 +2,7 @@
 import { LocalLinter, Dialect, SuggestionKind } from "../../engines/harper/index.js";
 import { slimBinary } from "../../engines/harper/slimBinary.js";
 import { articleForAcronym, findEnglishRules, IRREGULAR_PP } from "./rules.js";
+import { findAgreement } from "./agreement.js";
 import "../shared/frequences-data.js";
 import "../shared/frequences.js";
 
@@ -153,6 +154,7 @@ async function loadNgrams() {
         ngramsLoaded = true;
         try {
             await import("../shared/ngrammes-en.js");
+            await import("../shared/contextes-en.js");
             await import("../shared/ngrammes.js");
         } catch {
             // sans modèle, l'ordre reste celui des retouches et des fréquences
@@ -330,8 +332,16 @@ async function check(text, dialect) {
     // Homophones que le contexte contredit nettement (modèle de langue), là où rien d'autre n'a parlé.
     await loadNgrams();
     if (self.AriaNgrammes?.ready("en")) {
+        // Accords d'après la nature des mots (WordNet), là où rien d'autre n'a parlé.
+        for (const a of findAgreement(text, self.AriaNgrammes.english)) {
+            if (!all.some((m) => m.start < a.end && a.start < m.end)) {
+                all.push(a);
+            }
+        }
         for (const c of self.AriaNgrammes.confusions("en", text)) {
-            if (!all.some((m) => m.start < c.end && c.start < m.end)) {
+            // Preuve par la nature des voisins : pas si une autre faute touche l'un d'eux.
+            const [from, to] = c.by === "natures" ? [c.from, c.to] : [c.start, c.end];
+            if (!all.some((m) => m.start < to && from < m.end)) {
                 all.push({ start: c.start, end: c.end, kind: "grammaire", detail: "aria", message: `Homophone: from the sentence, « ${c.suggestion} » is expected here.`, suggestions: [c.suggestion], rule: "aria_en_homophone_contexte" });
             }
         }

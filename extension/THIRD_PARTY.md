@@ -10,6 +10,8 @@ Les fichiers des moteurs sont copiés sans modification, sauf un garde-fou de qu
 | Modèles de traduction fr→en et en→fr | 2.0 | MPL-2.0 | `models/` |
 | Fréquences des mots (tirées du vocabulaire des modèles par `tools/build-frequences.mjs`) | 2.0 | MPL-2.0 | `core/shared/frequences-data.js` |
 | Modèle de langue par paires de mots, compté sur les phrases de [Tatoeba](https://tatoeba.org) par `tools/build-ngrammes.mjs` | export du 31/10/2026 | CC BY 2.0 FR | `core/shared/ngrammes-fr.js`, `core/shared/ngrammes-en.js` |
+| Homophones entre les natures de leurs voisins, comptés sur les phrases de [Tatoeba](https://tatoeba.org) par `tools/build-contextes.mjs` (natures tirées du dictionnaire de Grammalecte en français, de WordNet en anglais) | exports du 07/11/2026 | CC BY 2.0 FR | `core/shared/contextes-fr.js`, `core/shared/contextes-en.js` |
+| Natures des mots anglais (nom, verbe, adjectif, adverbe), tirées des index de [WordNet](https://wordnet.princeton.edu) 3.1 (paquet npm `wordnet-db` 3.1.14) par `tools/build-contextes.mjs` | 3.1 | Licence WordNet (`data/LICENSE-WordNet.txt`) | table « lexicon » de `core/shared/contextes-en.js` |
 | Thésaurus français de Grammalecte | 2.3.0 | GPL-3.0 | `engines/grammalecte/fr/thesaurus*_data.json` |
 | WordNet (synonymes anglais, converti par `tools/build-thesaurus-en.mjs`) | 3.1 | licence WordNet (Princeton, voir `data/LICENSE-WordNet.txt`) | `data/thesaurus-en.json.gz` |
 | Polices Space Grotesk et IBM Plex Mono (Fontsource, woff2) | 5.2.8 / 5.2.7 | SIL OFL 1.1 (voir `fonts/OFL-*.txt`) | `fonts/` |

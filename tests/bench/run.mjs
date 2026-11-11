@@ -26,6 +26,10 @@
 //                 moteur) : série de travail
 //   - controle4   sa série de contrôle, jamais regardée pendant la mise au point
 //   - textes5, controle5 : grandes séries réalistes du 06/11/2026 (français et anglais), à l'aveugle
+//   - textes6, controle6 : séries du 11/11/2026 centrées sur les fausses alertes (français) : textes
+//                 justes piégeux et textes à une seule faute dont le voisin est tentant, à l'aveugle
+//   - textes7, controle7 : séries du 11/11/2026 centrées sur les homophones (français), à l'aveugle
+//   - textes8, controle8 : séries du 11/11/2026 en anglais (homophones, accords, formes verbales), à l'aveugle
 //   - traduction2, trcontrole2 : grandes séries de traduction du 06/11/2026 (fr→en et en→fr)
 //   - grandfr, granden, grandtr : grand banc génératif (grand-banc.mjs) — sujets, personnes, temps,
 //                 accords, homophones, orthographe, fautes de frappe ; traduction : temps, négation,
@@ -67,7 +71,7 @@ const raw = args.includes("--brut");
 const genres = args.includes("--genres");
 // Grand banc génératif : cas par famille (--grand 200 pour un passage plus long).
 const GRAND = Number(args[args.indexOf("--grand") + 1]) > 0 && args.includes("--grand") ? Number(args[args.indexOf("--grand") + 1]) : 60;
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole", "grandfr", "granden", "grandtr", "textes5", "controle5", "traduction2", "trcontrole2"];
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole", "grandfr", "granden", "grandtr", "textes5", "controle5", "textes6", "controle6", "textes7", "controle7", "textes8", "controle8", "traduction2", "trcontrole2"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -279,6 +283,12 @@ const DIRECTION = { ok: "more", chrf: "more", register: "more", found: "more", f
 const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordnet: benchWordnet, textes: () => benchTextes(textes), controle: () => benchTextes(controle), textes2: () => benchTextes(textes2), controle2: () => benchTextes(controle2), textes3: () => benchTextes(textes3), controle3: () => benchTextes(controle3), textes4: () => benchTextes([...textes4fr, ...textes4en]), controle4: () => benchTextes([...controle4fr, ...controle4en]), traduction: () => benchTraduction(traduction), trcontrole: () => benchTraduction(trcontrole), grandfr: async () => benchTextes(await buildFrench(aria, { perFamily: GRAND }), { families: true }), granden: async () => benchTextes(buildEnglish({ perFamily: GRAND }), { families: true }), grandtr: async () => benchTraduction(await buildTranslation(aria, { perFamily: GRAND })),
     textes5: async () => benchTextes(await loadSets(["./textes-5-fr.mjs", "./textes-5-en.mjs"], "textes")),
     controle5: async () => benchTextes(await loadSets(["./textes-controle-5-fr.mjs", "./textes-controle-5-en.mjs"], "textes")),
+    textes6: async () => benchTextes(await loadSets(["./textes-6-fr.mjs"], "textes")),
+    controle6: async () => benchTextes(await loadSets(["./textes-controle-6-fr.mjs"], "textes")),
+    textes7: async () => benchTextes(await loadSets(["./textes-7-fr.mjs"], "textes")),
+    controle7: async () => benchTextes(await loadSets(["./textes-controle-7-fr.mjs"], "textes")),
+    textes8: async () => benchTextes(await loadSets(["./textes-8-en.mjs"], "textes")),
+    controle8: async () => benchTextes(await loadSets(["./textes-controle-8-en.mjs"], "textes")),
     traduction2: async () => benchTraduction(await loadSets(["./traduction-2-fr.mjs", "./traduction-2-en.mjs"], "phrases")),
     trcontrole2: async () => benchTraduction(await loadSets(["./traduction-controle-2-fr.mjs", "./traduction-controle-2-en.mjs"], "phrases")) };
 // Séries du 06/11/2026, chargées à la demande (« --seul en » ou « --seul fr » pour une langue).
