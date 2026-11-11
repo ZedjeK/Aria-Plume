@@ -70,20 +70,20 @@
         "oneClick": 80
     },
     "textes4": {
-        "found": 333,
-        "fixed": 331,
-        "firstRank": 330,
+        "found": 335,
+        "fixed": 333,
+        "firstRank": 332,
         "total": 378,
-        "falseAlerts": 8,
-        "oneClick": 379
+        "falseAlerts": 5,
+        "oneClick": 382
     },
     "controle4": {
-        "found": 180,
-        "fixed": 173,
-        "firstRank": 171,
+        "found": 185,
+        "fixed": 177,
+        "firstRank": 175,
         "total": 217,
-        "falseAlerts": 15,
-        "oneClick": 208
+        "falseAlerts": 9,
+        "oneClick": 214
     },
     "traduction": {
         "ok": 284,
@@ -98,12 +98,12 @@
         "chrf": 74.2
     },
     "grandfr": {
-        "found": 1097,
-        "fixed": 1096,
-        "firstRank": 1094,
+        "found": 1098,
+        "fixed": 1097,
+        "firstRank": 1095,
         "total": 1143,
         "falseAlerts": 1,
-        "oneClick": 2224
+        "oneClick": 2225
     },
     "granden": {
         "found": 701,
@@ -120,20 +120,20 @@
         "chrf": 43.4
     },
     "textes5": {
-        "found": 566,
-        "fixed": 563,
-        "firstRank": 561,
+        "found": 567,
+        "fixed": 564,
+        "firstRank": 562,
         "total": 600,
-        "falseAlerts": 6,
-        "oneClick": 738
+        "falseAlerts": 4,
+        "oneClick": 740
     },
     "controle5": {
-        "found": 291,
-        "fixed": 280,
-        "firstRank": 272,
+        "found": 301,
+        "fixed": 288,
+        "firstRank": 280,
         "total": 368,
-        "falseAlerts": 17,
-        "oneClick": 391
+        "falseAlerts": 11,
+        "oneClick": 399
     },
     "traduction2": {
         "ok": 672,
@@ -146,5 +146,53 @@
         "total": 389,
         "register": 80,
         "chrf": 72
+    },
+    "textes6": {
+        "found": 90,
+        "fixed": 89,
+        "firstRank": 88,
+        "total": 100,
+        "falseAlerts": 3,
+        "oneClick": 306
+    },
+    "controle6": {
+        "found": 53,
+        "fixed": 51,
+        "firstRank": 51,
+        "total": 60,
+        "falseAlerts": 14,
+        "oneClick": 181
+    },
+    "textes7": {
+        "found": 194,
+        "fixed": 186,
+        "firstRank": 177,
+        "total": 300,
+        "falseAlerts": 5,
+        "oneClick": 286
+    },
+    "controle7": {
+        "found": 108,
+        "fixed": 104,
+        "firstRank": 101,
+        "total": 160,
+        "falseAlerts": 3,
+        "oneClick": 163
+    },
+    "textes8": {
+        "found": 254,
+        "fixed": 250,
+        "firstRank": 250,
+        "total": 355,
+        "falseAlerts": 10,
+        "oneClick": 338
+    },
+    "controle8": {
+        "found": 132,
+        "fixed": 131,
+        "firstRank": 131,
+        "total": 192,
+        "falseAlerts": 12,
+        "oneClick": 181
     }
 }

@@ -159,13 +159,13 @@ export function unwantedEnglishRemark(text, match) {
 }
 
 // Jargon technique et mots anglais courants dans un texte français (« merger la branche », « le pod »).
-const FRENCH_JARGON = new Set("merger merge mergé mergée commit commits commiter commité push pusher pushé pull rebase rebaser forker fork build builds builder deploy déployer debug debugger débugger débugguer release releases hotfix hotfixes staging prod préprod backlog sprint sprints standup daily review reviews reviewer feature features branch cluster clusters pod pods node nodes container containers pipeline pipelines workflow workflows dashboard dashboards frontend backend framework runtime repo repos checkout token tokens callback endpoint endpoints payload timeout logs logger monitoring scaler scalable helm kube kubectl lint linter linters refacto refactoring refactorer bug bugs bugué buggé crash crashé crasher spam spammer liker liké follower followers story stories replay live lives stream streamer streamé gamer gameplay setup check checker checké mail mails mailing newsletter meeting meetings call calls brief briefer débriefer process deadline deadlines feedback feedbacks booké booker".split(" "));
+const FRENCH_JARGON = new Set("merger merge mergé mergée commit commits commiter commité push pusher pushé pull rebase rebaser forker fork build builds builder deploy déployer debug debugger débugger débugguer release releases hotfix hotfixes staging prod préprod backlog sprint sprints standup daily review reviews reviewer feature features branch cluster clusters pod pods node nodes container containers pipeline pipelines workflow workflows dashboard dashboards frontend backend framework runtime repo repos checkout token tokens callback endpoint endpoints payload timeout logs logger monitoring scaler scalable helm kube kubectl lint linter linters refacto refactoring refactorer bug bugs bugué buggé crash crashé crasher spam spammer liker liké follower followers story stories replay live lives stream streamer streamé gamer gameplay setup check checker checké mail mails mailing newsletter meeting meetings call calls brief briefer débriefer process deadline deadlines feedback feedbacks booké booker wipe wipes wiper wipé strat strats loot loots looter looté lootée lootés craft crafts crafter crafté craftée craftés giveaway giveaways nerf nerfs nerfer nerfé nerfée buff buffs buffer buffé buffée farm farmer farmé spawn spawner respawn respawner tank tanks tanker heal healer healé dps skin skins stuff stuffé stuffée noob noobs lag lags lagger laggé ping pings pinger pingé clutch tryhard tryharder rush rusher rushé drop drops dropper droppé cheat cheater cheaté kick kicker kické mute muter muté spoil spoils spoiler spoilé hype hypé hypée troll trolls troller trollé ghoster ghosté swiper swipé scroller scrollé cringe vibe vibes mdr ptdr lol tkt jsp jpp gg afk irl bla diem".split(" "));
 // Mots-outils anglais : une citation qui en contient au moins deux est de l'anglais.
 const ENGLISH_FUNCTION = /\b(?:the|to|be|is|are|you|your|it|in|of|and|for|with|will|good|me|go|there|this|that|what|i'll|i'm|i|we|they|my|on|at|do|not|can|please|thanks|ahead|looks|okay)\b/gi;
 
 // Remarques de Grammalecte à ne pas montrer dans un texte français : citation en anglais, jargon
 // technique, tirets de liste, genre d'un sigle (« la CI »), prénom après une salutation (« Salut Romain »).
-export function unwantedFrenchRemark(text, match) {
+export function unwantedFrenchRemark(text, match, matches = []) {
     const word = text.slice(match.start, match.end).trim();
     const rule = String(match.rule ?? "");
     if (match.kind === "orthographe" || /spell/i.test(rule)) {
@@ -180,7 +180,28 @@ export function unwantedFrenchRemark(text, match) {
             if ((quote.match(ENGLISH_FUNCTION) ?? []).length >= 2) {
                 return true;
             }
+            // « better late than never » : au moins deux mots inconnus, et plus de la moitié de la
+            // citation — une langue étrangère, pas deux fautes de frappe (« bonjur tou le monde »).
+            const from = open + 1;
+            const unknown = matches.filter((m) => (m.kind === "orthographe" || /spell/i.test(String(m.rule ?? ""))) && m.start >= from && m.end <= from + close).length;
+            const words = (quote.match(/[\p{L}'’-]+/gu) ?? []).length;
+            if (unknown >= 2 && unknown * 2 > words) {
+                return true;
+            }
         }
+    }
+    // Typographie d'imprimeur, hors de propos dans un mail ou une discussion : « 1er » → « 1ᵉʳ »,
+    // « XXIe » → « Xxiᵉ », espaces fines dans « 1 249 », « -7 °C » → « −7 ».
+    if (/typo_ordinaux_.*exposants|num_grand_nombre_avec_espaces/.test(rule) || (/typo_signe_moins/.test(rule) && /^-\d/.test(word))) {
+        return true;
+    }
+    // « 69007 Lyon » : un code postal, pas un grand nombre à espacer.
+    if (/num_grand_nombre_soudé/.test(rule) && /^\d{5}$/.test(word) && /^\s+\p{Lu}/u.test(text.slice(match.end))) {
+        return true;
+    }
+    // « Oh là là », « bla bla », « oui oui » : une répétition voulue, pas un mot doublé.
+    if (rule === "doublon" && /^(là|bla|ha|hi|ho|hé|toc|tic|pouet|miam|gla|bye|hop|aïe|oui|non|si|très)\s+\1$/i.test(word)) {
+        return true;
     }
     // « - » en tête de ligne dans une liste à puces (au moins deux lignes qui commencent ainsi).
     if (/tiret_début_ligne/.test(rule) && (text.match(/^\s*- /gm) ?? []).length >= 2) {
@@ -202,7 +223,7 @@ export function filterNames(text, matches, lang) {
         if (lang === "en" && unwantedEnglishRemark(text, m)) {
             return false;
         }
-        if (lang === "fr" && unwantedFrenchRemark(text, m)) {
+        if (lang === "fr" && unwantedFrenchRemark(text, m, matches)) {
             return false;
         }
         const word = text.slice(m.start, m.end).trim();
