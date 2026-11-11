@@ -60,6 +60,11 @@ Licence : Creative Commons Attribution 2.0 France (CC BY 2.0 FR), certaines phra
 Dérivés : extension/core/shared/ngrammes-fr.js et ngrammes-en.js, construits par
 tools/build-ngrammes.mjs : nombre d'occurrences des mots et des paires de mots voisins vus au moins
 deux fois (aucune phrase n'y est recopiée). Ils servent à classer les suggestions de correction.
+Autres dérivés, comptés sur les exports du 07/11/2026 (730 079 phrases en français, 2 040 567 en
+anglais) : extension/core/shared/contextes-fr.js et contextes-en.js, construits par
+tools/build-contextes.mjs : nombre d'occurrences de chaque homophone entre les natures de ses mots
+voisins, vues au moins deux fois (aucune phrase n'y est recopiée). Ils servent à détecter les
+homophones mal employés.
 
 
 == Thésaurus français de Grammalecte 2.3.0 ==
@@ -84,6 +89,9 @@ data.* et index.* de WordNet par tools/build-thesaurus-en.mjs (le résultat est
 reproductible : même entrée, même fichier).
   thesaurus-en.json.gz  SHA-256 3b733f0f95f4efc3638b8266e820c292481a66bebac1c2b92d93c86867760d4c
 Le texte de la licence accompagne aussi le fichier : extension/data/LICENSE-WordNet.txt
+Natures des mots anglais (nom, verbe, adjectif, adverbe) : table « lexicon » de
+extension/core/shared/contextes-en.js, tirée des fichiers index.* du même paquet par
+tools/build-contextes.mjs ; même licence.
 
 == Données du banc de mesure (tests/bench/data/) ==
 
