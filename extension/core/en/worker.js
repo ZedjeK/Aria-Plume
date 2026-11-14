@@ -3,6 +3,7 @@ import { LocalLinter, Dialect, SuggestionKind } from "../../engines/harper/index
 import { slimBinary } from "../../engines/harper/slimBinary.js";
 import { articleForAcronym, findEnglishRules, IRREGULAR_PP } from "./rules.js";
 import { findAgreement } from "./agreement.js";
+import { findVerbForms } from "./verbforms.js";
 import "../shared/frequences-data.js";
 import "../shared/frequences.js";
 
@@ -333,7 +334,7 @@ async function check(text, dialect) {
     await loadNgrams();
     if (self.AriaNgrammes?.ready("en")) {
         // Accords d'après la nature des mots (WordNet), là où rien d'autre n'a parlé.
-        for (const a of findAgreement(text, self.AriaNgrammes.english)) {
+        for (const a of [...findAgreement(text, self.AriaNgrammes.english), ...findVerbForms(text, self.AriaNgrammes.english)]) {
             if (!all.some((m) => m.start < a.end && a.start < m.end)) {
                 all.push(a);
             }

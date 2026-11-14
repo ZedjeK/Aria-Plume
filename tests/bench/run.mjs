@@ -30,6 +30,7 @@
 //                 justes piégeux et textes à une seule faute dont le voisin est tentant, à l'aveugle
 //   - textes7, controle7 : séries du 11/11/2026 centrées sur les homophones (français), à l'aveugle
 //   - textes8, controle8 : séries du 11/11/2026 en anglais (homophones, accords, formes verbales), à l'aveugle
+//   - textes9, controle9 : séries du 14/11/2026 centrées sur les formes verbales anglaises, à l'aveugle
 //   - traduction2, trcontrole2 : grandes séries de traduction du 06/11/2026 (fr→en et en→fr)
 //   - grandfr, granden, grandtr : grand banc génératif (grand-banc.mjs) — sujets, personnes, temps,
 //                 accords, homophones, orthographe, fautes de frappe ; traduction : temps, négation,
@@ -71,7 +72,7 @@ const raw = args.includes("--brut");
 const genres = args.includes("--genres");
 // Grand banc génératif : cas par famille (--grand 200 pour un passage plus long).
 const GRAND = Number(args[args.indexOf("--grand") + 1]) > 0 && args.includes("--grand") ? Number(args[args.indexOf("--grand") + 1]) : 60;
-const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole", "grandfr", "granden", "grandtr", "textes5", "controle5", "textes6", "controle6", "textes7", "controle7", "textes8", "controle8", "traduction2", "trcontrole2"];
+const SUITES = ["fr", "en", "grammalecte", "wordnet", "textes", "controle", "textes2", "controle2", "textes3", "controle3", "textes4", "controle4", "traduction", "trcontrole", "grandfr", "granden", "grandtr", "textes5", "controle5", "textes6", "controle6", "textes7", "controle7", "textes8", "controle8", "textes9", "controle9", "traduction2", "trcontrole2"];
 const chosen = args.filter((a) => SUITES.includes(a));
 const suites = chosen.length ? chosen : SUITES;
 const here = (path) => new URL(path, import.meta.url);
@@ -289,6 +290,8 @@ const RUNNERS = { fr: benchFr, en: benchEn, grammalecte: benchGrammalecte, wordn
     controle7: async () => benchTextes(await loadSets(["./textes-controle-7-fr.mjs"], "textes")),
     textes8: async () => benchTextes(await loadSets(["./textes-8-en.mjs"], "textes")),
     controle8: async () => benchTextes(await loadSets(["./textes-controle-8-en.mjs"], "textes")),
+    textes9: async () => benchTextes(await loadSets(["./textes-9-en.mjs"], "textes")),
+    controle9: async () => benchTextes(await loadSets(["./textes-controle-9-en.mjs"], "textes")),
     traduction2: async () => benchTraduction(await loadSets(["./traduction-2-fr.mjs", "./traduction-2-en.mjs"], "phrases")),
     trcontrole2: async () => benchTraduction(await loadSets(["./traduction-controle-2-fr.mjs", "./traduction-controle-2-en.mjs"], "phrases")) };
 // Séries du 06/11/2026, chargées à la demande (« --seul en » ou « --seul fr » pour une langue).

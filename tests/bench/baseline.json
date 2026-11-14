@@ -38,12 +38,12 @@
         "oneClick": 44
     },
     "textes2": {
-        "found": 176,
-        "fixed": 175,
-        "firstRank": 175,
+        "found": 177,
+        "fixed": 176,
+        "firstRank": 176,
         "total": 182,
         "falseAlerts": 1,
-        "oneClick": 210
+        "oneClick": 211
     },
     "controle2": {
         "found": 97,
@@ -70,20 +70,20 @@
         "oneClick": 80
     },
     "textes4": {
-        "found": 335,
-        "fixed": 333,
-        "firstRank": 332,
+        "found": 336,
+        "fixed": 334,
+        "firstRank": 333,
         "total": 378,
         "falseAlerts": 5,
-        "oneClick": 382
+        "oneClick": 383
     },
     "controle4": {
-        "found": 185,
-        "fixed": 177,
-        "firstRank": 175,
+        "found": 187,
+        "fixed": 179,
+        "firstRank": 177,
         "total": 217,
         "falseAlerts": 9,
-        "oneClick": 214
+        "oneClick": 216
     },
     "traduction": {
         "ok": 284,
@@ -120,20 +120,20 @@
         "chrf": 43.4
     },
     "textes5": {
-        "found": 567,
-        "fixed": 564,
-        "firstRank": 562,
+        "found": 569,
+        "fixed": 566,
+        "firstRank": 564,
         "total": 600,
         "falseAlerts": 4,
-        "oneClick": 740
+        "oneClick": 742
     },
     "controle5": {
-        "found": 301,
-        "fixed": 288,
-        "firstRank": 280,
+        "found": 306,
+        "fixed": 293,
+        "firstRank": 285,
         "total": 368,
         "falseAlerts": 11,
-        "oneClick": 399
+        "oneClick": 404
     },
     "traduction2": {
         "ok": 672,
@@ -180,19 +180,35 @@
         "oneClick": 163
     },
     "textes8": {
-        "found": 254,
-        "fixed": 250,
-        "firstRank": 250,
+        "found": 276,
+        "fixed": 272,
+        "firstRank": 272,
         "total": 355,
         "falseAlerts": 10,
-        "oneClick": 338
+        "oneClick": 360
     },
     "controle8": {
-        "found": 132,
-        "fixed": 131,
-        "firstRank": 131,
+        "found": 145,
+        "fixed": 144,
+        "firstRank": 144,
         "total": 192,
         "falseAlerts": 12,
-        "oneClick": 181
+        "oneClick": 194
+    },
+    "textes9": {
+        "found": 277,
+        "fixed": 271,
+        "firstRank": 271,
+        "total": 318,
+        "falseAlerts": 16,
+        "oneClick": 362
+    },
+    "controle9": {
+        "found": 155,
+        "fixed": 153,
+        "firstRank": 153,
+        "total": 192,
+        "falseAlerts": 9,
+        "oneClick": 214
     }
 }
