@@ -217,7 +217,7 @@ function frSms(text) {
         // « g faim », « g pas le temps » : j'ai.
         .replace(new RegExp(`${S}g(?=\\s+(?:faim|soif|froid|chaud|peur|mal|envie|besoin|pas|plus|rien|fini|vu|eu|fait|dit|pris|mis|oublié|reçu|compris|trouvé|perdu|raté|regardé|essayé|acheté|trop|vraiment|déjà|encore|jamais|toujours|hâte)${E})`, "giu"), (m) => keepCase("j'ai", m))
         // « sa va », « sa marche » : ça (« sa » possessif est suivi d'un nom).
-        .replace(new RegExp(`${S}sa(?=\\s+(?:va|vas|marche|roule|me|te|nous|vous|fait|dépend|suffit|sert|y|craint|passe|arrive|change|commence|continue|existe|m['’]|t['’]|n['’]))`, "giu"), (m) => keepCase("ça", m))
+        .replace(new RegExp(`${S}sa(?=\\s+(?:(?:va|vas|marche|roule|me|te|nous|vous|fait|dépend|suffit|sert|y|craint|passe|arrive|change|commence|continue|existe)(?![\\p{L}])|[mtn]['’]))`, "giu"), (m) => keepCase("ça", m))
         // « tu fé », « il fé ».
         .replace(new RegExp(`(?<=${S}(?:je|tu)\\s+)fé${E}`, "giu"), "fais")
         .replace(new RegExp(`(?<=${S}(?:il|elle|on|ça|ca)\\s+)fé${E}`, "giu"), "fait")
@@ -290,6 +290,80 @@ function frenchClock(match, h, minutes) {
 }
 
 const FR_RULES = compile([
+    // --- Lot traduction 3 (14/11/2026) : tournures figées, argot, heures et unités. Même méthode :
+    // la tournure devient une phrase simple, dont le modèle donne une traduction juste.
+    [`${S}(coupé|couper|coupe|coupes|coupent|coupait|coupaient|coupera|couperont)\\s+l['’]herbe\\s+sous\\s+(?:le|les)\\s+pieds?${E}`, (m, v) => `${({ coupé: "tiré", couper: "tirer", coupe: "tire", coupes: "tires", coupent: "tirent", coupait: "tirait", coupaient: "tiraient", coupera: "tirera", couperont: "tireront" })[v.toLowerCase()]} le tapis de sous les pieds`],
+    [`${SJ}(avoir|ai|as|a|avons|avez|ont|avait|avais|avions|aviez|avaient|aurait|aurais)((?:\\s+(?:toujours|souvent|parfois|encore|vraiment|un\\s+peu))?)\\s+le\\s+cafard${E}`, "$1$2 le blues"],
+    [`${S}(est|es|suis|sont|devenu|devenue)\\s+(un|une)\\s+(?:vrai\\s+|vraie\\s+|véritable\\s+)?cordon[\\s-]bleu${E}`, (m, v, art) => `${v} ${art.toLowerCase() === "une" ? "une excellente cuisinière" : "un excellent cuisinier"}`],
+    [`${S}(il\\s+y\\s+a|il\\s+y\\s+avait|y\\s+a|il\\s+y\\s+aura)\\s+un\\s+os(?!\\s+dans\\s+(?:la|le|l['’]|les|mon|ton|son)\\s*(?:soupe|viande|poulet|gigot|assiette|poisson|plat|steak|côtelette|sauce|jambon))${E}`, "$1 un problème"],
+    [`${S}aiguilles?\\s+dans\\s+(une|la)\\s+botte\\s+de\\s+foin${E}`, (m) => m.replace(/botte/i, "meule")],
+    [`${S}(mets|mettez)-y\\s+du\\s+(?:tien|vôtre)${E}`, (m, v) => (v.toLowerCase() === "mets" ? "fais ta part" : "faites votre part")],
+    [`${S}(dit|dire|dis|dites|disent|disait|dirai|dira|disais)\\s+(?:ses|mes|tes|leurs|vos|nos)\\s+quatre\\s+vérités${E}`, "$1 crûment la vérité"],
+    [`${S}ne\\s+casse\\s+pas\\s+(?:trois|3)\\s+pattes\\s+à\\s+un\\s+canard${E}`, "n'est pas génial"],
+    [`${S}(copains|copines|amis|amies|potes)\\s+comme\\s+cochons${E}`, (m, who) => `très ${/^(?:copines|amies)$/i.test(who) ? "bonnes" : "bons"} ${who}`],
+    [`${S}(tire|tires|tirent|tirait|tirais|tirer|tirons|tirez|tiraient)\\s+le\\s+diable\\s+par\\s+la\\s+queue${E}`, (m, v) => `${({ tire: "a du mal", tires: "as du mal", tirent: "ont du mal", tirait: "avait du mal", tirais: "avais du mal", tirer: "avoir du mal", tirons: "avons du mal", tirez: "avez du mal", tiraient: "avaient du mal" })[v.toLowerCase()]} à joindre les deux bouts`],
+    [`${S}au\\s+pied\\s+du\\s+mur(?=\\s*,\\s*(il|elle|on|je|nous|ils|elles|tu|vous)${E})`, (m, who) => `acculé${({ elle: "e", ils: "s", elles: "es", nous: "s", vous: "s" })[who.toLowerCase()] ?? ""}`],
+    [`${S}(est|était|sera|suis|es|sommes|êtes|sont|étaient)\\s+au\\s+pied\\s+du\\s+mur${E}`, "$1 acculé"],
+    [`${S}(fait|font|faisait|faisaient|fera|faire|faisons)\\s+la\\s+pluie\\s+et\\s+le\\s+beau\\s+temps${E}`, (m, v) => `${({ fait: "est", font: "sont", faisait: "était", faisaient: "étaient", fera: "sera", faire: "être", faisons: "sommes" })[v.toLowerCase()]} aux commandes`],
+    [`${S}(a|ai|as|ont|avait|avaient|avons|avez|avais)\\s+enterré\\s+la\\s+hache\\s+de\\s+guerre${E}`, "$1 fait la paix"],
+    [`${S}(enterrer|enterrons|enterrez|enterrent|enterre|enterrait)\\s+la\\s+hache\\s+de\\s+guerre${E}`, (m, v) => `${({ enterrer: "faire", enterrons: "faisons", enterrez: "faites", enterrent: "font", enterre: "fait", enterrait: "faisait" })[v.toLowerCase()]} la paix`],
+    [`${S}brouille(s?)${E}`, "dispute$1", /brouill/i],
+    [`${S}(a|ont|avait|avaient|ai|as|avons|avez)\\s+fait\\s+un\\s+(?:vrai\\s+|véritable\\s+)?tabac${E}`, "$1 eu un énorme succès"],
+    [`${S}(fait|fais|font|faisait|faisaient|fera|ferait|faire)\\s+un\\s+(?:vrai\\s+|véritable\\s+)?tabac${E}`, (m, v) => `${({ fait: "a", fais: "as", font: "ont", faisait: "avait", faisaient: "avaient", fera: "aura", ferait: "aurait", faire: "avoir" })[v.toLowerCase()]} un énorme succès`],
+    [`${SJ}(a|ai|as|ont|avait|avaient|avons|avez|avais)\\s+levé\\s+le\\s+lièvre${E}`, "$1 découvert le problème"],
+    [`${S}de\\s+suite${E}`, "d'affilée", /\b(?:deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+)\s+(?:\p{L}+\s+){1,2}de\s+suite/iu],
+    [`${S}putain(?=\\s*[,!.])`, "merde"],
+    [`${S}(suis|es|est|sommes|êtes|sont)\\s+((?:vraiment|trop|grave|super)\\s+)?dégoût(é|ée|és|ées)(?=\\s*[.!?]|$)`, "$1 $2dévast$3", /largu|plaqu|quitt|vir[ée]|rat[ée]|loup[ée]|refus|échou|recal|licenci|cass[ée]|\bmeuf\b|\bmec\b|\bex\b/i],
+    [`${S}c['’]est\\s+(moi|toi|lui|elle|nous|vous|eux)\\s+qui\\s+régal(e|ent)${E}`, "c'est $1 qui paie"],
+    [`${S}(me|te|nous|vous|lui|leur)\\s+(prend|prennent|prenait|prenaient)\\s+la\\s+tête${E}`, (m, who, v) => `${({ me: "m'", te: "t'" })[who.toLowerCase()] ?? `${who} `}${({ prend: "agace", prennent: "agacent", prenait: "agaçait", prenaient: "agaçaient" })[v.toLowerCase()]}`],
+    [`${S}(me\\s+suis|m['’]est|s['’]est|t['’]es)\\s+pris\\s+un\\s+râteau(?:\\s+(?:grave|monumental|énorme))?${E}`, (m, v) => `${/^me\s+suis/i.test(v) ? "me suis" : v} fait rejeter`],
+    [`${S}j['’]ai\\s+pris\\s+un\\s+râteau${E}`, "je me suis fait rejeter"],
+    [`${S}(il|elle)\\s+s['’]est\\s+pris\\s+un\\s+râteau${E}`, "$1 s'est fait rejeter"],
+    // Au passé composé seulement : « flippe » au présent devient « is scared » pour le modèle.
+    [`(?<=${S}(?:a|ai|as|ont|avons|avez|avait|avaient)\\s+(?:\\p{L}+\\s+)?)pété\\s+(?:un\\s+câble|les\\s+plombs)${E}`, "flippé"],
+    [`${S}(m['’]|t['’]|l['’]|nous\\s+|vous\\s+)(as|a|ont|avez|avons|ai)\\s+(?:foutu|fichu)\\s+la\\s+honte${E}`, (m, who, aux) => `${who}${aux} humilié`],
+    [`${S}(lui|leur)\\s+(as|a|ont|avez|avons|ai)\\s+(?:foutu|fichu)\\s+la\\s+honte${E}`, (m, who, aux) => `${objectPronoun(who)}${aux} humilié`],
+    [`${S}j['’]ai\\s+(?:pigé|capté)\\s+que\\s+dalle${E}`, "je n'ai rien compris"],
+    [`${S}(a|as|ont|avons|avez)\\s+(?:pigé|capté)\\s+que\\s+dalle${E}`, "n'$1 rien compris"],
+    [`${S}(m['’]|t['’]|nous\\s+|vous\\s+|l['’])(as|a|ont|avez|avons|ai)\\s+laissé\\s+un\\s+vent${E}`, (m, who, aux) => `${who}${aux} ignoré`],
+    [`${S}(roule|roulent|roulait|roulais|conduit|conduisent|conduisait|conduisais)\\s+comme\\s+(?:un|une)\\s+(?:fou|folle|dingue|malade|forcené|forcenée|cinglé|cinglée|taré|tarée)${E}`, (m, v) => `${({ roule: "conduit", roulent: "conduisent", roulait: "conduisait", roulais: "conduisais" })[v.toLowerCase()] ?? v} comme un maniaque`],
+    [`${S}(passions|passait|passaient|passais|passiez)\\s+(tous\\s+les\\s+(?:étés|hivers|week-ends|samedis|dimanches|ans)|chaque\\s+(?:été|hiver|week-end|samedi|dimanche|année))\\s+(chez|à|au|aux|en)${E}`, (m, v, when, prep) => `${({ passions: "allions", passait: "allait", passaient: "allaient", passais: "allais", passiez: "alliez" })[v.toLowerCase()]} ${when} ${prep}`],
+    [`${S}(si\\s+(?:j['’]|(?:il|elle|on|je|tu|nous|vous|ils|elles)\\s+))(avait|avais|avions|aviez|avaient)\\s+plus\\s+de${E}`, "$1$2 davantage de"],
+    [`${S}dépêch(é|ée|és|ées)${E}`, "précipit$1"],
+    [`${S}en\\s+vitesse${E}`, "rapidement"],
+    [`${S}(as|a|avez|ai)\\s+une\\s+mine\\s+(affreuse|horrible|terrible|épouvantable|catastrophique)${E}`, (m, v, adj) => `${v} l'air ${({ affreuse: "affreux", horrible: "horrible", terrible: "terrible", épouvantable: "épouvantable", catastrophique: "catastrophique" })[adj.toLowerCase()]}`],
+    [`${S}ça\\s+ne\\s+se\\s+fait\\s+pas\\s+de\\s+`, "il est impoli de "],
+    [`${S}(couper|coupe|coupes|coupent|coupé|coupait|coupaient)\\s+la\\s+parole\\s+(à|aux)\\s+(?!lui${E}|elle${E}|eux${E}|moi${E}|toi${E}|nous${E}|vous${E})`, (m, v, prep) => `${({ couper: "interrompre", coupe: "interrompt", coupes: "interromps", coupent: "interrompent", coupé: "interrompu", coupait: "interrompait", coupaient: "interrompaient" })[v.toLowerCase()]} ${prep.toLowerCase() === "aux" ? "les " : ""}`],
+    [`${S}impoli\\s+de\\s+(?=interrompre${E})`, "impoli d'"],
+    [`${S}(?:très\\s+|vraiment\\s+)?mal\\s+élevé(e?)(s?)${E}`, (m, f, p) => `très impoli${f}${p}`],
+    [`${S}manque\\s+d['’]éducation${E}`, "manque de politesse", /mal\s+élev|impoli|malpoli|grossier|insolen|arrogan|vulgaire|irrespect/i],
+    [`(?<=${S}(?:à|vers|dès|avant|après|jusqu['’]à|il\\s+est(?:\\s+(?:pourtant|déjà|presque|bientôt|encore|seulement))?|il\\s+était(?:\\s+(?:pourtant|déjà|presque|bientôt|encore|seulement))?)\\s+)(dix-sept|dix-huit|dix-neuf|vingt\\s+et\\s+une|vingt-et-une|vingt-deux|vingt-trois|vingt)\\s+heures?(?!\\s+(?:cinq|dix|quinze|vingt|trente|quarante|cinquante|et|moins|\\d))${E}`, (m, h) => `${({ "dix-sept": 17, "dix-huit": 18, "dix-neuf": 19, "vingt et une": 21, "vingt-et-une": 21, "vingt-deux": 22, "vingt-trois": 23, vingt: 20 })[h.toLowerCase().replace(/\s+/g, " ")]}:00`],
+    [`${S}moins\\s+(\\d+(?:[.,]\\d+)?)\\s*(°\\s*[CF]?|degrés?)`, "-$1 $2"],
+    [`${S}(sa|ma|ta|leur|votre|notre)\\s+température(?=\\s+(?:était|est|a|sera|monte|montait|atteint|atteignait|dépasse|dépassait|de|à)\\s)`, "$1 température corporelle"],
+    [`${S}(\\d+(?:[.,]\\d+)?)\\s+degrés?(?!\\s+(?:Fahrenheit|Kelvin|d['’]|de\\s+(?:liberté|latitude|longitude)))`, "$1 °C", /température|fièvre|thermomètre|celsius|météo|\bchaud\b|\bfroid\b|il\s+fait/i],
+    // Expressions courantes que le modèle rend mot à mot (essai du 14/11/2026 sur mes propres phrases).
+    [`${S}(?:n['’]|ne\\s+)(a|ai|as|avons|avez|ont)\\s+pas\\s+(?:le\\s+)?trac${E}`, (m, v) => `${({ a: "n'est", ai: "ne suis", as: "n'es", avons: "ne sommes", avez: "n'êtes", ont: "ne sont" })[v.toLowerCase()]} pas nerveux`],
+    [`${S}(cass(?:é|e|es|ent|ait|aient|er))\\s+les\\s+pieds${E}`, (m, v) => `${({ cassé: "agacé", casse: "agace", casses: "agaces", cassent: "agacent", cassait: "agaçait", cassaient: "agaçaient", casser: "agacer" })[v.toLowerCase()]}`],
+    [`${S}poireaut(é|er|e|es|ent|ons|ez|ait|ais|aient)${E}`, (m, v) => ({ é: "attendu", er: "attendre", e: "attend", es: "attends", ent: "attendent", ons: "attendons", ez: "attendez", ait: "attendait", ais: "attendais", aient: "attendaient" })[v.toLowerCase()]],
+    [`${S}(dor(?:t|s|ment|mait|mais|maient|mir|mions|miez|mons|mez))\\s+comme\\s+(?:un|une)\\s+(?:loir|marmotte|souche)${E}`, "$1 très profondément"],
+    [`${S}(ri|rit|rient|riait|riaient|ris|rions|riez|rire)\\s+jaune${E}`, "$1 nerveusement"],
+    [`${SJ}(${AVOIR}|avoir)\\s+un\\s+chat\\s+dans\\s+la\\s+gorge${E}`, "$1 la voix enrouée"],
+    [`${S}(n['’]a|n['’]avait|n['’]ont)\\s+ni\\s+queue\\s+ni\\s+tête${E}`, "$1 aucun sens"],
+    [`${S}sans\\s+queue\\s+ni\\s+tête${E}`, "absurde"],
+    [`${S}(arrive|arrivé|arrivée|arrivait|arrivent|arriver|tombe|tombé|tombée|tombait|tombent|tomber)\\s+à\\s+pic${E}`, "$1 au bon moment"],
+    [`${S}(mis|met|mettre|mettent|mettait|mettra|mettons)\\s+la\\s+clé\\s+sous\\s+la\\s+porte${E}`, (m, v) => `${({ mis: "fermé", met: "ferme", mettre: "fermer", mettent: "ferment", mettait: "fermait", mettra: "fermera", mettons: "fermons" })[v.toLowerCase()]} définitivement`],
+    [`${S}(est|es|suis|sont|était|étais|étaient|sommes|êtes)\\s+(?:complètement\\s+|totalement\\s+|vraiment\\s+)?à\\s+côté\\s+de\\s+la\\s+plaque${E}`, "$1 complètement dans l'erreur"],
+    [`${S}(?:ne\\s+)?(fais|faites)\\s+pas\\s+tout\\s+un\\s+plat${E}`, (m, v) => (v.toLowerCase() === "fais" ? "n'exagère pas" : "n'exagérez pas")],
+    [`${S}(faire|fait|font|faisait|faisons)\\s+tout\\s+un\\s+plat${E}`, (m, v) => ({ faire: "exagérer", fait: "exagère", font: "exagèrent", faisait: "exagérait", faisons: "exagérons" })[v.toLowerCase()]],
+    [`${S}(suis|es|est|sommes|êtes|sont|étais|était|étaient)\\s+dans\\s+le\\s+jus${E}`, (m, v) => `${({ suis: "ai", es: "as", est: "a", sommes: "avons", êtes: "avez", sont: "ont", étais: "avais", était: "avait", étaient: "avaient" })[v.toLowerCase()]} beaucoup trop de travail`],
+    [`${S}(?:un|le)\\s+fou\\s+rire${E}`, "un énorme éclat de rire"],
+    [`${S}(me|te|se|nous|vous)\\s+la\\s+(coule|coulent|couler|coulait|coulaient|coulons|coulez|coules)\\s+douce${E}`, (m, who, v) => `${who} ${({ coule: "détend", coules: "détends", coulent: "détendent", couler: "détendre", coulait: "détendait", coulaient: "détendaient", coulons: "détendons", coulez: "détendez" })[v.toLowerCase()]}`],
+    [`${S}(mis|mettre|met|mets|mettent|mettons|mettez|mettait)\\s+au\\s+vert${E}`, (m, v) => ({ mis: "reposé", mettre: "reposer", met: "repose", mets: "reposes", mettent: "reposent", mettons: "reposons", mettez: "reposez", mettait: "reposait" })[v.toLowerCase()]],
+    [`${SJ}(${AVOIR})\\s+un\\s+c(?:œ|oe)ur\\s+d['’]artichaut${E}`, (m, verb) => `${({ ai: "tombe", as: "tombes", a: "tombe", avons: "tombons", avez: "tombez", ont: "tombent", avait: "tombait", avais: "tombais", avaient: "tombaient" })[verb.toLowerCase()] ?? "tombe"} facilement amoureux`],
+    [`${S}pomme\\s+de\\s+discorde${E}`, "source de conflit"],
+    [`${S}(train|trains|vol|vols|avion|bus|tram|métro|RER|TGV|cours|réunion|rendez-vous|concert|match|spectacle|séance|liaison|liaisons)\\s+(est|sont|était|étaient|a\\s+été|ont\\s+été|a|ont)\\s+supprimé(e?s?)${E}`, "$1 $2 annulé$3"],
+    [`${S}(?:a|ont|avait|avaient)\\s+rendu\\s+l['’]âme${E}`, (m) => (/^(?:ont|avaient)/i.test(m) ? "sont morts" : "est mort")],
+    [`${S}pilote${E}`, "driver", /imprimante|ordinateur|windows|mise\s+à\s+jour|logiciel|périphérique|installe|installation|bluetooth|wifi|carte\s+graphique|\bpc\b|clavier|souris|écran|scanner|usb|système/i],
     // --- Expressions figées et proverbes (06/11/2026). Chaque expression devient une tournure
     // simple, ou l'expression anglaise équivalente mot à mot, que le modèle traduit alors bien
     // (« quand les poules auront des dents » → « quand les cochons voleront » → « when pigs fly »).
@@ -710,7 +784,7 @@ const FR_RULES = compile([
     [`${S}(?:on|nous)\\s+(?:n['’]est|ne\\s+sommes|est)\\s+pas\\s+(?:encore\\s+)?sortis\\s+de\\s+l['’]auberge${E}`, "ce n'est pas encore fini"],
     [`${S}(?:c['’]est|ce\\s+n['’]est|ce\\s+sont|ce\\s+ne\\s+sont)\\s+pas\\s+(tes|vos|mes|ses|nos|leurs)\\s+oignons${E}`, "ce ne sont pas $1 affaires"],
     [`${S}(occupe|occupez|mêle|mêlez)-(toi|vous)\\s+de\\s+(tes|vos)\\s+oignons${E}`, "$1-$2 de $3 affaires"],
-    [`${S}relous?${E}`, (m) => (/s$/i.test(m) ? "pénibles" : "pénible")],
+    [`${S}relous?${E}`, (m) => (/s$/i.test(m) ? "agaçants" : "agaçant")],
     [`${S}(s['’]est|se\\s+sont|me\\s+suis|t['’]es|nous\\s+sommes|vous\\s+êtes)\\s+barré(e?s?)${E}`, (m, aux, end) => `${({ "s'est": "est", "se sont": "sont", "me suis": "suis", "t'es": "es", "nous sommes": "sommes", "vous êtes": "êtes" })[aux.toLowerCase().replace(/’/g, "'").replace(/\s+/g, " ")] ?? "est"} parti${end}`],
     [`(?<=${S}que\\s+)(je\\s+me|tu\\s+te|il\\s+se|elle\\s+se|on\\s+se)\\s+(?:barre|barres|casse|casses)(?=\\s*(?:[,.!?]|$))`, (m, who) => ({ je: "je m'en aille", tu: "tu t'en ailles", il: "il s'en aille", elle: "elle s'en aille", on: "on s'en aille" })[who.split(/\s+/)[0].toLowerCase()]],
     [`${S}(je\\s+me|tu\\s+te|il\\s+se|elle\\s+se|on\\s+se|nous\\s+nous|vous\\s+vous|ils\\s+se|elles\\s+se)\\s+(?:barre|barres|barrons|barrez|barrent|casse|casses|cassons|cassez|cassent)(?=\\s*(?:[,.!?]|$)|\\s+(?:d['’]ici|maintenant|là|tout\\s+de\\s+suite|vite|direct)${E})`, (m, who) => ({ je: "je m'en vais", tu: "tu t'en vas", il: "il s'en va", elle: "elle s'en va", on: "on s'en va", nous: "nous nous en allons", vous: "vous vous en allez", ils: "ils s'en vont", elles: "elles s'en vont" })[who.split(/\s+/)[0].toLowerCase()]],
@@ -993,6 +1067,58 @@ const EN_OBJECT = { my: "me", your: "you", his: "him", her: "her", our: "us", th
 const BASE_BEFORE = "((?:don['’]t|do\\s+not|didn['’]t|did\\s+not|never|to|will|['’]ll|can|can['’]t|could|would|should|might|must|let['’]s|please)\\s+)?";
 
 const EN_RULES = compile([
+    // --- Lot traduction 3 (14/11/2026) : tournures figées, argot et verbes à particule. Chaque
+    // tournure devient une phrase simple que le modèle traduit bien.
+    [`${S}a\\s+penny\\s+for\\s+your\\s+thoughts${E}`, "what are you thinking about"],
+    [`${S}out\\s+of\\s+the\\s+blue${E}`, "without warning"],
+    [`${S}back\\s+to\\s+square\\s+one${E}`, "back to the starting point"],
+    [`${S}(bent|bend|bends|bending)\\s+over\\s+backwards?${E}`, (m, v) => `${({ bent: "did", bend: "do", bends: "does", bending: "doing" })[v.toLowerCase()]} everything possible`],
+    [`${S}a\\s+taste\\s+of\\s+(?:his|her|their|my|your|our)\\s+own\\s+medicine${E}`, "the same treatment"],
+    [`${S}(forget|forgot|forgive|forgave|settle|settled|resolve|resolved|had|have|has|having|bury|buried|over)\\s+((?:about\\s+)?(?:(?:last\\s+\\p{L}+|yesterday)['’]s\\s+|that\\s+|this\\s+|our\\s+|their\\s+|his\\s+|her\\s+|my\\s+|your\\s+|the\\s+|an?\\s+)(?:big\\s+|stupid\\s+|silly\\s+|heated\\s+|nasty\\s+|bitter\\s+|little\\s+|small\\s+)?)argument${E}`, "$1 $2quarrel"],
+    [`${S}(i['’]m|i\\s+am|he['’]s|she['’]s|we['’]re|they['’]re|you['’]re|am|is|are|was|were)\\s+((?:totally|completely|absolutely|so|really)\\s+)?(?:wiped|bushed|pooped|knackered|zonked|shattered|beat)(?:\\s+out)?(?=\\s*(?:[,.;!?]|$)|\\s+(?:after|from|today|tonight|now|already|again)\\b)`, "$1 $2exhausted"],
+    [`${S}(concert|show|party|game|goal|trick|move|car|song|track|movie|video|view|set|gig|match|jump|ride|design|bike|setup|build|night|day|place|club|vibe|vibes|crowd)\\s+(is|was|were|are|looks|looked)\\s+((?:so|really|totally|pretty|absolutely)\\s+)?(?:sick|lit|fire|dope)${E}`, "$1 $2 $3awesome"],
+    [`${S}(ghost|ghosts|ghosted|ghosting)\\s+(me|him|her|them|us|you)${E}`, (m, v, who) => `${({ ghost: "disappear", ghosts: "disappears", ghosted: "disappeared", ghosting: "disappearing" })[v.toLowerCase()]} from ${({ me: "my", him: "his", her: "her", them: "their", us: "our", you: "your" })[who.toLowerCase()]} life`],
+    [`${S}(?:he|she|they|you|i|we)(?:['’]s|['’]re|['’]m|\\s+(?:is|are|am|was|were))\\s+(?:(?:totally|really|absolutely|completely)\\s+)?loaded${E}`, (m) => m.replace(/loaded$/i, "rich"), /\b(?:owns?|money|rich|wealth\w*|millions?|billion\w*|inherit\w*|fortune|yacht|mansion|villa|hotels?|paid|salary|cash|bank|expensive|luxury|spend\w*|spent)\b/i],
+    [`${S}(was|were|is|are|am|i['’]m|we['’]re|they['’]re|he['’]s|she['’]s|you['’]re|got|get|gets|getting)\\s+((?:totally|completely|absolutely|so|really|already)\\s+)?(?:hammered|plastered|sloshed)${E}(?!\\s+(?:by\\s+(?:the|a|an|his|her|their|critics|inflation)|with|for)\\b)`, "$1 $2drunk"],
+    [`${S}(got|get|gets|getting)\\s+((?:totally|completely|absolutely|so|really|already)\\s+)?(?:wasted|smashed|trashed)${E}(?!\\s+(?:by|with|for|on|in)\\b)`, "$1 $2drunk"],
+    [`${S}(got|get|gets|getting)\\s+((?:my|your|his|her|our|their|the|a|an)\\s+(?:\\p{L}+\\s+)?\\p{L}+)\\s+(repaired|fixed|cleaned|washed|painted|serviced|checked|installed|replaced|delivered|printed|tested|inspected|updated|upgraded)${E}`, (m, v, np, pp) => `${({ got: "had", get: "have", gets: "has", getting: "having" })[v.toLowerCase()]} ${np} ${pp}`],
+    [`${S}(had|have|has|having|got|get|gets|getting)\\s+(?:my|your|his|her|our|their)\\s+hair\\s+(?:cut|trimmed)${E}`, (m, v) => `${({ had: "got", have: "get", has: "gets", having: "getting" })[v.toLowerCase()] ?? v} a haircut`],
+    [`${S}(look|looks|looked|looking)\\s+up\\s+to(?!\\s+the\\s+(?:sky|ceiling|stars|sun|moon|top|clouds|heavens)|\\s+at\\b|\\s+and\\b)${E}`, (m, v) => ({ look: "admire", looks: "admires", looked: "admired", looking: "admiring" })[v.toLowerCase()]],
+    [`${S}(fall|falls|fell|fallen|falling)\\s+through(?=\\s*(?:[,.;!?]|$)|\\s+(?:at|in|on|because|due|when|after|and|but|so|again|completely|entirely|once|as)\\b)`, (m, v) => ({ fall: "fail", falls: "fails", fell: "failed", fallen: "failed", falling: "failing" })[v.toLowerCase()]],
+    [`${S}(hold|holds|held|holding)\\s+(me|us|him|her|them|you)\\s+up${E}`, (m, v, who) => `${({ hold: "delay", holds: "delays", held: "delayed", holding: "delaying" })[v.toLowerCase()]} ${who}`],
+    [`${S}(was|were|is|are|been|be|being)\\s+made\\s+to\\s+(?!order\\b|measure\\b|last\\b|fit\\b|look\\b|seem\\b|feel\\b|believe\\b|think\\b|appear\\b|sound\\b)`, "$1 forced to "],
+    [`${S}college${E}`, "university", /scholarship|tuition|campus|degree|graduat\w+|undergrad\w*|freshman|sophomore|professor|semester|enrol\w+|admission|student\s+loan|\bdorm/i],
+    [`${S}(get|gets|got|getting)\\s+back\\s+to\\s+(you|him|her|them|us|me)${E}`, (m, v, who) => `${({ get: "reply", gets: "replies", got: "replied", getting: "replying" })[v.toLowerCase()]} to ${who}`],
+    [`${S}(server|servers|website|site|service|system|network|app|database|API|connection|internet|wifi|wi-fi|email|mail|portal|platform|page|line|lines)\\s+(is|are|was|were)\\s+down${E}`, "$1 $2 out of service"],
+    [`${S}running\\s+((?:about|around|roughly|approximately)\\s+)?((?:\\p{L}+|\\d+)\\s+(?:minutes?|hours?)|an\\s+hour|a\\s+few\\s+minutes)\\s+late${E}`, "$1$2 late"],
+    [`(?<=${S}at\\s+)(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?=\\s*(?:[?.,!;:]|$)|\\s+(?:and|but|so|tomorrow|tonight|today|sharp)\\b)`, "$1 o'clock"],
+    [`${S}(two|three|four|five|six|seven|eight|nine|ten)\\s+miles?${E}`, (m, n) => `${({ two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 })[n.toLowerCase()]} miles`],
+    [`${S}(serves|serving|feeds)\\s+(two|three|four|five|six|seven|eight|nine|ten|twelve|\\d+)(?:\\s+(?:people|persons|guests|adults))?(?=\\s*[,.;!?]|\\s+and\\b|$)`, "makes $2 servings"],
+    [`${S}(let['’]s|time\\s+to|gonna|going\\s+to|gotta|got\\s+to|have\\s+to|need\\s+to|should)\\s+(?:bounce|bail|scram)(?=\\s+(?:before|now|soon|and|early)\\b|\\s*[,.;!?]|$)`, "$1 leave"],
+    // Argot et tournures que le modèle rend mot à mot (essai du 14/11/2026 sur mes propres phrases).
+    [`${S}a\\s+(?:whole\\s+|completely\\s+|totally\\s+)?different\\s+kettle\\s+of\\s+fish${E}`, "a completely different matter"],
+    [`${S}(blow|blows|blew|blown|blowing)\\s+(my|his|her|their|our|your)\\s+mind${E}`, (m, v, who) => `${({ blow: "amaze", blows: "amazes", blew: "amazed", blown: "amazed", blowing: "amazing" })[v.toLowerCase()]} ${({ my: "me", his: "him", her: "her", their: "them", our: "us", your: "you" })[who.toLowerCase()]}`],
+    [`${S}over\\s+the\\s+moon${E}`, "very happy"],
+    [`${S}(?:such\\s+)?a\\s+(?:bit\\s+of\\s+a\\s+|little\\s+|total\\s+|real\\s+)?drama\\s+queen${E}`, "someone who dramatizes everything"],
+    [`${S}(crash|crashes|crashed|crashing)(?=\\s+(?:on|at|in)\\s+(?:my|his|her|our|their|your|\\p{L}+['’]s)\\s+(?:\\p{L}+\\s+){0,2}(?:place|house|apartment|flat|home|couch|sofa|floor|room)${E})`, (m, v) => ({ crash: "sleep", crashes: "sleeps", crashed: "slept", crashing: "sleeping" })[v.toLowerCase()]],
+    [`${S}(was|is|were|are|been)\\s+a\\s+(?:total\\s+|complete\\s+|huge\\s+|big\\s+|massive\\s+)?flop${E}`, "$1 a complete failure"],
+    [`${S}(make|makes|made|making)\\s+head\\s+or\\s+tail\\s+of${E}`, "$1 any sense of"],
+    [`${S}a\\s+(?:total\\s+|real\\s+)?couch\\s+potato${E}`, "someone who spends all day on the couch"],
+    [`${S}cheesy${E}`, "corny"],
+    [`${S}(bail|bails|bailed|bailing)\\s+on\\s+(me|us|him|her|them|you)${E}`, (m, v, who) => `${({ bail: "let", bails: "lets", bailed: "let", bailing: "letting" })[v.toLowerCase()]} ${who} down`],
+    [`${S}(?:so|totally|completely|really|just)\\s+done\\s+with${E}`, "fed up with"],
+    [`${S}sketchy${E}`, "shady"],
+    [`${S}(throw|throws|threw|throwing|thrown)\\s+shade\\s+(?:at|on)${E}`, (m, v) => ({ throw: "mock", throws: "mocks", threw: "mocked", throwing: "mocking", thrown: "mocked" })[v.toLowerCase()]],
+    [`${S}(such\\s+a|a|total|big|real)\\s+flex(?![\\p{L}])`, "$1 show-off"],
+    [`${S}(slay|slays|slayed|slaying)\\s+(?=(?:that|the|this|it|my|her|his|their)\\b)`, (m, v) => `${({ slay: "excel at", slays: "excels at", slayed: "excelled at", slaying: "excelling at" })[v.toLowerCase()]} `],
+    [`${S}a\\s+(?:total\\s+|real\\s+)?lightweight${E}`, "someone who can't hold their alcohol", /\b(?:beers?|drinks?|alcohol|wine|shots?|glasses?)\b/i],
+    [`${S}(bomb|bombs|bombed|bombing)\\s+(it|(?:the|that|this|my|an?|our|his|her)\\s+(?:exam|test|interview|quiz|audition|presentation|final|midterm|assignment|class|course))${E}`, (m, v, what) => `${({ bomb: "fail", bombs: "fails", bombed: "failed", bombing: "failing" })[v.toLowerCase()]} ${what.replace(/\binterview$/i, "job interview")}`],
+    [`${S}a\\s+(?:total\\s+|real\\s+)?pushover${E}`, "someone who gives in to everyone"],
+    [`${S}stay\\s+away\\s+from${E}`, "keep your distance from"],
+    [`${S}(screw|screws|screwed|screwing)\\s+up${E}`, (m, v) => ({ screw: "mess", screws: "messes", screwed: "messed", screwing: "messing" })[v.toLowerCase()] + " up"],
+    [`${S}(chicken|chickens|chickened|chickening)\\s+out${E}`, (m, v) => ({ chicken: "back", chickens: "backs", chickened: "backed", chickening: "backing" })[v.toLowerCase()] + " out"],
+    [`${S}((?:i['’]m|he['’]s|she['’]s|we['’]re|they['’]re|you['’]re|am|is|are)\\s+(?:(?:totally|really|so|super|pretty|very|way|kinda|kind\\s+of)\\s+)?)into\\s+(?!the\\b|a\\b|an\\b)`, "$1passionate about "],
+    [`${S}(party|joke|excuse|movie|show|game|gift|idea|story|song|date|event|speech)\\s+(is|was|were|are)\\s+((?:kinda|kind\\s+of|so|really|pretty|a\\s+bit|a\\s+little|totally|super)\\s+)?lame${E}`, "$1 $2 $3boring"],
     // « since he was six » : le modèle invente un mot (« depuis l'heize », « dix ana ») ; avec
     // « years old », il traduit bien (« depuis l'âge de six ans »).
     [`${S}(since\\s+(?:I|you|he|she|we|they)\\s+(?:was|were)\\s+(?:\\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety))(?!\\s*(?:years|months|weeks|days|hours|minutes|o['’]clock|percent|%|[\\p{L}\\p{N}-]))`, "$1 years old"],
@@ -1543,6 +1669,21 @@ const VENIR_DE = { "tu as": "tu viens", "vous avez": "vous venez", "il a": "il v
 const FEM_DET = { ton: "ta", mon: "ma", son: "sa", un: "une", "l'": "la", "l’": "la", le: "la", ce: "cette", cet: "cette", du: "de la", au: "à la", votre: "votre", notre: "notre", leur: "leur" };
 
 const FR_FIX = compile([
+    // --- Lot traduction 3 (14/11/2026) : sorties françaises récurrentes, d'après la phrase anglaise.
+    [`(?<![\\p{L}\\p{N}_-])(ajout\\p{L}*)\\s+(?:de\\s+l['’])?insulte\\s+à\\s+la\\s+blessure${E}`, "$1 l'insulte à l'injure", /insult\s+to\s+injury/i],
+    [`${S}mise\\s+à\\s+pied${E}`, "licenciement", /\blay-?offs?\b|\blaid\s+off\b/i],
+    [`atterr{2,}ai${E}`, "atterrirai"],
+    [`${S}(avoir\\s+été|être|étant|été)\\s+((?:trop\\s+)?(?:souvent\\s+|toujours\\s+)?)tardifs?${E}`, "$1 $2en retard", /\blate\b/i],
+    [`${S}(une|la|cette|ma|sa|votre|notre)\\s+preuve\\s+d['’]adresse${E}`, (m, d) => `${({ une: "un", la: "le", cette: "ce", ma: "mon", sa: "son", votre: "votre", notre: "notre" })[d.toLowerCase()]} justificatif de domicile`, /proof\s+of\s+(?:address|residence)/i],
+    [`${S}preuve\\s+d['’]adresse${E}`, "justificatif de domicile", /proof\s+of\s+(?:address|residence)/i],
+    [`${S}je\\s+couvre\\s+(ses|leurs)\\s+quarts(?:\\s+de\\s+travail)?${E}`, (m, p) => (p.toLowerCase() === "ses" ? "je le remplace" : "je les remplace"), /cover(?:ing|s|ed)?\s+(?:his|her|their)\s+shifts?/i],
+    [`${S}moyenne\\s+de\\s+l['’]industrie${E}`, "moyenne du secteur", /industry\s+average|average\s+of\s+the\s+industry/i],
+    [`${S}mon\\s+nouveau\\s+patron${E}`, "ma nouvelle patronne", /\b(?:boss|manager)\b[^.]*\b(?:woman|she|her|female|lady)\b/i],
+    [`${S}(mon|notre|votre|son)\\s+patron${E}`, (m, d) => `${({ mon: "ma", notre: "notre", votre: "votre", son: "sa" })[d.toLowerCase()]} patronne`, /\b(?:boss|manager)\b[^.]*\b(?:woman|she|her|female|lady)\b/i],
+    [`${S}(coupé|coupe|couper|coupent|coupait|coupaient)\\s+en\\s+ligne${E}`, (m, v) => `${({ coupé: "doublé", coupe: "double", couper: "doubler", coupent: "doublent", coupait: "doublait", coupaient: "doublaient" })[v.toLowerCase()]} dans la file`, /cut(?:s|ting)?\s+in\s+(?:the\s+)?line/i],
+    [`${S}(?:partons|allons-y|on\\s+y\\s+va)${E}`, "on se tire", /\blet['’]s\s+(?:bounce|bail|scram)\b/i],
+    [`${S}corny${E}`, "ringard", /\bcheesy\b/i],
+    [`${S}me\\s+mec(?=\\s*[,!])`, "mec", /\bdude\b/i],
     // --- Campagne du 06/11/2026 : idiomes, faux amis et vocabulaire, d'après la phrase anglaise.
     [`${S}(attention|faites\\s+attention|fais\\s+attention|soyez\\s+prudente?s?|sois\\s+prudente?)\\s+(?:au\\s+pas|à\\s+l['’]étape|avec\\s+l['’]étape|au\\s+palier|à\\s+l['’]échelon)${E}`, (m, what) => `${/^soyez/i.test(what) ? "faites attention" : /^sois/i.test(what) ? "fais attention" : what} à la marche`, /\b(?:mind|watch)\s+(?:the|your)\s+step\b/i],
     [`${S}je\\s+me\\s+fiche\\s+de\\s+(?:l['’]endroit|savoir)\\s+où${E}`, "je m'en fiche, peu importe où", /\bidc\b|\bI\s+don['’]t\s+care\s+where\b/i],
@@ -1771,6 +1912,14 @@ const EN_POSSESSIVE = { i: "my", you: "your", he: "his", she: "her", we: "our", 
 const BOOK_SOURCE = (src) => /épuisée?s?/i.test(src) && /\b(?:librair\p{L}*|libraire|livres?|romans?|exemplaires?|stock|éditions?|tomes?|BD|album|disque|magasin|rupture)\b/iu.test(src);
 
 const EN_FIX = compile([
+    // --- Lot traduction 3 (14/11/2026) : sorties anglaises récurrentes, d'après la phrase française.
+    [`${S}sill${E}`, "miller", /meunier/i],
+    [`${S}No[eë]l${E}`, "Christmas", /(?:à|de|pour|passé|passer|passons|fêter|fêtons|fête|joyeux|veille|vacances|marché|sapin|cadeaux?|repas|réveillon|lendemain)\s+(?:de\s+|du\s+)?Noël/i],
+    [`${S}(?:the\\s+)?World(?=\\s+(?:article|newspaper|journalist|editorial|daily|report|reporter|columnist|survey|poll)\\b)`, "Le Monde", /(?:article|journal|journaliste|éditorial|quotidien|enquête|sondage|reportage|chroniqueur)s?\s+(?:du|de|dans)\s+(?:Le\s+)?Monde\b|\bLe\s+Monde\b/],
+    [`${S}(from|in|of|by|to)\\s+(?:the\\s+)?World${E}`, "$1 Le Monde", /(?:article|journal|journaliste|éditorial|quotidien|enquête|sondage|reportage|chroniqueur)s?\s+(?:du|de|dans)\s+(?:Le\s+)?Monde\b|\bLe\s+Monde\b/],
+    [`${S}(?:crossed|burned|burnt|toasted|grilled)\\s+((?:\\p{L}+\\s+)?red\\s+lights?)`, "ran $1", /(?:grill|brûl)\p{L}*\s+(?:\p{L}+\s+)?feux?\s+rouges?/iu],
+    [`${S}(a\\s+(?:real\\s+|true\\s+)?)sting${E}`, "$1cheapskate", /radin|avare|pingre|grippe-sou/i],
+    [`${S}(pulled|pull|pulling|pulls|took|take|taking|takes)\\s+the\\s+carpet\\s+(?:out\\s+)?(?:from\\s+)?under\\s+(my|your|his|her|our|their)\\s+feet${E}`, (m, v, who) => `${v} the rug out from under ${({ my: "me", your: "you", his: "him", her: "her", our: "us", their: "them" })[who.toLowerCase()]}`, /tapis|herbe\s+sous\s+(?:le|les)\s+pieds?/i],
     // --- Campagne du 06/11/2026 : la paraphrase traduite, puis l'expression anglaise attendue.
     [`${S}(I|you|he|she|we|they)\\s+(made|make|makes|has\\s+made|have\\s+made|had\\s+made)\\s+(?:a\\s+)?(?:big\\s+|huge\\s+|real\\s+|terrible\\s+)?(?:gaffe|blunder|mistake|faux\\s+pas|faux-pas)${E}`, (m, who, verb) => `${who} ${({ made: "put", make: "put", makes: "puts" })[verb.toLowerCase()] ?? verb.replace(/made$/i, "put")} ${EN_POSSESSIVE[who.toLowerCase()]} foot in it`, /pieds\s+dans\s+le\s+plat/i],
     [`${S}(share|shared|sharing|shares|cut|divide|divided)\\s+the\\s+difference${E}`, (m, verb) => `${({ sharing: "splitting", shares: "splits" })[verb.toLowerCase()] ?? "split"} the difference`, /poire\s+en\s+deux/i],
@@ -2074,7 +2223,9 @@ const PROVERBS = [
     ["mieux\\s+vaut\\s+prévenir\\s+que\\s+guérir", "better\\s+safe\\s+than\\s+sorry", "mieux vaut prévenir que guérir", "better safe than sorry"],
     ["l['’]union\\s+fait\\s+la\\s+force", "united\\s+we\\s+stand|many\\s+hands\\s+make\\s+light\\s+work", "l'union fait la force", "united we stand"],
     ["(?:il\\s+ne\\s+faut\\s+pas|ne)\\s+réveill(?:er|e)\\s+(?:pas\\s+)?le\\s+chat\\s+qui\\s+dort", "let\\s+sleeping\\s+dogs\\s+lie", "il ne faut pas réveiller le chat qui dort", "let sleeping dogs lie"],
-    ["il\\s+ne\\s+faut\\s+pas\\s+vendre\\s+la\\s+peau\\s+de\\s+l['’]ours\\s+avant\\s+de\\s+l['’]avoir\\s+tué", "don['’]t\\s+count\\s+your\\s+chickens(?:\\s+before\\s+they(?:['’]re|\\s+are)?\\s+hatch(?:ed)?)?", "il ne faut pas vendre la peau de l'ours avant de l'avoir tué", "don't count your chickens before they hatch"],
+    [NEVER, "the\\s+(?:last|final)\\s+straw", "la goutte d'eau qui fait déborder le vase", "the last straw"],
+    [NEVER, "(?:it['’]s|that['’]s)\\s+(?:all\\s+|just\\s+)?water\\s+under\\s+the\\s+bridge|water\\s+under\\s+the\\s+bridge", "c'est de l'eau passée sous les ponts", "water under the bridge"],
+    ["(?:il\\s+ne\\s+faut\\s+pas\\s+vendre|ne\\s+vend(?:s|ez)\\s+pas)\\s+la\\s+peau\\s+de\\s+l['’]ours\\s+avant\\s+de\\s+l['’]avoir\\s+tu[ée]e?","don['’]t\\s+count\\s+your\\s+chickens(?:\\s+before\\s+they(?:['’]re|\\s+are)?\\s+hatch(?:ed)?)?", "il ne faut pas vendre la peau de l'ours avant de l'avoir tué", "don't count your chickens before they hatch"],
     ["paris\\s+ne\\s+s['’]est\\s+pas\\s+fait\\s+en\\s+un\\s+jour|rome\\s+ne\\s+s['’]est\\s+pas\\s+faite\\s+en\\s+un\\s+jour", "rome\\s+wasn['’]t\\s+built\\s+in\\s+a\\s+day", "Paris ne s'est pas fait en un jour", "Rome wasn't built in a day"],
     ["chacun\\s+(?:ses|son)\\s+goûts?(?=\\s*[.,!?;]|\\s*$)", "(?:each|to\\s+each)\\s+(?:to\\s+their|his|her|their)\\s+own(?=\\s*[.,!?;]|\\s*$)", "chacun ses goûts", "to each their own"],
     ["il\\s+ne\\s+faut\\s+jamais\\s+dire\\s+jamais", "never\\s+say\\s+never", "il ne faut jamais dire jamais", "never say never"],
@@ -2180,8 +2331,8 @@ export function rewriteSource(text, from) {
             .replace(/(?<![\p{L}\p{N}])(?:at\s+)?(\d{1,2})(?:-|\s)?ish(?![\p{L}])/giu, (m, h) => `${/^at/i.test(m) ? "at " : ""}around ${h} o'clock`);
     }
     return outsideProtected(input, (part) => (from === "fr"
-        ? applyRules(frSms(part), FR_RULES)
-        : applyRules(enSms(part), EN_RULES)));
+        ? applyRules(frSms(part), FR_RULES, { source: input })
+        : applyRules(enSms(part), EN_RULES, { source: input })));
 }
 
 // Garde-fou des nombres : le modèle perd parfois un chiffre (« 22,05 € » → « €2.05 »). Un nombre à
@@ -2202,6 +2353,13 @@ function guardNumbers(output, source, to) {
         if (found.some((f) => f.v === v)) {
             continue;
         }
+        // « 42,195 » (virgule décimale) lu comme « 42 195 » : trois décimales ressemblent à des milliers.
+        const grouped = fromFr && /\.\d{3}$/.test(v) ? found.find((f) => /,/.test(f.raw) && f.v === v.replace(".", "") && !wanted.includes(f.v)) : null;
+        if (grouped) {
+            result = result.slice(0, grouped.index) + v + result.slice(grouped.index + grouped.raw.length);
+            found.splice(found.indexOf(grouped), 1);
+            continue;
+        }
         const broken = found.find((f) => f.v !== v && v.endsWith(f.v) && f.v.length >= v.length - 2 && !wanted.includes(f.v));
         if (broken) {
             const [whole, decimals] = v.split(".");
@@ -2213,6 +2371,19 @@ function guardNumbers(output, source, to) {
         }
     }
     return result;
+}
+
+// Le modèle mêle parfois « tu » et « vous » dans une même phrase (« assieds-toi, enlevez ton manteau »).
+// Si le texte tutoie et ne vouvoie nulle part ailleurs, les impératifs de « vous » passent au « tu ».
+const VOUS_IMPERATIVES = { enlevez: "enlève", laissez: "laisse", sauvez: "sauve", gardez: "garde", envoyez: "envoie", appelez: "appelle", regardez: "regarde", écoutez: "écoute", venez: "viens", allez: "va", attendez: "attends", prenez: "prends", faites: "fais", dites: "dis", rappelez: "rappelle", montrez: "montre", donnez: "donne", passez: "passe", mettez: "mets", ouvrez: "ouvre", fermez: "ferme", essayez: "essaie", restez: "reste", commencez: "commence", continuez: "continue", videz: "vide", prêtez: "prête", apportez: "apporte", ramenez: "ramène", emmenez: "emmène", trouvez: "trouve", utilisez: "utilise", arrêtez: "arrête", oubliez: "oublie", pensez: "pense", répondez: "réponds", dépêchez: "dépêche", rejoignez: "rejoins", suivez: "suis", lisez: "lis", écrivez: "écris", servez: "sers", mangez: "mange", buvez: "bois", gardez: "garde", rentrez: "rentre", sortez: "sors", entrez: "entre", asseyez: "assieds", prévenez: "préviens", téléphonez: "téléphone", rassurez: "rassure", détendez: "détends", reposez: "repose", respirez: "respire", profitez: "profite", amusez: "amuse" };
+const TU_MARK = /(?<![\p{L}'’-])(?:tu|ton|ta|tes|toi|te|tien|tienne)(?![\p{L}'’])|(?<![\p{L}])t['’](?=\p{L})/iu;
+const VOUS_MARK = /(?<![\p{L}])(?:vous|votre|vos|vôtre|vôtres)(?![\p{L}])/iu;
+const VOUS_IMPERATIVE_RE = new RegExp(`(?<![\\p{L}'’-])(?<!\\bvous\\s)(${Object.keys(VOUS_IMPERATIVES).join("|")})(?=[\\s,;.!?-]|$)`, "giu");
+export function harmonizeImperatives(text) {
+    if (!TU_MARK.test(text) || VOUS_MARK.test(text)) {
+        return text;
+    }
+    return text.replace(VOUS_IMPERATIVE_RE, (word) => keepCase(VOUS_IMPERATIVES[word.toLowerCase()], word));
 }
 
 export function fixTarget(text, to, { source = "" } = {}) {
@@ -2228,6 +2399,9 @@ export function fixTarget(text, to, { source = "" } = {}) {
     // Majuscule au début si le texte d'origine en avait une (« Let's play it by ear » → « improvisons »).
     if (/^\p{Lu}/u.test(source.trimStart()) && /^\p{Ll}/u.test(fixed.trimStart())) {
         fixed = fixed.replace(/^(\s*)(\p{Ll})/u, (m, space, letter) => space + letter.toUpperCase());
+    }
+    if (to === "fr") {
+        fixed = harmonizeImperatives(fixed);
     }
     return to === "fr" ? frenchTypography(fixed) : englishTypography(fixed);
 }

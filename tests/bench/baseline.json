@@ -92,10 +92,10 @@
         "chrf": 79.8
     },
     "trcontrole": {
-        "ok": 137,
+        "ok": 139,
         "total": 164,
         "register": 26,
-        "chrf": 74.2
+        "chrf": 74.4
     },
     "grandfr": {
         "found": 1098,
@@ -139,10 +139,10 @@
         "ok": 672,
         "total": 672,
         "register": 120,
-        "chrf": 78
+        "chrf": 77.9
     },
     "trcontrole2": {
-        "ok": 291,
+        "ok": 296,
         "total": 389,
         "register": 80,
         "chrf": 72
@@ -210,5 +210,17 @@
         "total": 192,
         "falseAlerts": 9,
         "oneClick": 214
+    },
+    "traduction3": {
+        "ok": 597,
+        "total": 600,
+        "register": 73,
+        "chrf": 75.4
+    },
+    "trcontrole3": {
+        "ok": 282,
+        "total": 320,
+        "register": 38,
+        "chrf": 75.2
     }
 }
