@@ -15,7 +15,7 @@ const normalize = (text) => String(text ?? "")
     .toLowerCase();
 
 // Formes du tutoiement et du vouvoiement dans un texte français.
-const TU = /(?<![\p{L}'])(?:tu|te|toi|ton|ta|tes|tien|tienne|tiens|tiennes)(?![\p{L}'])|(?<![\p{L}])t'(?=\p{L})|-(?:toi|tu|t-il)(?![\p{L}])/iu;
+const TU = /(?<![\p{L}'])(?:tu|te|toi|ton|ta|tes|tien|tienne|tiens|tiennes)(?![\p{L}'])|(?<![\p{L}])t'(?=\p{L})|-(?:toi|tu)(?![\p{L}])/iu;
 const VOUS = /(?<![\p{L}'])(?:vous|votre|vos|vôtre|vôtres)(?![\p{L}'])/iu;
 
 export function registerOf(text) {

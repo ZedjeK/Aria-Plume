@@ -17,7 +17,7 @@
 // Contrat détaillé (entrées, sorties) : voir api.md.
 
 import { prepareGlossary } from "./translate/glossary.js";
-import { rewriteSource, fixTarget, keptTerms, maskNames } from "./translate/rewrite.js";
+import { rewriteSource, fixTarget, harmonizeImperatives, keptTerms, maskNames } from "./translate/rewrite.js";
 import { createEnglishThesaurus } from "./en/thesaurus.js";
 import { findEnglishRepetitions } from "./en/repetitions.js";
 import { prepareText, filterProtected } from "./protect.js";
@@ -340,6 +340,7 @@ export function createAria(platform) {
                 output = fixTarget(output, to, { source: original });
                 if (to === "fr" && output.trim()) {
                     output = await finishFrench(output, original, register);
+                    output = harmonizeImperatives(output);
                 }
             }
             return {
