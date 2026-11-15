@@ -7,6 +7,7 @@ Produit, dans .work\sortie\ :
   Aria-Plume-<version>-win-x64.zip        l'application Windows (electron-builder) ; décompressée, elle propose
                                           de s'installer dans %USERPROFILE%\.Aria-Plume\programme
   Aria-Plume-extension-<version>.zip      l'extension, avec LICENSE et LICENCES-TIERS.txt
+  <fichier>.sha256                        l'empreinte SHA-256 de chaque fichier (format de sha256sum)
 
 Plus d'exe portable : celui d'Electron se décompresse dans %TEMP% à chaque lancement, ce que le modèle des applis
 Aria interdit.
@@ -99,5 +100,12 @@ $versionNode = "$(& $node --version 2>$null)".Trim()
 $ErrorActionPreference = 'Stop'
 $electron = "$((([IO.File]::ReadAllText((Chemin @('app', 'package.json')), [Text.Encoding]::UTF8) | ConvertFrom-Json).devDependencies.electron))"
 [IO.File]::WriteAllLines((Chemin @('.work', 'outils.txt')), [string[]]@("Node : $versionNode", "Electron : $electron"), (New-Object Text.UTF8Encoding($false)))
+
+# Empreinte SHA-256 de chaque fichier, au format de sha256sum (« <empreinte>  <nom> ») : l'application installée
+# la vérifie avant d'installer une mise à jour.
+foreach ($fichier in @(Get-ChildItem -LiteralPath $sortie -File | Where-Object { $_.Extension -ne '.sha256' })) {
+    $empreinte = (Get-FileHash -LiteralPath $fichier.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText("$($fichier.FullName).sha256", "$empreinte  $($fichier.Name)`n", (New-Object Text.UTF8Encoding($false)))
+}
 
 Get-ChildItem -LiteralPath $sortie | ForEach-Object { Write-Host ("Prêt : {0} ({1} Mo)" -f $_.Name, [math]::Round($_.Length / 1MB, 1)) }

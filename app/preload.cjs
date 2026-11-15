@@ -114,6 +114,10 @@ contextBridge.exposeInMainWorld("ariaApp", {
     updateState: () => ipcRenderer.invoke("app:update-state"),
     checkUpdate: () => ipcRenderer.invoke("app:update-check"),
     openUpdate: () => ipcRenderer.invoke("app:update-open"),
+    installUpdate: () => ipcRenderer.invoke("app:update-install"),
+    onUpdateProgress: (listener) => {
+        ipcRenderer.on("update-progress", (event, progress) => listener(progress));
+    },
     onUpdateResult: (listener) => {
         ipcRenderer.on("update-result", (event, result) => listener(result));
     },
