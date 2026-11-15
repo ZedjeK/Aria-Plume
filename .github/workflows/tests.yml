@@ -4,9 +4,9 @@
 name: Tests
 
 on:
+    # Sur toutes les PR, même de documentation : « tests » doit pouvoir servir de check exigé pour fusionner.
     pull_request:
         branches: [main]
-        paths-ignore: ["**.md", "docs/**", "LICENSE"]
     push:
         branches: [main]
         paths-ignore: ["**.md", "docs/**", "LICENSE"]
