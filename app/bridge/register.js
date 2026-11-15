@@ -112,12 +112,12 @@ function launcherText({ platform, exe, relay }) {
 }
 
 // Inscrit (ou réinscrit) le relais. Renvoie { registered: [noms], failed: [{ name, error }], dir }.
-export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, extensionId, hostName, env = process.env, platform = process.platform, run = runPowerShell }) {
+export async function registerBridge({ dir, exe, appCommand, pipe, tokenFile, tokenDpapi = false, extensionId, hostName, env = process.env, platform = process.platform, run = runPowerShell }) {
     fs.mkdirSync(dir, { recursive: true });
     const relay = path.join(dir, "relay.cjs");
     // Lecture puis écriture : la source peut être dans l'archive app.asar.
     fs.writeFileSync(relay, fs.readFileSync(RELAY_SOURCE));
-    fs.writeFileSync(path.join(dir, "relay-config.json"), `${JSON.stringify({ pipe, tokenFile, app: appCommand }, null, 4)}\n`);
+    fs.writeFileSync(path.join(dir, "relay-config.json"), `${JSON.stringify({ pipe, tokenFile, ...(tokenDpapi ? { tokenDpapi: true } : {}), app: appCommand }, null, 4)}\n`);
     const launcher = path.join(dir, platform === "win32" ? "relay.cmd" : "relay.sh");
     fs.writeFileSync(launcher, launcherText({ platform, exe, relay }), { mode: 0o755 });
     const manifest = {
