@@ -329,7 +329,7 @@ check("pont : déconnexion", !fs.existsSync(`${nativeDir}/fr.aria_plume.app.json
 // Mises à jour : vérification automatique au démarrage (case cochée d'office), puis à la demande.
 const autoNotice = await win.evaluate(() => window.ariaTest.notified());
 check("mises à jour : vérifiées au démarrage, nouvelle version signalée", updateRequests >= 1 && /99\.0\.0 est disponible/.test(autoNotice?.title ?? ""), JSON.stringify(autoNotice));
-check("mises à jour : menu de l'icône", (await win.evaluate(() => window.ariaTest.state())).trayMenu.includes("Mise à jour disponible : 99.0.0…"));
+check("mises à jour : menu de l'icône", (await win.evaluate(() => window.ariaTest.state())).trayMenu.includes("Voir la mise à jour (99.0.0)…"));
 check("mises à jour : section des réglages", (await opt.textContent("#updateStatus")).startsWith("Version 99.0.0 disponible, publiée le 2 novembre 2026") && (await opt.$$eval("#updateNotes li", (l) => l.map((x) => x.textContent))).join("|") === "Nouveauté de test.|Deuxième point." && await opt.isChecked("#checkUpdates"), await opt.textContent("#updateStatus"));
 await opt.click("#updateOpen");
 check("mises à jour : bouton vers la page de la version", (await win.evaluate(() => window.ariaTest.opened())) === "https://github.com/ZedjeK/Aria-Plume/releases/tag/v99.0.0");
