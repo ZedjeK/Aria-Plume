@@ -11,7 +11,7 @@ import path from "node:path";
 const appDir = new URL("..", import.meta.url).pathname;
 const useApp = process.argv.includes("--app");
 // Serveur Node seul : un fichier de réglages de test (dictionnaire, glossaire).
-const settingsFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "aria-mcp-")), "aria-plume-reglages.json");
+const settingsFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "aria-mcp-")), "reglages.json");
 fs.writeFileSync(settingsFile, JSON.stringify({ dictionary: ["Elegoo"], glossary: [{ fr: "serveur", en: "host" }] }));
 const command = !useApp
     ? [process.execPath, [`${appDir}/mcp/standalone.mjs`, settingsFile]]

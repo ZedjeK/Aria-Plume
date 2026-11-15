@@ -84,10 +84,10 @@ check("fenêtre", (await win.title()) === "Aria Plume");
 // Dossier de données : réglages repris des anciennes versions (copiés, l'original reste), données
 // internes d'Electron rangées dedans.
 const startState = await win.evaluate(() => window.ariaTest.state());
-check("données : réglages dans le dossier d'Aria Plume", startState.settingsFile === `${dataDir}/aria-plume-reglages.json`, startState.settingsFile);
+check("données : réglages dans le dossier d'Aria Plume", startState.settingsFile === `${dataDir}/reglages.json`, startState.settingsFile);
 const migratedSettings = await win.evaluate(() => chrome.storage.local.get({ dictionary: [], debounceMs: 0 }));
 check("données : anciens réglages repris, original gardé", migratedSettings.dictionary.includes("Warhammer") && migratedSettings.debounceMs === 700 && fs.existsSync(`${legacyDir}/aria-plume-reglages.json`), JSON.stringify(migratedSettings));
-check("données : fichiers internes d'Electron dans le dossier d'Aria Plume", fs.existsSync(`${dataDir}/electron`) && fs.readdirSync(`${dataDir}/electron`).length > 0, fs.existsSync(`${dataDir}/electron`) ? fs.readdirSync(`${dataDir}/electron`).slice(0, 5).join(", ") : "absent");
+check("données : fichiers internes d'Electron dans le dossier d'Aria Plume", fs.existsSync(`${dataDir}/cache`) && fs.readdirSync(`${dataDir}/cache`).length > 0, fs.existsSync(`${dataDir}/cache`) ? fs.readdirSync(`${dataDir}/cache`).slice(0, 5).join(", ") : "absent");
 check("isolation", await win.evaluate(() => typeof require === "undefined" && typeof process === "undefined"));
 check("pont chrome", await win.evaluate(() => typeof chrome.runtime.sendMessage === "function"));
 check("classes app", await win.evaluate(() => document.body.classList.contains("app") && document.body.classList.contains("window")));
@@ -383,7 +383,7 @@ try {
     check("Office : panneau Outlook servi par l'application (paquet compris)", outlookPage?.status() === 200 && (await officePage.locator("script[type=module]").getAttribute("src")) === "outlook.js");
     // Le panneau s'ouvre dans Outlook : ping avec le nom du complément, noté dans les réglages.
     const pinged = await officePage.evaluate(() => fetch("/api/ping", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ host: "Outlook" }) }).then((r) => r.text()).catch((e) => String(e)));
-    const seen = JSON.parse(fs.readFileSync(`${dataDir}/aria-plume-reglages.json`, "utf8")).officeSeen ?? {};
+    const seen = JSON.parse(fs.readFileSync(`${dataDir}/reglages.json`, "utf8")).officeSeen ?? {};
     check("Office : ouverture du panneau Outlook notée", /"ok":true/.test(pinged) && !!seen.Outlook, `${pinged} · ${JSON.stringify(seen)}`);
 } finally {
     await officeBrowser.close();

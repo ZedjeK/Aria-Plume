@@ -8,8 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { sharedSettings } from "./engine.js";
 import { dataDir } from "./paths.js";
+import { FICHIER_REGLAGES, journaliser, sauvegarderReglagesDuJour } from "./donnees.js";
 
-const FILE_NAME = "aria-plume-reglages.json";
+const FILE_NAME = FICHIER_REGLAGES;
 
 // Réglages propres à l'application.
 export const APP_DEFAULTS = {
@@ -123,6 +124,13 @@ export function saveSettings(changes) {
     cache = after;
     if (Object.keys(diff).length) {
         fs.mkdirSync(settingsDir(), { recursive: true });
+        // Une copie par jour avant de modifier, et une ligne au journal (les clés, jamais les valeurs).
+        try {
+            sauvegarderReglagesDuJour(settingsDir());
+            journaliser(settingsDir(), "réglages", Object.keys(diff).join(", "));
+        } catch (error) {
+            console.error("Sauvegarde ou journal des réglages impossible.", error.message);
+        }
         // Écriture atomique : un fichier temporaire, puis renommage.
         const temp = `${settingsFile()}.tmp`;
         fs.writeFileSync(temp, `${JSON.stringify(after, null, 4)}\n`);

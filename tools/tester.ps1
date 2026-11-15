@@ -59,6 +59,8 @@ function Lancer([string]$dossier, [string]$fichier) {
 foreach ($test in 'tests/node/smoke.mjs', 'tests/node/chemins.mjs', 'tests/bench/run.mjs', 'tests/bench/robustesse.mjs') {
     Lancer $racine $test
 }
+# Rangement du dossier de données : Node seul, sans Electron ni dépendance, donc aussi sous Windows.
+if (-not $Moteur) { Lancer (Chemin @('app')) 'tests/donnees.mjs' }
 
 $windows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 if (-not $Moteur -and $windows -and -not $Application) {

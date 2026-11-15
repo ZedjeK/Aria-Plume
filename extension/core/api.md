@@ -191,7 +191,7 @@ extension ──connectNative("fr.aria_plume.app")──▶ relais (relay.cjs) �
   `chrome-extension://fpgalamdbelhkacggnnglgcljhdcioca/` est autorisée (identifiant fixé par la clé
   publique du manifeste, `core/shared/ids.js`). L'exe portable ne peut pas être inscrit.
 - **Relais** : lancé par le navigateur avec l'exécutable d'Aria Plume en mode Node
-  (`ELECTRON_RUN_AS_NODE=1`). Si l'application ne répond pas, il la démarre (`--hidden`) et réessaie
+  (`ELECTRON_RUN_AS_NODE=1`). Si l'application ne répond pas, il la démarre (`--silencieux`) et réessaie
   pendant 20 s. Il refuse de transmettre au navigateur un message de plus de 1 Mo (réponse d'erreur
   à la place).
 - **Canal** : `\\.\pipe\aria-plume-<utilisateur>` sous Windows, socket Unix

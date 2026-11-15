@@ -39,7 +39,7 @@ async function until(test, ms = 20000, step = 200) {
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "aria-pont-e2e-"));
 const profile = path.join(root, "profil");
 const settingsDir = path.join(root, "reglages");
-const settingsFile = path.join(settingsDir, "aria-plume-reglages.json");
+const settingsFile = path.join(settingsDir, "reglages.json");
 const readAppSettings = () => JSON.parse(fs.readFileSync(settingsFile, "utf8"));
 const testEnv = {
     ARIA_TEST_HOOKS: "1",
@@ -55,13 +55,13 @@ fs.mkdirSync(settingsDir, { recursive: true });
 fs.writeFileSync(settingsFile, JSON.stringify({ dictionary: ["Elegoo"], glossary: [{ fr: "serveur", en: "server" }], formalFrench: true }));
 
 // Processus de l'application (lancée par le relais) : arrêt brutal.
-// Electron réordonne ses arguments (« electron --hidden --no-sandbox <dossier> ») : on cherche le
-// processus principal (sans --type=) qui a --hidden et le dossier de l'application.
+// Electron réordonne ses arguments (« electron --silencieux --no-sandbox <dossier> ») : on cherche le
+// processus principal (sans --type=) qui a --silencieux et le dossier de l'application.
 function killApp() {
     const list = execFileSync("ps", ["-eo", "pid=,args="]).toString().split("\n");
     for (const line of list) {
         const [, pid, args] = line.match(/^\s*(\d+)\s+(.*)$/) ?? [];
-        if (pid && args.includes("--hidden") && args.includes(APP) && !args.includes("--type=") && !args.includes("relay.cjs")) {
+        if (pid && args.includes("--silencieux") && args.includes(APP) && !args.includes("--type=") && !args.includes("relay.cjs")) {
             try {
                 process.kill(Number(pid), "SIGKILL");
             } catch {
@@ -72,7 +72,7 @@ function killApp() {
 }
 
 // --- 1. L'application inscrit le relais, puis s'arrête ---
-const appProc = spawn(electron, [APP, "--no-sandbox", "--hidden", "--remote-debugging-port=9334"], { env: { ...process.env, ...testEnv } });
+const appProc = spawn(electron, [APP, "--no-sandbox", "--silencieux", "--remote-debugging-port=9334"], { env: { ...process.env, ...testEnv } });
 const appExit = new Promise((resolve) => appProc.on("exit", resolve));
 let cdp = null;
 for (let i = 0; i < 80 && !cdp; i++) {
