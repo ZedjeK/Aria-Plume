@@ -32,6 +32,7 @@ C:\Users\<toi>\.Aria-Plume\
 ├── sauvegardes\       une copie des réglages par jour de modification (dix au plus)
 ├── cache\             données internes de l'application (caches, verrou)
 ├── programme\         l'application, si tu l'as installée
+├── mises-a-jour\      une mise à jour téléchargée, le temps de l'installer
 ├── extension\         copie de l'extension que lit le navigateur
 ├── pont\              relais et jeton du pont avec l'extension
 └── office\            certificat local et manifestes des compléments Word et Outlook
@@ -254,17 +255,36 @@ publie la release. Si une étape échoue, rien n'est publié.
 Réglages → Application → **Mises à jour** : « Vérifier au démarrage » (cochée d'office) demande à
 GitHub, une fois par jour au plus, la dernière version publiée. Si elle est plus récente, une bulle
 s'affiche près de l'horloge, le menu de l'icône propose « Mise à jour disponible : … », et les
-réglages montrent les nouveautés et le fichier à prendre (le zip Windows : décompresse-le, lance
-l'exe, puis « Installer » remplace la version installée en gardant la précédente). « Ouvrir la page de téléchargement » ouvre la page de la version dans ton navigateur :
-rien n'est téléchargé ni installé tout seul. « Vérifier maintenant » et « Rechercher une mise à
-jour » (menu de l'icône) vérifient à la demande.
+réglages montrent les nouveautés. « Vérifier maintenant » et « Rechercher une mise à jour » (menu
+de l'icône) vérifient à la demande. Rien n'est téléchargé sans ton accord.
 
-C'est le **seul accès à internet de l'application** : une demande à
-`https://api.github.com/repos/ZedjeK/Aria-Plume/releases/latest`, sans texte, sans réglage, sans
-identifiant (GitHub voit ton adresse IP). Décocher la case le coupe.
+**Application installée** (dans `.Aria-Plume\programme`) : « Installer la mise à jour » fait tout,
+quand la release publie l'empreinte de son zip (`<zip>.sha256`, depuis la 0.40) :
 
-Tests : `node tests/updates.mjs` (GitHub simulé) et `npm test` (vérification au démarrage, bulle,
-menu, réglages, avec un faux GitHub local).
+1. télécharge le zip et son empreinte depuis la release, sur `github.com` en HTTPS (GitHub renvoie
+   le fichier depuis `release-assets.githubusercontent.com`, seule redirection suivie) ;
+2. vérifie le SHA-256 du zip : s'il ne correspond pas, le fichier est supprimé et rien n'est
+   installé ;
+3. le décompresse dans `.Aria-Plume\mises-a-jour\` (avec le `tar` de Windows) ;
+4. Aria Plume se ferme ; la nouvelle version attend qu'elle soit fermée, s'installe dans
+   `programme\` en gardant la précédente dans `sauvegardes\versions\`, puis redémarre. Si quelque
+   chose échoue, la version installée reste en place et redémarre.
+
+**Zip lancé sans installer** : « Ouvrir la page de téléchargement » ouvre la page de la version ;
+décompresse le zip, lance l'exe, puis « Installer ».
+
+Accès à internet de l'application, et rien d'autre : la demande à
+`https://api.github.com/repos/ZedjeK/Aria-Plume/releases/latest` (sans texte, sans réglage, sans
+identifiant ; GitHub voit ton adresse IP ; décocher la case la coupe), et le téléchargement d'une
+mise à jour quand tu cliques sur « Installer la mise à jour ».
+
+L'empreinte prouve que le zip est arrivé intact, pas d'où il vient : elle est publiée à côté, dans
+la même release. La provenance repose sur le compte GitHub de l'auteur.
+
+Tests : `node tests/updates.mjs` et `node tests/miseajour.mjs` (GitHub simulé : empreinte, fichier
+altéré, redirection refusée), `npm test` (vérification au démarrage, bulle, menu, réglages), et sous
+Windows, sur l'application compilée, `node tests/miseajour-windows.mjs dist/win-unpacked <dossier>`
+(mise à jour complète depuis un faux GitHub local).
 
 ## Lancer en développement
 
@@ -338,6 +358,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `settings.js` | Réglages dans `reglages.json`, avec une copie par jour et le journal (`donnees.js`) |
 | `donnees.js` | Rangement du dossier de données : migration, sauvegardes, journal |
 | `installation.js` | Installation par l'exe dans `programme\`, version précédente gardée |
+| `miseajour.js` | Mise à jour intégrée : téléchargement depuis la release, SHA-256 vérifié, décompression |
 | `ui/installation.html` | Fenêtre « Installer Aria Plume » |
 | `preload.cjs` | Pont sécurisé : les quelques API `chrome.*` dont le correcteur a besoin, branchées sur le processus principal |
 | `windows-input.js` | Raccourci global sous Windows : copie de la sélection, recollage, presse-papiers |
