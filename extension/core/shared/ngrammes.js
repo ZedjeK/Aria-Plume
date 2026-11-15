@@ -506,6 +506,165 @@
         return found;
     }
 
+    // --- Homophones de sens par les mots de toute la phrase ---
+    // Deux noms qui se prononcent pareil (« mer » et « mère », « pain » et « pin ») se lisent aussi bien
+    // l'un que l'autre entre leurs deux voisins : « La mère était trop agitée pour sortir le bateau ».
+    // C'est le reste de la phrase qui tranche (« bateau »). Données : voisinage-fr.js, construit par
+    // tools/build-voisinage.mjs — pour chaque forme, dans combien de phrases de Tatoeba elle apparaît,
+    // et avec quels autres mots.
+    const SENTENCE = /[.!?;:\n]/;
+    const stops = {};
+    function stopWords(lang) {
+        if (!stops[lang]) {
+            const m = model(lang);
+            stops[lang] = new Set(m ? [...m.unigrams.keys()].slice(0, 150) : []);
+        }
+        return stops[lang];
+    }
+    // Mot de contexte : ni mot-outil (les 150 mots les plus fréquents), ni élision, ni nombre ; le
+    // pluriel régulier est ramené au singulier.
+    const contextStem = (word) => (word.length > 4 ? word.replace(/[sx]$/, "") : word);
+    function contextWord(lang, word) {
+        return word.length > 2 && !stopWords(lang).has(word) && !/'$/.test(word) && !/^\d/.test(word) ? contextStem(word) : null;
+    }
+    // Les mots de contexte de la phrase autour d'une forme (sans la forme elle-même).
+    function sentenceContext(lang, text, start, end, own = []) {
+        const words = new Set();
+        const raw = new Set();
+        for (const word of [...tokens(text.slice(0, start).split(SENTENCE).at(-1), lang), ...tokens(text.slice(end).split(SENTENCE)[0], lang)]) {
+            raw.add(word);
+            const stem = own.includes(word) ? null : contextWord(lang, word);
+            if (stem) {
+                words.add(stem);
+            }
+        }
+        return { words, raw };
+    }
+    // Une forme compte pour ce modèle si sa famille n'est pas grammaticale (« et/est » mis à part).
+    const senseForm = (entry) => !entry.grammatical && entry.words.length === 1 && !/^(?:et|est)$/.test(entry.text) && entry.alternatives.some((alt) => !alt.grammatical && alt.words.length === 1);
+
+    const senseModels = {};
+    function senseModel(lang) {
+        if (senseModels[lang] === undefined) {
+            const data = self[`ARIA_SENSE_${lang.toUpperCase()}`];
+            if (!data) {
+                senseModels[lang] = null;
+            } else {
+                const forms = new Map();
+                for (const line of String(data.forms).split("\n")) {
+                    const [form, count] = line.split("\t");
+                    forms.set(form, { total: Number(count), words: new Map() });
+                }
+                for (const line of String(data.counts).split("\n")) {
+                    const [form, word, count] = line.split("\t");
+                    forms.get(form)?.words.set(word, Number(count));
+                }
+                const spread = new Map(String(data.words).split("\n").map((line) => { const [word, count] = line.split("\t"); return [word, Number(count)]; }));
+                senseModels[lang] = { sentences: data.sentences, forms, spread };
+            }
+        }
+        return senseModels[lang];
+    }
+
+    // Deux preuves possibles, toutes deux refusées dès qu'un mot de la phrase va avec la forme écrite :
+    //   A. le contexte seul : des mots de la phrase accompagnent l'autre forme bien plus souvent que la
+    //      forme écrite, même en comptant large pour celle-ci (borne basse contre borne haute), et les
+    //      voisins immédiats ne disent pas le contraire ;
+    //   B. voisins et contexte ensemble : l'autre forme se lit nettement mieux entre les deux voisins, et
+    //      un mot de la phrase lui est propre (vu au moins 3 fois avec elle, e^SENSE.specific fois plus
+    //      que dans une phrase quelconque : « boulangerie » avec « pain »).
+    // Garde-fous : même nature possible pour les deux formes (un nom ne remplace pas un verbe), aucune
+    // autre forme de la famille dans la phrase, et une forme écrite dans une tournure qui lui est propre
+    // reste intouchable (« fonds de commerce »).
+    // Réglés le 14/11/2026 sur la série de travail 7 et les textes justes des séries de travail
+    // françaises : 34 homophones de sens de plus sur 300, aucune fausse alerte sur les textes justes.
+    const SENSE = { context: 2, both: 1, local: 2, specific: 2, ownLift: 3, clip: 4, smooth: 5 };
+    function senseConfusions(lang, text, options = {}) {
+        const m = model(lang);
+        const sense = senseModel(lang);
+        if (!m || !sense || !confusable[lang]) {
+            return [];
+        }
+        const tuning = { ...SENSE, ...(options.sense ?? {}) };
+        const natureOfWord = options.natureOfWord ?? null;
+        const classes = (word) => {
+            const nature = natureOfWord ? natureOfWord(word) : "?";
+            return nature === word.toLowerCase() ? null : new Set(nature.split("+").map((tag) => tag[0]));
+        };
+        const expected = (a, b) => (m.unigrams.get(a) ?? 0) * (m.unigrams.get(b) ?? 0) / m.total;
+        const lift = (a, b) => Math.log(((m.bigrams.get(`${a} ${b}`) ?? 0) + 0.1) / Math.max(expected(a, b), 0.1));
+        const found = [];
+        eachForm(lang, text, ({ entry, start, end, before, after }) => {
+            const own = sense.forms.get(entry.text);
+            if (!senseForm(entry) || !own) {
+                return true;
+            }
+            const { words, raw } = sentenceContext(lang, text, start, end, entry.words);
+            // Une autre forme de la famille dans la même phrase : on ne tranche pas.
+            if (words.size === 0 || entry.alternatives.some((alt) => alt.words.length === 1 && raw.has(alt.words[0]))) {
+                return true;
+            }
+            const prev = before ? before.word : "<s>";
+            const next = after ? after.word : "</s>";
+            if (Math.max(lift(prev, entry.text), lift(entry.text, next)) >= tuning.ownLift) {
+                return true;
+            }
+            const written = text.slice(start, end);
+            const ownClasses = classes(written);
+            const ownValue = logPair(m, prev, entry.text) + logPair(m, entry.text, next);
+            let best = null;
+            for (const alt of entry.alternatives) {
+                const other = sense.forms.get(alt.text);
+                if (alt.grammatical || alt.words.length !== 1 || !other || other.total < 5) {
+                    continue;
+                }
+                const altClasses = natureOfWord ? classes(alt.text) : null;
+                if (natureOfWord && (!ownClasses || !altClasses || ![...altClasses].some((c) => c !== "?" && ownClasses.has(c)))) {
+                    continue;
+                }
+                let sum = 0;
+                let sure = 0;
+                let support = 0;
+                let against = 0;
+                for (const word of words) {
+                    const a = other.words.get(word) ?? 0;
+                    const f = own.words.get(word) ?? 0;
+                    if (a + f < 2) {
+                        continue;
+                    }
+                    const pooled = (a + f) / (other.total + own.total);
+                    const value = Math.max(-tuning.clip, Math.min(tuning.clip, Math.log(((a + tuning.smooth * pooled) / (other.total + tuning.smooth)) / ((f + tuning.smooth * pooled) / (own.total + tuning.smooth)))));
+                    sum += value;
+                    const low = Math.max(a - Math.sqrt(a), 0) / other.total;
+                    const high = (f + Math.sqrt(f) + 1) / own.total;
+                    if (low > high) {
+                        sure += Math.min(tuning.clip, Math.log(low / high));
+                    }
+                    if (value >= 1 && a >= 3 && Math.log((a / other.total) / ((sense.spread.get(word) ?? 1) / sense.sentences)) >= tuning.specific) {
+                        support++;
+                    }
+                    if (value <= -1 && f >= 2) {
+                        against++;
+                    }
+                }
+                if (against > 0) {
+                    continue;
+                }
+                const local = logPair(m, prev, alt.text) + logPair(m, alt.text, next) - ownValue;
+                const proven = (sure >= tuning.context && local >= -1) || (local >= tuning.local && support >= 1 && sum >= tuning.both);
+                if (proven && (!best || sum + local > best.gain)) {
+                    best = { alternative: alt, gain: sum + local };
+                }
+            }
+            if (best) {
+                const fix = best.alternative.text;
+                found.push({ start, end, word: written, suggestion: /^\p{Lu}/u.test(written) ? fix[0].toUpperCase() + fix.slice(1) : fix, gain: best.gain, by: "phrase", from: start, to: end });
+            }
+            return true;
+        });
+        return found;
+    }
+
     // Une forme entre ses voisins : toutes ses paires de mots ont-elles été vues (attested), et quelle
     // est sa probabilité (value) ? Sert à valider une correction proposée par une autre voie.
     function fit(lang, before, form, after) {
@@ -525,5 +684,5 @@
         return { value, attested, edge: prev === "<s>" && next === "</s>" };
     }
 
-    self.AriaNgrammes = { tokens, score, rerank, confusions, fit, eachForm, natureOf, natureOfEnglish, english: (word) => (lexicon("en") ? natureOfEnglish(word, lexicon("en")) : "?"), ready: (lang) => !!model(lang) };
+    self.AriaNgrammes = { tokens, score, rerank, confusions, senseConfusions, senseForm, sentenceContext, fit, eachForm, natureOf, natureOfEnglish, english: (word) => (lexicon("en") ? natureOfEnglish(word, lexicon("en")) : "?"), ready: (lang) => !!model(lang) };
 })();

@@ -65,6 +65,10 @@ anglais) : extension/core/shared/contextes-fr.js et contextes-en.js, construits 
 tools/build-contextes.mjs : nombre d'occurrences de chaque homophone entre les natures de ses mots
 voisins, vues au moins deux fois (aucune phrase n'y est recopiée). Ils servent à détecter les
 homophones mal employés.
+Et, sur le même export français : extension/core/shared/voisinage-fr.js, construit par
+tools/build-voisinage.mjs : pour chaque homophone de sens (« mer », « mère »…), le nombre de phrases
+où il apparaît avec tel autre mot, vu au moins deux fois (aucune phrase n'y est recopiée). Il sert à
+départager deux homophones d'après les mots de la phrase.
 
 
 == Thésaurus français de Grammalecte 2.3.0 ==

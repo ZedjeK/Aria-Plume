@@ -14,36 +14,36 @@
     },
     "grammalecte": {
         "sentences": 14160,
-        "outsideZone": 10,
-        "inZone": 287
+        "outsideZone": 11,
+        "inZone": 363
     },
     "wordnet": {
         "sentences": 47478,
         "flagged": 13
     },
     "textes": {
-        "found": 127,
-        "fixed": 126,
-        "firstRank": 124,
+        "found": 131,
+        "fixed": 130,
+        "firstRank": 129,
         "total": 134,
         "falseAlerts": 1,
-        "oneClick": 105
+        "oneClick": 110
     },
     "controle": {
         "found": 59,
-        "fixed": 57,
-        "firstRank": 56,
+        "fixed": 58,
+        "firstRank": 57,
         "total": 60,
         "falseAlerts": 1,
-        "oneClick": 44
+        "oneClick": 45
     },
     "textes2": {
-        "found": 177,
-        "fixed": 176,
-        "firstRank": 176,
+        "found": 178,
+        "fixed": 178,
+        "firstRank": 178,
         "total": 182,
         "falseAlerts": 1,
-        "oneClick": 211
+        "oneClick": 213
     },
     "controle2": {
         "found": 97,
@@ -62,28 +62,28 @@
         "oneClick": 170
     },
     "controle3": {
-        "found": 62,
-        "fixed": 62,
-        "firstRank": 61,
+        "found": 63,
+        "fixed": 63,
+        "firstRank": 62,
         "total": 69,
         "falseAlerts": 3,
-        "oneClick": 80
+        "oneClick": 81
     },
     "textes4": {
-        "found": 336,
-        "fixed": 334,
-        "firstRank": 333,
+        "found": 346,
+        "fixed": 344,
+        "firstRank": 343,
         "total": 378,
         "falseAlerts": 5,
-        "oneClick": 383
+        "oneClick": 393
     },
     "controle4": {
-        "found": 187,
-        "fixed": 179,
-        "firstRank": 177,
+        "found": 188,
+        "fixed": 180,
+        "firstRank": 178,
         "total": 217,
         "falseAlerts": 9,
-        "oneClick": 216
+        "oneClick": 217
     },
     "traduction": {
         "ok": 284,
@@ -92,10 +92,10 @@
         "chrf": 79.8
     },
     "trcontrole": {
-        "ok": 139,
+        "ok": 142,
         "total": 164,
         "register": 26,
-        "chrf": 74.4
+        "chrf": 74.7
     },
     "grandfr": {
         "found": 1098,
@@ -120,40 +120,40 @@
         "chrf": 43.4
     },
     "textes5": {
-        "found": 569,
-        "fixed": 566,
-        "firstRank": 564,
+        "found": 574,
+        "fixed": 572,
+        "firstRank": 570,
         "total": 600,
-        "falseAlerts": 4,
-        "oneClick": 742
+        "falseAlerts": 3,
+        "oneClick": 747
     },
     "controle5": {
-        "found": 306,
-        "fixed": 293,
-        "firstRank": 285,
+        "found": 309,
+        "fixed": 296,
+        "firstRank": 288,
         "total": 368,
         "falseAlerts": 11,
-        "oneClick": 404
+        "oneClick": 407
     },
     "traduction2": {
         "ok": 672,
         "total": 672,
         "register": 120,
-        "chrf": 77.9
+        "chrf": 78.1
     },
     "trcontrole2": {
-        "ok": 296,
+        "ok": 300,
         "total": 389,
         "register": 80,
-        "chrf": 72
+        "chrf": 72.1
     },
     "textes6": {
-        "found": 90,
-        "fixed": 89,
-        "firstRank": 88,
+        "found": 92,
+        "fixed": 91,
+        "firstRank": 90,
         "total": 100,
         "falseAlerts": 3,
-        "oneClick": 306
+        "oneClick": 308
     },
     "controle6": {
         "found": 53,
@@ -164,20 +164,20 @@
         "oneClick": 181
     },
     "textes7": {
-        "found": 194,
-        "fixed": 186,
-        "firstRank": 177,
+        "found": 294,
+        "fixed": 293,
+        "firstRank": 288,
         "total": 300,
-        "falseAlerts": 5,
-        "oneClick": 286
+        "falseAlerts": 3,
+        "oneClick": 387
     },
     "controle7": {
-        "found": 108,
-        "fixed": 104,
-        "firstRank": 101,
+        "found": 133,
+        "fixed": 129,
+        "firstRank": 126,
         "total": 160,
-        "falseAlerts": 3,
-        "oneClick": 163
+        "falseAlerts": 2,
+        "oneClick": 187
     },
     "textes8": {
         "found": 276,
@@ -215,12 +215,12 @@
         "ok": 597,
         "total": 600,
         "register": 73,
-        "chrf": 75.4
+        "chrf": 75.5
     },
     "trcontrole3": {
-        "ok": 282,
+        "ok": 286,
         "total": 320,
         "register": 38,
-        "chrf": 75.2
+        "chrf": 75.3
     }
 }

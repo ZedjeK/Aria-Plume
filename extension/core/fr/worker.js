@@ -1521,7 +1521,7 @@ function loadNgrams() {
     if (!ngramsLoaded) {
         ngramsLoaded = true;
         try {
-            importScripts(new URL("../shared/ngrammes-fr.js", self.location).href, new URL("../shared/contextes-fr.js", self.location).href, new URL("../shared/ngrammes.js", self.location).href);
+            importScripts(new URL("../shared/ngrammes-fr.js", self.location).href, new URL("../shared/contextes-fr.js", self.location).href, new URL("../shared/voisinage-fr.js", self.location).href, new URL("../shared/ngrammes.js", self.location).href);
         } catch {
             // sans modèle, l'ordre reste celui des retouches et des fréquences
         }
@@ -1874,6 +1874,21 @@ function check(text, formal = false, repetitionDistance = 0) {
                     message: `Homophone : d'après la phrase, on attend plutôt « ${c.suggestion} ».`,
                     suggestions: [c.suggestion],
                     rule: "aria_homophone_contexte",
+                });
+            }
+        }
+        // Homophones de sens que les mots de toute la phrase contredisent (« La mère était trop agitée
+        // pour sortir le bateau » → mer) : là encore, seulement où rien d'autre n'a parlé.
+        for (const c of self.AriaNgrammes.senseConfusions("fr", text, { natureOfWord })) {
+            if (!matches.some((m) => m.start < c.end && c.start < m.end)) {
+                matches.push({
+                    start: c.start,
+                    end: c.end,
+                    kind: "grammaire",
+                    detail: "homophone",
+                    message: `Homophone : d'après la phrase, on attend plutôt « ${c.suggestion} ».`,
+                    suggestions: [c.suggestion],
+                    rule: "aria_homophone_phrase",
                 });
             }
         }
