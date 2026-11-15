@@ -457,8 +457,36 @@
         ];
     }
 
+    // Apparence : le fond animé « correction » de la fenêtre (fond.* dans reglages.json).
+    function appearanceBlock(settings) {
+        const actif = el("input", { type: "checkbox", className: "toggle", id: "fondActif", checked: settings["fond.actif"] });
+        actif.addEventListener("change", () => chrome.storage.local.set({ "fond.actif": actif.checked }));
+        const vitesse = el("select", { id: "fondVitesse" },
+            ...[["lente", "Lente"], ["normale", "Normale"], ["rapide", "Rapide"]].map(([value, label]) => el("option", { value, textContent: label })));
+        vitesse.value = settings["fond.vitesse"];
+        vitesse.addEventListener("change", () => chrome.storage.local.set({ "fond.vitesse": vitesse.value }));
+        const nombre = (id, valeur, min, max) => el("input", { type: "number", id, value: valeur, min, max, className: "nombre" });
+        const minimum = nombre("fondMinimum", settings["fond.minimum"], 0, 30);
+        const maximum = nombre("fondMaximum", settings["fond.maximum"], 1, 40);
+        const enregistrer = () => {
+            const haut = Math.min(40, Math.max(1, Math.round(Number(maximum.value)) || 1));
+            const bas = Math.min(haut, Math.max(0, Math.round(Number(minimum.value)) || 0));
+            maximum.value = haut;
+            minimum.value = bas;
+            chrome.storage.local.set({ "fond.minimum": bas, "fond.maximum": haut });
+        };
+        minimum.addEventListener("change", enregistrer);
+        maximum.addEventListener("change", enregistrer);
+        return [
+            el("h3", { textContent: "Apparence" }),
+            row("Animer le fond", "Derrière la fenêtre du correcteur, des lignes de texte fantômes s'écrivent, se font souligner puis corriger, au hasard. Décocher le coupe. Le fond se met en pause quand la fenêtre est cachée et s'arrête si Windows demande moins d'animations.", actif),
+            row("Vitesse du fond", "Rythme de l'animation.", vitesse),
+            row("Corrections visibles", "Nombre de corrections montrées en même temps, entre le minimum et le maximum.", el("span", {}, minimum, " à ", maximum)),
+        ];
+    }
+
     async function build() {
-        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false, checkUpdates: true, installProposal: true });
+        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false, checkUpdates: true, installProposal: true, "fond.actif": true, "fond.vitesse": "normale", "fond.minimum": 3, "fond.maximum": 8 });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
         hotkeyInput.setAttribute("aria-label", "Raccourci global");
         const hotkeyStatus = el("p", { className: "status", id: "hotkeyStatus" });
@@ -514,6 +542,7 @@
             el("p", { className: "hint" }, "Tes réglages sont enregistrés dans ", el("code", { textContent: file }), ". Pour retrouver ceux de l'extension (dictionnaire, glossaire…), exporte-les depuis ses réglages, puis utilise « Importer » tout en bas de cette page."),
             el("div", { className: "buttons" }, openFolder),
         );
+        section.append(...appearanceBlock(settings));
         section.append(...await extensionBlock());
         section.append(...await bridgeBlock());
         section.append(...await officeBlock());

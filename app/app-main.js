@@ -138,7 +138,9 @@ async function servePage(request) {
     // Les pages du correcteur et des réglages reçoivent le pont « chrome » et les retouches de
     // l'application (mise en page, éléments propres au navigateur masqués, réglages de l'appli).
     if (relative === "popup/popup.html" || relative === "options/options.html") {
-        const extra = relative === "options/options.html" ? '\n    <script src="/app/options-app.js" defer></script>' : "";
+        const extra = relative === "options/options.html"
+            ? '\n    <script src="/app/options-app.js" defer></script>'
+            : '\n    <script src="/app/fond.js" defer></script>\n    <script src="/app/shell.js" defer></script>';
         body = body.toString("utf8")
             .replace("<head>", '<head>\n    <script src="/app/chrome.js"></script>')
             .replace("</head>", `    <link rel="stylesheet" href="/app/app.css">${extra}\n</head>`);

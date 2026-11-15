@@ -364,6 +364,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `installation.js` | Installation par l'exe dans `programme\`, version précédente gardée |
 | `miseajour.js` | Mise à jour intégrée : téléchargement depuis la release, SHA-256 vérifié, décompression |
 | `ui/installation.html` | Fenêtre « Installer Aria Plume » |
+| `ui/shell.js`, `ui/fond.js` | Habillage de la fenêtre : menu latéral à gauche, zone principale, fond animé « correction » (réglages `fond.*`, section Apparence) |
 | `preload.cjs` | Pont sécurisé : les quelques API `chrome.*` dont le correcteur a besoin, branchées sur le processus principal |
 | `windows-input.js` | Raccourci global sous Windows : copie de la sélection, recollage, presse-papiers |
 | `ui/chrome.js` | Pose ce pont à la place de `window.chrome` avant les scripts du correcteur |

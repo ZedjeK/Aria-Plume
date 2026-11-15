@@ -19,6 +19,12 @@ export const APP_DEFAULTS = {
     // Lancée depuis un zip décompressé, l'application propose de s'installer dans son dossier
     // (case « Ne plus me proposer », réactivable dans les réglages).
     installProposal: true,
+    // Fond animé « correction » de la fenêtre (zone principale, jamais sous le menu) : actif ou non,
+    // vitesse, et nombre de corrections visibles en même temps (entre minimum et maximum).
+    "fond.actif": true,
+    "fond.vitesse": "normale",
+    "fond.minimum": 3,
+    "fond.maximum": 8,
     // Mises à jour : vérification au démarrage (une fois par jour au plus), dernière vérification,
     // dernière version signalée (on ne prévient qu'une fois par version).
     checkUpdates: true,
@@ -52,6 +58,18 @@ function sanitizeApp(input) {
     if (typeof input?.installProposal === "boolean") {
         out.installProposal = input.installProposal;
     }
+    if (typeof input?.["fond.actif"] === "boolean") {
+        out["fond.actif"] = input["fond.actif"];
+    }
+    if (["lente", "normale", "rapide"].includes(input?.["fond.vitesse"])) {
+        out["fond.vitesse"] = input["fond.vitesse"];
+    }
+    if (Number.isInteger(input?.["fond.minimum"]) && input["fond.minimum"] >= 0 && input["fond.minimum"] <= 30) {
+        out["fond.minimum"] = input["fond.minimum"];
+    }
+    if (Number.isInteger(input?.["fond.maximum"]) && input["fond.maximum"] >= 1 && input["fond.maximum"] <= 40) {
+        out["fond.maximum"] = input["fond.maximum"];
+    }
     if (input?.officeSeen && typeof input.officeSeen === "object" && !Array.isArray(input.officeSeen)) {
         out.officeSeen = Object.fromEntries(Object.entries(input.officeSeen)
             .filter(([host, when]) => ["Word", "Outlook"].includes(host) && typeof when === "string" && when.length <= 40));
@@ -76,14 +94,19 @@ function sanitizeExtras(input) {
     return out;
 }
 
-const clean = (input) => ({
-    ...sharedSettings.DEFAULTS,
-    ...EXTRA_DEFAULTS,
-    ...APP_DEFAULTS,
-    ...sharedSettings.sanitize(input),
-    ...sanitizeExtras(input),
-    ...sanitizeApp(input),
-});
+const clean = (input) => {
+    const values = {
+        ...sharedSettings.DEFAULTS,
+        ...EXTRA_DEFAULTS,
+        ...APP_DEFAULTS,
+        ...sharedSettings.sanitize(input),
+        ...sanitizeExtras(input),
+        ...sanitizeApp(input),
+    };
+    // Le minimum de corrections ne dépasse jamais le maximum.
+    values["fond.minimum"] = Math.min(values["fond.minimum"], values["fond.maximum"]);
+    return values;
+};
 
 let cache = null;
 let cacheStamp = null;
