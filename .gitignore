@@ -15,3 +15,6 @@ Thumbs.db
 app/node_modules/
 app/dist/
 app/dev-data/
+
+# Sorties de build.ps1 et des scripts communs (zip, notes d'outils)
+.work/

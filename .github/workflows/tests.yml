@@ -36,13 +36,6 @@ jobs:
                   cache: npm
                   cache-dependency-path: app/package-lock.json
 
-            - name: Banc de mesure du moteur (sans recul toléré)
-              run: |
-                  node tests/node/smoke.mjs
-                  node tests/node/chemins.mjs
-                  node tests/bench/run.mjs
-                  node tests/bench/robustesse.mjs
-
             - name: Installer les dépendances de l'application
               working-directory: app
               run: npm ci
@@ -52,12 +45,8 @@ jobs:
               working-directory: app
               run: npx playwright install --with-deps chromium
 
-            - name: Tests de l'application
-              working-directory: app
-              run: |
-                  node tests/bridge.mjs
-                  node tests/office.mjs
-                  node tests/office-word.mjs
-                  node tests/office-outlook.mjs
-                  node tests/registry.mjs
-                  node tests/updates.mjs
+            # Banc du moteur (sans recul toléré), robustesse, puis tests de l'application : le script commun
+            # des applis Aria, le même qu'en local.
+            - name: Tests (tools/tester.ps1)
+              shell: pwsh
+              run: ./tools/tester.ps1
