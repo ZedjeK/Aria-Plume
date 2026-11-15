@@ -4,6 +4,7 @@
 // La fenêtre affiche le correcteur de l'extension (popup.html), servi par le protocole aria:.
 
 import { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, protocol, shell } from "electron";
+import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import https from "node:https";
@@ -16,6 +17,36 @@ const ICON_DIR = path.join(APP_DIR, "build");
 // avec Windows et relais inscrits avant la 0.40).
 const SILENT_FLAGS = ["--silencieux", "--hidden"];
 const STARTED_HIDDEN = process.argv.some((arg) => SILENT_FLAGS.includes(arg));
+
+// Mise à jour intégrée (voir miseajour.js) : la nouvelle version, décompressée dans
+// .Aria-Plume\mises-a-jour\, attend la fin de l'ancienne, s'installe dans programme\ puis relance
+// l'application depuis là. Rien d'autre ne démarre dans ce mode.
+if (process.argv.includes("--mettre-a-jour")) {
+    const { dataDir } = await import("./paths.js");
+    const { attendreFin } = await import("./miseajour.js");
+    const { installer, dossierProgramme } = await import("./installation.js");
+    const { journaliser } = await import("./donnees.js");
+    const nomExe = path.basename(process.execPath);
+    const pid = Number(process.argv.find((arg) => arg.startsWith("--attendre="))?.split("=")[1]);
+    let relancer = path.join(dossierProgramme(dataDir()), nomExe);
+    try {
+        if (pid && !(await attendreFin(pid))) {
+            throw new Error("l'ancienne version ne s'est pas fermée.");
+        }
+        relancer = (await installer({ source: path.dirname(process.execPath), dossierDonnees: dataDir(), nomExe, version: app.getVersion() })).exe;
+    } catch (error) {
+        // L'ancienne version reste en place (installer() la remet s'il le faut) : on la relance.
+        journaliser(dataDir(), "mise à jour", `échec : ${String(error?.message ?? error)}`);
+        dialog.showErrorBox("Aria Plume — mise à jour impossible", `${String(error?.message ?? error)}
+
+La version installée est gardée et va redémarrer.`);
+    }
+    if (fs.existsSync(relancer)) {
+        spawn(relancer, [], { detached: true, stdio: "ignore", env: process.env }).unref();
+    }
+    app.exit(0);
+    await new Promise(() => {});
+}
 
 if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -37,6 +68,7 @@ const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRe
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
 const { analyserSource, dossierProgramme, estInstallee, installer, proposerInstallation, versionInstallee } = await import("./installation.js");
+const { nettoyerMisesAJour, preparerMiseAJour } = await import("./miseajour.js");
 const { OUTLOOK_MANIFEST, OUTLOOK_SIDELOAD_URL, WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered, writeOutlookManifest } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
@@ -930,6 +962,45 @@ ipcMain.handle("app:office-uninstall", async () => {
 ipcMain.handle("app:update-state", () => ({ last: lastUpdate, kind: appKind(), version: app.getVersion() }));
 ipcMain.handle("app:update-check", () => runUpdateCheck({ manual: false }));
 ipcMain.handle("app:update-open", () => openReleasePage());
+// « Installer la mise à jour » (application installée seulement) : téléchargement depuis la release,
+// SHA-256 vérifié, puis la nouvelle version prend le relais (voir le début de ce fichier).
+let updateInstalling = false;
+ipcMain.handle("app:update-install", async (event) => {
+    const last = lastUpdate;
+    if (appKind() !== "installee") {
+        return { ok: false, error: "La mise à jour intégrée remplace l'application installée : installe d'abord Aria Plume (lance l'exe du zip, puis « Installer »)." };
+    }
+    if (last?.status !== "available" || !last.asset?.url || !last.checksum?.url) {
+        return { ok: false, error: "Cette version ne publie pas son empreinte SHA-256 : télécharge-la depuis sa page." };
+    }
+    if (updateInstalling) {
+        return { ok: false, error: "Mise à jour déjà en cours." };
+    }
+    updateInstalling = true;
+    try {
+        const prepared = await preparerMiseAJour({
+            version: last.latest,
+            zip: last.asset,
+            empreinte: last.checksum,
+            dossierDonnees: settingsDir(),
+            nomExe: path.basename(process.execPath),
+            // fetch de Node : il rend la redirection de GitHub telle quelle, pour la vérifier.
+            fetchImpl: (url, options) => fetch(url, options),
+            test: process.env.ARIA_TEST_HOOKS === "1",
+            onEtape: (etape) => {
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send("update-progress", etape);
+                }
+            },
+        });
+        spawn(prepared.exe, ["--mettre-a-jour", `--attendre=${process.pid}`], { detached: true, stdio: "ignore", env: process.env }).unref();
+        setTimeout(() => app.quit(), 300);
+        return { ok: true };
+    } catch (error) {
+        updateInstalling = false;
+        return { ok: false, error: String(error?.message ?? error) };
+    }
+});
 // Enregistrement d'un fichier exporté par la page de réglages (réglages, dictionnaire) : boîte de
 // dialogue « Enregistrer sous » de Windows, puis écriture. Le téléchargement de Chromium n'est pas
 // utilisé (il perd le fichier quand la page libère son contenu juste après le clic).
@@ -1026,6 +1097,10 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     if (await proposeInstall()) {
         return;
+    }
+    // Relancée depuis programme\ après une mise à jour : les fichiers téléchargés ne servent plus.
+    if (appKind() === "installee") {
+        nettoyerMisesAJour(settingsDir());
     }
     // Application déplacée ou installée : l'entrée de démarrage avec Windows suit l'exe.
     if (app.isPackaged && loadSettings().startWithWindows) {

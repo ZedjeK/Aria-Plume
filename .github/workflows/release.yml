@@ -100,6 +100,8 @@ jobs:
                   files=(
                       ".work/sortie/Aria-Plume-${version}-win-x64.zip"
                       ".work/sortie/Aria-Plume-extension-${version}.zip"
+                      ".work/sortie/Aria-Plume-${version}-win-x64.zip.sha256"
+                      ".work/sortie/Aria-Plume-extension-${version}.zip.sha256"
                   )
                   ls -la "${files[@]}"
                   # Les notes existent : verifier-release.ps1 l'a contrôlé.

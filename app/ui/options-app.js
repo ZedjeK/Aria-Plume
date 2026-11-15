@@ -380,13 +380,18 @@
         const notes = el("ul", { className: "update-notes", id: "updateNotes", hidden: true });
         const checkNow = el("button", { type: "button", textContent: "Vérifier maintenant", id: "updateCheck" });
         const open = el("button", { type: "button", textContent: "Ouvrir la page de téléchargement", id: "updateOpen", hidden: true });
+        const install = el("button", { type: "button", textContent: "Installer la mise à jour", id: "updateInstall", hidden: true });
         const auto = el("input", { type: "checkbox", className: "toggle", id: "checkUpdates", checked: settings.checkUpdates });
         auto.addEventListener("change", () => chrome.storage.local.set({ checkUpdates: auto.checked }));
         const date = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
         const FILES = { portable: "le zip Windows, qui remplace l'exe portable", zip: "le zip Windows", installee: "le zip Windows : décompresse-le, lance l'exe, puis « Installer »" };
 
+        // Mise à jour intégrée : pour l'application installée, si la release publie l'empreinte du zip.
+        const canInstall = (last, kind) => last?.status === "available" && kind === "installee" && !!last.asset?.url && !!last.checksum?.url;
+
         function show({ last, kind, version }) {
             open.hidden = last?.status !== "available";
+            install.hidden = !canInstall(last, kind);
             notes.hidden = !last?.notes?.length;
             notes.replaceChildren(...(last?.notes ?? []).map((line) => el("li", { textContent: line })));
             status.classList.toggle("error", last?.status === "error");
@@ -394,7 +399,9 @@
             if (!last) {
                 status.textContent = `Version installée : ${version}.`;
             } else if (last.status === "available") {
-                const file = last.asset ? ` Fichier à prendre : ${last.asset.name} (${FILES[kind] ?? "ta version"}).` : "";
+                const file = canInstall(last, kind)
+                    ? " « Installer la mise à jour » la télécharge depuis GitHub, vérifie son empreinte SHA-256, garde la version actuelle de côté et redémarre Aria Plume."
+                    : last.asset ? ` Fichier à prendre : ${last.asset.name} (${FILES[kind] ?? "ta version"}).` : "";
                 status.textContent = `Version ${last.latest} disponible${last.publishedAt ? `, publiée le ${date(last.publishedAt)}` : ""} (tu as la ${version}).${file}`;
             } else if (last.status === "up-to-date") {
                 status.textContent = last.error ? `${last.error} Version installée : ${version}.` : `À jour ✓ — version ${version}, la plus récente.`;
@@ -415,14 +422,38 @@
             }
         });
         open.addEventListener("click", () => window.ariaApp.openUpdate());
+        const ETAPES = { empreinte: "Lecture de l'empreinte SHA-256…", decompression: "Empreinte vérifiée ✓ — décompression…" };
+        window.ariaApp.onUpdateProgress((p) => {
+            status.classList.remove("error", "available");
+            if (p.etape === "telechargement") {
+                const mo = (n) => (n / 1048576).toFixed(0);
+                status.textContent = p.total ? `Téléchargement… ${mo(p.recu)} / ${mo(p.total)} Mo` : `Téléchargement… ${mo(p.recu)} Mo`;
+            } else {
+                status.textContent = ETAPES[p.etape] ?? "…";
+            }
+        });
+        install.addEventListener("click", async () => {
+            install.disabled = true;
+            checkNow.disabled = true;
+            status.textContent = "Préparation…";
+            const result = await window.ariaApp.installUpdate();
+            if (result.ok) {
+                status.textContent = "Mise à jour prête : Aria Plume se ferme, s'installe et redémarre.";
+            } else {
+                status.classList.add("error");
+                status.textContent = `Mise à jour impossible : ${result.error}`;
+                install.disabled = false;
+                checkNow.disabled = false;
+            }
+        });
         window.ariaApp.onUpdateResult(async () => show(await window.ariaApp.updateState()));
         show(await window.ariaApp.updateState());
         return [
             el("h3", { textContent: "Mises à jour" }),
-            row("Vérifier au démarrage", "Une fois par jour au plus, Aria Plume demande à GitHub la dernière version publiée et te prévient près de l'horloge si elle est plus récente. C'est le seul accès à internet de l'application : aucun texte ni réglage n'est envoyé. Rien n'est téléchargé tout seul.", auto),
+            row("Vérifier au démarrage", "Une fois par jour au plus, Aria Plume demande à GitHub la dernière version publiée et te prévient près de l'horloge si elle est plus récente. C'est le seul accès à internet de l'application : aucun texte ni réglage n'est envoyé. Rien n'est téléchargé sans ton accord.", auto),
             status,
             notes,
-            el("div", { className: "buttons" }, checkNow, open),
+            el("div", { className: "buttons" }, checkNow, install, open),
         ];
     }
 

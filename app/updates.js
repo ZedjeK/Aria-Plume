@@ -4,7 +4,8 @@
 //     GET https://api.github.com/repos/ZedjeK/Aria-Plume/releases/latest
 // qui ne donne que la dernière version publiée (ni brouillon, ni préversion). Rien n'est envoyé :
 // ni texte, ni réglage, ni identifiant ; GitHub voit l'adresse IP et la demande. Rien n'est
-// téléchargé ni installé : « Télécharger » ouvre la page de la version dans le navigateur.
+// téléchargé ni installé ici : l'application installée télécharge la mise à jour, avec l'accord de
+// l'utilisateur, par miseajour.js ; sinon « Télécharger » ouvre la page de la version.
 
 export const REPOSITORY = "ZedjeK/Aria-Plume";
 export const LATEST_URL = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
@@ -57,7 +58,19 @@ export function summarizeNotes(body) {
 export function pickAsset(assets, kind) {
     const pattern = ["zip", "installee", "portable"].includes(kind) ? /-win-x64\.zip$/i : null;
     const asset = pattern ? (assets ?? []).find((item) => pattern.test(item?.name ?? "")) : null;
-    return asset ? { name: asset.name, size: asset.size ?? null } : null;
+    return asset ? describeAsset(asset) : null;
+}
+
+const describeAsset = (asset) => ({
+    name: asset.name,
+    size: asset.size ?? null,
+    url: typeof asset.browser_download_url === "string" ? asset.browser_download_url : null,
+});
+
+// L'empreinte SHA-256 d'un fichier de la release : « <fichier>.sha256 », publiée à côté.
+export function pickChecksum(assets, name) {
+    const asset = name ? (assets ?? []).find((item) => item?.name === `${name}.sha256`) : null;
+    return asset ? describeAsset(asset) : null;
 }
 
 // Seules les pages de ce dépôt sur GitHub sont ouvertes.
@@ -97,7 +110,8 @@ export async function checkForUpdate({ current, kind, fetchImpl, url = LATEST_UR
         if (compareVersions(latest, current) <= 0) {
             return { ...result, status: "up-to-date" };
         }
-        return { ...result, status: "available", notes: summarizeNotes(release.body), asset: pickAsset(release.assets, kind) };
+        const asset = pickAsset(release.assets, kind);
+        return { ...result, status: "available", notes: summarizeNotes(release.body), asset, checksum: pickChecksum(release.assets, asset?.name) };
     } catch (error) {
         const message = error?.name === "AbortError"
             ? "GitHub ne répond pas (pas de connexion à internet ?)."
