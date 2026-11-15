@@ -44,7 +44,8 @@
     const reglages = document.createElement("button");
     reglages.type = "button";
     reglages.innerHTML = `${svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>')}<span>Réglages</span>`;
-    reglages.addEventListener("click", () => chrome.runtime.openOptionsPage());
+    reglages.dataset.section = "options";
+    reglages.addEventListener("click", () => window.ariaApp.settingsView(true));
     const pied = document.createElement("div");
     pied.className = "pied";
     pied.innerHTML = "<i></i><span>100 % local</span>";
@@ -76,6 +77,19 @@
         const actif = SECTIONS.find((s) => document.getElementById(s.onglet)?.getAttribute("aria-selected") === "true") ?? SECTIONS[0];
         entete.querySelector("h1").textContent = actif.titre;
         entete.querySelector("p").textContent = actif.texte;
+    }
+    // Réglages : affichés par la fenêtre dans la zone principale. Le bouton du menu suit, et un clic
+    // sur un onglet d'outil les referme.
+    window.ariaApp.onSettingsView((visible) => {
+        body.classList.toggle("vue-reglages", visible);
+        reglages.setAttribute("aria-selected", String(visible));
+    });
+    for (const section of SECTIONS) {
+        document.getElementById(section.onglet)?.addEventListener("click", () => {
+            if (body.classList.contains("vue-reglages")) {
+                window.ariaApp.settingsView(false);
+            }
+        });
     }
     const observateur = new MutationObserver(suivre);
     for (const section of SECTIONS) {

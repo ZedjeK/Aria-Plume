@@ -3,7 +3,7 @@
 // au lieu de se fermer. Le moteur Aria tourne ici même (engine.js), sans fenêtre cachée.
 // La fenêtre affiche le correcteur de l'extension (popup.html), servi par le protocole aria:.
 
-import { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, protocol, shell } from "electron";
+import { app, BrowserWindow, Menu, Notification, Tray, WebContentsView, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, protocol, screen, shell } from "electron";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -85,6 +85,7 @@ function announceChanges(diff) {
         for (const win of BrowserWindow.getAllWindows()) {
             win.webContents.send("storage-changed", diff);
         }
+        settingsView?.webContents.send("storage-changed", diff);
         bridge?.broadcast({ event: "settings-changed", changes: diff });
         if (diff.hotkey) {
             registerHotkey();
@@ -187,6 +188,7 @@ async function onHotkey() {
             : { error: "La capture de la sélection n'est disponible que sous Windows : colle ton texte ici." };
         lastCapture = result.text ? { hwnd: result.hwnd, title: result.title } : null;
         showWindow();
+        setSettingsVisible(false);
         await sendToPage({ target: "popup", cmd: "set-text", text: result.text ?? "", source: result.title ?? "", error: result.error ?? "" });
     } finally {
         capturing = false;
@@ -553,6 +555,7 @@ async function runUpdateCheck({ manual = false } = {}) {
     for (const win of BrowserWindow.getAllWindows()) {
         win.webContents.send("update-result", lastUpdate);
     }
+    settingsView?.webContents.send("update-result", lastUpdate);
     return lastUpdate;
 }
 
@@ -627,7 +630,8 @@ function proposeInstall() {
     return new Promise((resolve) => {
         const win = new BrowserWindow({
             width: 640,
-            height: 470,
+            height: 640,
+            useContentSize: true,
             resizable: false,
             maximizable: false,
             minimizable: false,
@@ -658,6 +662,18 @@ function proposeInstall() {
         });
         win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
         win.webContents.on("will-navigate", (event) => event.preventDefault());
+        // La fenêtre prend la hauteur de son contenu (titre, « À savoir », panneau, état, boutons),
+        // dans la limite de l'écran : rien n'est coupé, aucun défilement à faire.
+        win.webContents.on("did-finish-load", async () => {
+            try {
+                const wanted = await win.webContents.executeJavaScript("document.documentElement.scrollHeight");
+                const { height } = screen.getDisplayMatching(win.getBounds()).workArea;
+                win.setContentSize(640, Math.min(Math.max(Math.ceil(wanted), 420), height - 80));
+                win.center();
+            } catch {
+                // La taille d'origine reste.
+            }
+        });
         win.loadURL("aria://app/app/installation.html");
     });
 }
@@ -723,7 +739,7 @@ ipcMain.handle("install:skip", (event, options) => {
 
 let tray = null;
 let mainWindow = null;
-let optionsWindow = null;
+let settingsView = null;
 let quitting = false;
 
 function createWindow() {
@@ -753,8 +769,10 @@ function createWindow() {
             mainWindow.hide();
         }
     });
+    mainWindow.on("resize", layoutSettings);
     mainWindow.on("closed", () => {
         mainWindow = null;
+        settingsView = null;
     });
     // Liens externes : dans le navigateur, jamais dans l'application.
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -767,35 +785,57 @@ function createWindow() {
 }
 
 // Page de réglages : celle de l'extension, avec une section pour l'application.
-function openOptions() {
-    if (optionsWindow) {
-        optionsWindow.show();
-        optionsWindow.focus();
+// Réglages : la page de réglages de l'extension (avec la section « Application »), affichée dans la
+// zone principale de la même fenêtre, à la place du correcteur, comme les autres sections du menu.
+// Une vue séparée (et non un cadre dans la page) : elle a sa propre page de réglages, avec le pont
+// « chrome » de l'application. Elle couvre la zone à droite du menu, dont la largeur suit la même
+// règle que app.css (220 px, ou 58 px sous 760 px).
+const SIDEBAR_WIDE = 220;
+const SIDEBAR_NARROW = 58;
+
+function layoutSettings() {
+    if (!settingsView || !mainWindow) {
         return;
     }
-    optionsWindow = new BrowserWindow({
-        width: 860,
-        height: 820,
-        minWidth: 480,
-        minHeight: 400,
-        title: "Aria Plume — réglages",
-        icon: path.join(ICON_DIR, "icon-128.png"),
-        backgroundColor: "#0d0f17",
-        autoHideMenuBar: true,
-        webPreferences: {
-            preload: path.join(APP_DIR, "preload.cjs"),
-            contextIsolation: true,
-            sandbox: true,
-            nodeIntegration: false,
-            spellcheck: false,
-        },
-    });
-    optionsWindow.loadURL(OPTIONS_URL);
-    optionsWindow.on("closed", () => {
-        optionsWindow = null;
-    });
-    optionsWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-    optionsWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+    const { width, height } = mainWindow.getContentBounds();
+    const side = width < 760 ? SIDEBAR_NARROW : SIDEBAR_WIDE;
+    settingsView.setBounds({ x: side, y: 0, width: Math.max(0, width - side), height });
+}
+
+function setSettingsVisible(visible) {
+    if (!mainWindow) {
+        return;
+    }
+    if (visible && !settingsView) {
+        settingsView = new WebContentsView({
+            webPreferences: {
+                preload: path.join(APP_DIR, "preload.cjs"),
+                contextIsolation: true,
+                sandbox: true,
+                nodeIntegration: false,
+                spellcheck: false,
+            },
+        });
+        settingsView.setBackgroundColor("#030812");
+        settingsView.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+        settingsView.webContents.on("will-navigate", (event) => event.preventDefault());
+        mainWindow.contentView.addChildView(settingsView);
+        settingsView.webContents.loadURL(OPTIONS_URL);
+    }
+    if (!settingsView) {
+        return;
+    }
+    settingsView.setVisible(visible);
+    if (visible) {
+        layoutSettings();
+        settingsView.webContents.focus();
+    }
+    mainWindow.webContents.send("settings-view", visible);
+}
+
+function openOptions() {
+    showWindow();
+    setSettingsVisible(true);
 }
 
 function showWindow() {
@@ -846,7 +886,8 @@ async function goToSection(name) {
     if (contents.isLoading()) {
         await new Promise((resolve) => contents.once("did-finish-load", resolve));
     }
-    await contents.executeJavaScript(`document.getElementById(${JSON.stringify(`tab-${name}`)})?.click()`).catch(() => {});
+    const selector = name === "options" ? '.menu [data-section="options"]' : `#tab-${name}`;
+    await contents.executeJavaScript(`document.querySelector(${JSON.stringify(selector)})?.click()`).catch(() => {});
 }
 
 function buildTrayMenu() {
@@ -860,7 +901,7 @@ function buildTrayMenu() {
         ouvrir: showWindow,
         agir: () => onHotkey().catch((error) => console.error("Raccourci :", error)),
         aller: (name) => goToSection(name),
-        reglages: openOptions,
+        reglages: () => goToSection("options"),
         dossier: () => shell.showItemInFolder(settingsFile()),
         miseAJour: () => openReleasePage(),
         verifierMiseAJour: () => runUpdateCheck({ manual: true }).catch(() => {}),
@@ -909,6 +950,7 @@ ipcMain.handle("storage:remove", (event, keys) => {
     announceChanges(removeSettings(keys));
 });
 ipcMain.handle("app:options", () => openOptions());
+ipcMain.handle("app:settings-view", (event, visible) => setSettingsVisible(!!visible));
 ipcMain.handle("app:hotkey", () => ({ ...hotkey, display: showAccelerator(hotkey.accelerator) }));
 ipcMain.handle("app:settings-file", () => settingsFile());
 // Configuration MCP à copier dans Claude Desktop, LM Studio… L'exe portable se décompresse

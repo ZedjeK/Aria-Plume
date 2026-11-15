@@ -99,6 +99,8 @@ const vue = await evaluer(ws, `({
     police: getComputedStyle(document.body).fontFamily,
 })`);
 console.log(vue);
+const coupe = await evaluer(ws, `({ boutonBas: Math.round(document.getElementById("installer").getBoundingClientRect().bottom), hauteur: window.innerHeight, defile: document.documentElement.scrollHeight > document.documentElement.clientHeight })`);
+check("la fenêtre montre tout son contenu (boutons visibles, sans défilement)", !!coupe && coupe.boutonBas <= coupe.hauteur && !coupe.defile, JSON.stringify(coupe));
 check("destination : programme\\ du dossier de données", vue?.destination === path.join(donnees, "programme"), vue?.destination);
 check("raccourci décoché d'office", vue?.raccourci === false);
 check("bouton Installer actif (zip complet)", vue?.installer === true, vue?.etat);

@@ -122,6 +122,11 @@ contextBridge.exposeInMainWorld("ariaApp", {
         ipcRenderer.on("update-result", (event, result) => listener(result));
     },
     // Fenêtre « Installer Aria Plume » (le processus principal ne répond que pendant la proposition).
+    // Réglages affichés dans la zone principale de la même fenêtre.
+    settingsView: (visible) => ipcRenderer.invoke("app:settings-view", !!visible),
+    onSettingsView: (listener) => {
+        ipcRenderer.on("settings-view", (event, visible) => listener(!!visible));
+    },
     installInfo: () => ipcRenderer.invoke("install:info"),
     installRun: (options) => ipcRenderer.invoke("install:run", { raccourci: !!options?.raccourci }),
     installSkip: (options) => ipcRenderer.invoke("install:skip", { nePlusProposer: !!options?.nePlusProposer }),

@@ -83,6 +83,18 @@ await win.evaluate(() => chrome.storage.local.set({ "fond.minimum": 9 }));
 await attendre(300);
 check("le minimum ne dépasse jamais le maximum", (await lire())["fond.minimum"] <= (await lire())["fond.maximum"], JSON.stringify(await lire()));
 
+// Réglages : dans la même fenêtre, à la place du correcteur, sans nouvelle fenêtre.
+const fenetres = async () => (await win.evaluate(() => window.ariaTest.state())).windows.length;
+const avant = await fenetres();
+await win.click(".menu button[data-section=options]");
+await attendre(2500);
+const vueReglages = navigateur.contexts()[0].pages().find((p) => p.url().includes("options.html"));
+check("Réglages : s'ouvre dans la même fenêtre (aucune nouvelle fenêtre)", !!vueReglages && (await fenetres()) === avant, `${avant} → ${await fenetres()}`);
+check("Réglages : le bouton du menu est mis en avant, l'outil précédent non", (await win.getAttribute(".menu button[data-section=options]", "aria-selected")) === "true" && await win.evaluate(() => document.body.classList.contains("vue-reglages")));
+check("Réglages : la page a sa section Application", !!vueReglages && (await vueReglages.locator("#app-settings").count()) === 1);
+await win.click("#tab-conj");
+await attendre(800);
+check("un outil du menu referme les réglages", !(await win.evaluate(() => document.body.classList.contains("vue-reglages"))) && (await win.getAttribute("#tab-conj", "aria-selected")) === "true");
 await win.setViewportSize({ width: 700, height: 700 });
 await attendre(500);
 const etroit = await boite(".menu");
