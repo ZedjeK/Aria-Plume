@@ -172,3 +172,237 @@ body.app #bench {
     font: 12px var(--font-body);
     background: rgba(0, 0, 0, 0.25);
 }
+
+/* ===== Habillage de la fenêtre (maquette validée) : menu latéral à gauche, zone principale avec le
+   fond animé derrière le contenu. Poser par shell.js ; fond par fond.js. ===== */
+html.app-popup {
+    --coupe: 12px;
+}
+
+body.app {
+    width: auto;
+    height: 100vh;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    overflow: hidden;
+}
+
+body.app .menu {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 10px;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    font-family: var(--font-display);
+}
+
+body.app .marque {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px 16px;
+}
+
+body.app .marque b {
+    display: block;
+    font-size: 19px;
+    letter-spacing: 0.02em;
+}
+
+body.app .marque small {
+    display: block;
+    color: var(--muted);
+    font: 11px/1.2 var(--mono);
+}
+
+body.app .menu .groupe {
+    padding: 12px 10px 4px;
+    color: var(--muted);
+    font: 600 11px var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+body.app .menu button {
+    flex: 0 0 auto;
+    height: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
+    font: 500 15px var(--font-display);
+    text-align: left;
+    cursor: pointer;
+}
+
+body.app .menu button svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+body.app .menu button:hover {
+    color: var(--text);
+    background: var(--hover);
+}
+
+body.app .menu button[aria-selected="true"] {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+    background: #0a1a2e;
+}
+
+body.app .menu .pied {
+    margin-top: auto;
+    padding: 12px 10px 0;
+    color: var(--muted);
+    font: 12px var(--mono);
+}
+
+body.app .menu .pied i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    background: var(--cyan);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+body.app .principal {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Le fond occupe la zone principale seulement, jamais sous le menu ; le contenu reste devant, sur
+   des panneaux opaques. */
+body.app #fond {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+body.app .page {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    padding: 22px clamp(16px, 3vw, 32px) 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+}
+
+body.app .entete h1 {
+    margin: 0;
+    font: 600 26px var(--font-display);
+    letter-spacing: 0.01em;
+}
+
+body.app .entete p {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-family: var(--font-display);
+}
+
+/* L'en-tête d'origine (marque, « 100 % local ») et la barre d'onglets cèdent la place au menu. */
+body.app header {
+    display: none;
+}
+
+/* Les onglets d'origine sont devenus les boutons du menu (shell.js) : il ne reste ici que l'état de
+   la traduction. */
+body.app .tabs {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-height: 0;
+}
+
+body.app .menu .outils {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Panneaux opaques, coins coupés, liseré cyan fin. */
+body.app .bubble,
+body.app .fix-list,
+body.app .conj-results {
+    background: var(--surface);
+    border: 1px solid #2a6f80;
+    border-radius: 0;
+    clip-path: polygon(var(--coupe) 0, 100% 0, 100% calc(100% - var(--coupe)), calc(100% - var(--coupe)) 100%, 0 100%, 0 var(--coupe));
+}
+
+body.app .bubble textarea {
+    background: var(--surface-sunken);
+}
+
+/* Boutons en biais : orange plein pour l'action principale, contour cyan sinon. Le texte reste écrit
+   en casse normale, les majuscules viennent de la feuille de style. */
+body.app button:not(.icon):not(.swap):not(.menu button) {
+    border-radius: 0;
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+    padding-inline: 20px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+body.app button.primary {
+    background: var(--action);
+    border-color: var(--action);
+    color: var(--on-action);
+}
+
+@media (max-width: 760px) {
+    body.app {
+        grid-template-columns: 58px minmax(0, 1fr);
+    }
+
+    body.app .menu {
+        padding: 12px 6px;
+        align-items: center;
+    }
+
+    body.app .menu .groupe,
+    body.app .menu .pied,
+    body.app .marque div,
+    body.app .menu button span {
+        display: none;
+    }
+
+    body.app .menu button {
+        justify-content: center;
+        padding: 10px 0;
+        border-left-width: 0;
+    }
+}
+
+/* Réglages : dans le menu latéral, plus en haut à droite de la page. */
+body.app .actions:has(#options) {
+    display: none;
+}

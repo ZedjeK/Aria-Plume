@@ -8,7 +8,7 @@ jour quand l'appli change. « Prévu » marque ce qui est décidé mais pas enco
 | Nom | Aria Plume (dépôt et exe : `Aria-Plume`) |
 | Promesse | Correcteur, conjugueur et traducteur français ↔ anglais, 100 % local, dans le navigateur et dans les logiciels de Windows |
 | Élément orange du logo | une plume, posée en travers du « A » |
-| Fond animé | prévu : « correction » — des lignes de texte fantômes où apparaissent les marques du correcteur (soulignés de faute, phrase en double qui s'estompe) ; aléatoires : les lignes, les marques et leur place ; nombre par défaut : à choisir sur la maquette |
+| Fond animé | « correction » — des lignes de texte fantômes qui s'écrivent, restent, s'effacent et se réécrivent ; des mots s'y font souligner en vague (rouge : faute, jaune : répétition, bleu : style) puis corriger (trait droit cyan) ; aléatoires : le moment, la durée et le contenu de chaque ligne, le mot corrigé, la couleur du trait ; par défaut 3 à 8 corrections en même temps ; réglages `fond.actif`, `fond.vitesse`, `fond.minimum`, `fond.maximum` dans `reglages.json` ; zone principale seulement, en pause fenêtre cachée, image fixe si Windows demande moins d'animations |
 | Stack | Electron 45 (application Windows) et extension Manifest V3 (Chrome, Edge, Brave, Opera) ; moteurs Grammalecte, Harper et Bergamot en WebAssembly ; Node.js pour les bancs |
 | Droits administrateur | non |
 | Démarrage automatique | proposé, désactivé par défaut ; lancement en arrière-plan avec `--silencieux` (`--hidden`, des versions d'avant la 0.40, reste compris) |
