@@ -425,7 +425,9 @@ check("sortie propre", code === 0, `${code} en ${Date.now() - t0} ms`);
 if (code === "toujours en vie") proc.kill();
 
 // Les deux refus de connexion du test CSP sont attendus.
-const real = errors.filter((e) => !/Connecting to .aria:\/\/app\/popup\/popup.js. violates|Fetch API cannot load aria:\/\/app\/popup\/popup.js/.test(e)).filter((e) => !/use-openssl-ca|dbus|GPU|gpu|Fontconfig|libva|viz_main|ozone|DevTools listening|Debugger|EGL|vaapi|ANGLE|GLES|egl/i.test(e));
+// Comme les lignes de GPU, « Creation of StagingBuffer's SharedImage failed » (cc/raster) est un journal de Chromium sans carte
+// graphique sous Xvfb : le fond animé de la fenêtre le déclenche, ce n'est pas une erreur de l'application.
+const real = errors.filter((e) => !/Connecting to .aria:\/\/app\/popup\/popup.js. violates|Fetch API cannot load aria:\/\/app\/popup\/popup.js/.test(e)).filter((e) => !/use-openssl-ca|dbus|GPU|gpu|Fontconfig|libva|viz_main|ozone|DevTools listening|Debugger|EGL|vaapi|ANGLE|GLES|egl|one_copy_raster_buffer_provider|StagingBuffer/i.test(e));
 check("aucune erreur", real.length === 0, real.join(" | ").slice(0, 500));
 console.log(failures ? `\n${failures} échec(s)` : "\ntout est bon");
 process.exitCode = failures ? 1 : 0;
