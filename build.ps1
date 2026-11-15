@@ -4,9 +4,12 @@ Compile Aria Plume et pose ce qui est livré dans .work\sortie\.
 
 .DESCRIPTION
 Produit, dans .work\sortie\ :
-  Aria-Plume-<version>-win-x64.zip        l'application Windows (electron-builder)
-  Aria-Plume-<version>-portable.exe       l'exe portable, tant qu'il est livré (voir docs\FICHE.md)
+  Aria-Plume-<version>-win-x64.zip        l'application Windows (electron-builder) ; décompressée, elle propose
+                                          de s'installer dans %USERPROFILE%\.Aria-Plume\programme
   Aria-Plume-extension-<version>.zip      l'extension, avec LICENSE et LICENCES-TIERS.txt
+
+Plus d'exe portable : celui d'Electron se décompresse dans %TEMP% à chaque lancement, ce que le modèle des applis
+Aria interdit.
 
 L'extension vient du dernier commit (git archive), pas des fichiers modifiés et non commités. Les dépendances de
 l'application doivent être installées (npm ci dans app\). Ne demande pas les droits administrateur. Les versions des
@@ -66,7 +69,7 @@ try {
 }
 finally { Pop-Location }
 if ($code -ne 0) { throw "La compilation de l'application a échoué (electron-builder, code $code)." }
-foreach ($nom in "Aria-Plume-$version-win-x64.zip", "Aria-Plume-$version-portable.exe") {
+foreach ($nom in @("Aria-Plume-$version-win-x64.zip")) {
     $fichier = Chemin @('app', 'dist', $nom)
     if (-not (Test-Path -LiteralPath $fichier -PathType Leaf)) { throw "$nom est absent de app\dist\ après la compilation." }
     Copy-Item -LiteralPath $fichier -Destination $sortie

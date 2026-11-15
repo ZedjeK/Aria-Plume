@@ -37,7 +37,8 @@ check("nouveautés : sans section, toutes les puces (au plus 6)", summarizeNotes
 
 // --- Fichier proposé ---
 const assets = [{ name: "Aria-Plume-0.36.0-portable.exe", size: 1 }, { name: "Aria-Plume-0.36.0-win-x64.zip", size: 2 }, { name: "Aria-Plume-extension-0.36.0.zip", size: 3 }];
-check("fichier : exe portable", pickAsset(assets, "portable")?.name === "Aria-Plume-0.36.0-portable.exe");
+check("fichier : exe portable d'avant la 0.40 → le zip", pickAsset(assets, "portable")?.name === "Aria-Plume-0.36.0-win-x64.zip");
+check("fichier : application installée → le zip", pickAsset(assets, "installee")?.name === "Aria-Plume-0.36.0-win-x64.zip");
 check("fichier : zip Windows", pickAsset(assets, "zip")?.name === "Aria-Plume-0.36.0-win-x64.zip");
 check("fichier : rien en développement", pickAsset(assets, "dev") === null);
 
@@ -59,7 +60,7 @@ const release = {
     assets,
 };
 const available = await checkForUpdate({ current: "0.35.0", kind: "portable", fetchImpl: github(200, release) });
-check("nouvelle version : disponible, fichier, nouveautés, page", available.status === "available" && available.latest === "0.36.0" && available.asset?.name.endsWith("-portable.exe")
+check("nouvelle version : disponible, fichier, nouveautés, page", available.status === "available" && available.latest === "0.36.0" && available.asset?.name.endsWith("-win-x64.zip")
     && available.notes.length === 2 && available.url === release.html_url, JSON.stringify(available).slice(0, 160));
 check("demande : API de GitHub, aucun identifiant envoyé", requests[0].url === LATEST_URL && requests[0].headers["user-agent"] === "Aria-Plume" && !("authorization" in requests[0].headers));
 const same = await checkForUpdate({ current: "0.36.0", kind: "zip", fetchImpl: github(200, release) });

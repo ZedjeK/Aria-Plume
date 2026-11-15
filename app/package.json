@@ -30,6 +30,7 @@
             "main.js",
             "paths.js",
             "donnees.js",
+            "installation.js",
             "powershell.js",
             "app-main.js",
             "engine.js",
@@ -77,14 +78,10 @@
         ],
         "win": {
             "target": [
-                "portable",
                 "zip"
             ],
             "icon": "build/icon-256.png",
             "artifactName": "Aria-Plume-${version}-win-x64.${ext}"
-        },
-        "portable": {
-            "artifactName": "Aria-Plume-${version}-portable.exe"
         },
         "linux": {
             "target": "dir",

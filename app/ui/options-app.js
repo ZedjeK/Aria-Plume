@@ -383,7 +383,7 @@
         const auto = el("input", { type: "checkbox", className: "toggle", id: "checkUpdates", checked: settings.checkUpdates });
         auto.addEventListener("change", () => chrome.storage.local.set({ checkUpdates: auto.checked }));
         const date = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-        const FILES = { portable: "l'exe portable", zip: "le zip Windows" };
+        const FILES = { portable: "le zip Windows, qui remplace l'exe portable", zip: "le zip Windows", installee: "le zip Windows : décompresse-le, lance l'exe, puis « Installer »" };
 
         function show({ last, kind, version }) {
             open.hidden = last?.status !== "available";
@@ -427,7 +427,7 @@
     }
 
     async function build() {
-        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false, checkUpdates: true });
+        const settings = await chrome.storage.local.get({ hotkey: "Alt+Shift+C", startWithWindows: false, checkUpdates: true, installProposal: true });
         const hotkeyInput = el("input", { type: "text", readOnly: true, className: "hotkey", value: show(settings.hotkey), title: "Clique puis appuie sur la combinaison voulue" });
         hotkeyInput.setAttribute("aria-label", "Raccourci global");
         const hotkeyStatus = el("p", { className: "status", id: "hotkeyStatus" });
@@ -472,6 +472,9 @@
             const startBox = el("input", { type: "checkbox", className: "toggle", id: "startWithWindows", checked: settings.startWithWindows });
             startBox.addEventListener("change", () => chrome.storage.local.set({ startWithWindows: startBox.checked }));
             section.append(row("Démarrer avec Windows", "Aria Plume se lance à l'ouverture de ta session, directement près de l'horloge.", startBox));
+            const installBox = el("input", { type: "checkbox", className: "toggle", id: "installProposal", checked: settings.installProposal });
+            installBox.addEventListener("change", () => chrome.storage.local.set({ installProposal: installBox.checked }));
+            section.append(row("Proposer l'installation", "Lancée depuis un zip décompressé, Aria Plume propose de se ranger dans ton dossier personnel (.Aria-Plume\\programme). Lancer l'exe avec --portable saute la proposition.", installBox));
         }
         const file = await window.ariaApp.settingsFile();
         const openFolder = el("button", { type: "button", textContent: "Ouvrir le dossier" });

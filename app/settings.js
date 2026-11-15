@@ -16,6 +16,9 @@ const FILE_NAME = FICHIER_REGLAGES;
 export const APP_DEFAULTS = {
     hotkey: "Alt+Shift+C",
     startWithWindows: false,
+    // Lancée depuis un zip décompressé, l'application propose de s'installer dans son dossier
+    // (case « Ne plus me proposer », réactivable dans les réglages).
+    installProposal: true,
     // Mises à jour : vérification au démarrage (une fois par jour au plus), dernière vérification,
     // dernière version signalée (on ne prévient qu'une fois par version).
     checkUpdates: true,
@@ -45,6 +48,9 @@ function sanitizeApp(input) {
     }
     if (typeof input?.checkUpdates === "boolean") {
         out.checkUpdates = input.checkUpdates;
+    }
+    if (typeof input?.installProposal === "boolean") {
+        out.installProposal = input.installProposal;
     }
     if (input?.officeSeen && typeof input.officeSeen === "object" && !Array.isArray(input.officeSeen)) {
         out.officeSeen = Object.fromEntries(Object.entries(input.officeSeen)

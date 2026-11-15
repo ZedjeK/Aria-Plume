@@ -52,9 +52,10 @@ export function summarizeNotes(body) {
         .map((line) => (line.length > 220 ? `${line.slice(0, 217)}…` : line));
 }
 
-// Le fichier qui correspond à ce qu'on utilise : exe portable ou zip Windows.
+// Le fichier à prendre : le zip Windows, qu'on utilise le zip, l'application installée ou l'exe
+// portable des versions d'avant la 0.40 (il n'est plus livré).
 export function pickAsset(assets, kind) {
-    const pattern = kind === "portable" ? /-portable\.exe$/i : kind === "zip" ? /-win-x64\.zip$/i : null;
+    const pattern = ["zip", "installee", "portable"].includes(kind) ? /-win-x64\.zip$/i : null;
     const asset = pattern ? (assets ?? []).find((item) => pattern.test(item?.name ?? "")) : null;
     return asset ? { name: asset.name, size: asset.size ?? null } : null;
 }

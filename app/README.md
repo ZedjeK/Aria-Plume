@@ -3,16 +3,27 @@
 Application de bureau Electron autour du moteur Aria (`../extension/core`), 100 % locale.
 Feuille de route : [`../docs/FEUILLE-DE-ROUTE.md`](../docs/FEUILLE-DE-ROUTE.md), phases 2 à 4.
 
-## Version portable (Windows)
+## Application Windows
 
-Deux formats, aucun n'installe quoi que ce soit :
+Un seul format : **`Aria-Plume-<version>-win-x64.zip`**. **Décompresse d'abord le zip en entier**
+(clic droit, « Extraire tout »), puis lance `Aria Plume.exe` depuis le dossier décompressé. Lancé
+depuis l'aperçu du zip de l'Explorateur, l'exe est seul, sans le reste de l'application : la fenêtre
+d'installation le signale et refuse de copier.
 
-- **`Aria-Plume-<version>-portable.exe`** : un seul fichier. À chaque lancement, il se décompresse
-  dans un dossier temporaire (quelques secondes), puis démarre.
-- **`Aria-Plume-<version>-win-x64.zip`** : un dossier à décompresser où tu veux, puis
-  `Aria Plume.exe`. Démarrage immédiat.
+Au premier lancement, Aria Plume propose :
 
-**Tout ce qu'Aria Plume enregistre est dans un seul dossier**, le même pour les deux formats :
+- **Installer** : elle se range dans `C:\Users\<toi>\.Aria-Plume\programme`, sans droits
+  administrateur ni Program Files, puis se relance depuis là. La version déjà installée est gardée
+  dans `sauvegardes\versions\`. Une case, décochée d'office, crée sur ton Bureau un raccourci qui
+  pointe toujours au même endroit d'une version à l'autre ; un raccourci déjà présent est mis à
+  jour, jamais remplacé en silence. Le zip peut ensuite être supprimé.
+- **Lancer sans installer** : elle tourne depuis le dossier du zip. La case « Ne plus me
+  proposer » coupe la proposition (réactivable dans les réglages) ; `--portable` la saute.
+
+L'exe portable des versions d'avant la 0.40 n'est plus livré : il se décompressait dans le dossier
+temporaire de Windows à chaque lancement.
+
+**Tout ce qu'Aria Plume enregistre est dans un seul dossier** :
 
 ```text
 C:\Users\<toi>\.Aria-Plume\
@@ -20,6 +31,7 @@ C:\Users\<toi>\.Aria-Plume\
 ├── journal.json       les 500 dernières opérations (jamais les valeurs ni tes textes)
 ├── sauvegardes\       une copie des réglages par jour de modification (dix au plus)
 ├── cache\             données internes de l'application (caches, verrou)
+├── programme\         l'application, si tu l'as installée
 ├── extension\         copie de l'extension que lit le navigateur
 ├── pont\              relais et jeton du pont avec l'extension
 └── office\            certificat local et manifestes des compléments Word et Outlook
@@ -29,8 +41,7 @@ Depuis la 0.40, les noms suivent le modèle des applis Aria : au premier lanceme
 `aria-plume-reglages.json` est copié dans `sauvegardes\`, puis renommé en `reglages.json`, et
 `electron\` devient `cache\`.
 
-Seule exception, hors de notre main : l'exe portable se décompresse d'abord dans le dossier
-temporaire de Windows. Les versions d'avant la 0.36 rangeaient les réglages à côté de l'exe : au
+Les versions d'avant la 0.36 rangeaient les réglages à côté de l'exe : au
 premier lancement, ce fichier est **copié** dans `.Aria-Plume` (l'original reste, à supprimer quand
 tu veux), tout comme l'ancien dossier `Aria Plume - extension` et `%APPDATA%\aria-plume`, qui ne
 servent plus.
@@ -56,7 +67,7 @@ empaquetée » reste réservé à l'utilisateur. Le bouton fait donc tout le res
 
 1. copie l'extension (embarquée dans l'application, identique au zip de la release) dans
    `C:\Users\<toi>\.Aria-Plume\extension` : un dossier fixe, que le navigateur lit
-   à chaque démarrage (l'exe portable, lui, se décompresse ailleurs à chaque lancement) ;
+   à chaque démarrage ;
 2. ouvre le navigateur et met l'adresse de sa page d'extensions (`opera://extensions`…) dans le
    presse-papiers ;
 3. affiche les étapes : Mode développeur, « Charger l'extension non empaquetée », puis
@@ -91,9 +102,8 @@ l'extension affiche « Moteur : application ✓ ».
 - **Sécurité** : seul l'identifiant de l'extension Aria Plume est autorisé par le navigateur, et le
   canal entre le relais et l'application (`\\.\pipe\aria-plume-<utilisateur>`) exige un jeton
   stocké dans un fichier lisible par toi seul. Aucun port réseau n'est ouvert.
-- **Version zip uniquement** : l'exe portable se décompresse ailleurs à chaque lancement, le
-  navigateur ne saurait pas où le trouver. Si tu déplaces le dossier de l'application, elle met
-  l'inscription à jour à son prochain démarrage.
+- **Dossier de l'application** : si tu la déplaces ou l'installes, elle met l'inscription à jour
+  à son prochain démarrage. L'exe portable des versions d'avant la 0.40 ne pouvait pas être inscrit.
 - **Extension 0.35 ou plus récente**, chargée une nouvelle fois depuis la 0.35 : son identifiant est
   désormais fixe (voir les notes de version).
 
@@ -215,8 +225,8 @@ bon chemin. Il ressemble à ceci (Claude Desktop : `claude_desktop_config.json` 
 }
 ```
 
-Utilise la **version zip** pour le MCP : l'exe portable se décompresse dans un dossier temporaire
-différent à chaque lancement. Avec Node 22, `node app/mcp/standalone.mjs [fichier de réglages]`
+Indique le chemin de l'exe que tu lances : `C:\Users\<toi>\.Aria-Plume\programme\Aria Plume.exe`
+une fois l'application installée (il ne change pas d'une version à l'autre). Avec Node 22, `node app/mcp/standalone.mjs [fichier de réglages]`
 lance le même serveur sans Electron.
 
 Le serveur parle les deux générations du protocole : la poignée de main `initialize` (versions
@@ -236,7 +246,7 @@ Une release GitHub se construit toute seule (`.github/workflows/release.yml`) :
    `v0.30.2`, ou `git tag v0.30.2` puis `git push origin v0.30.2`.
 
 GitHub vérifie que le tag correspond aux versions, passe le banc de mesure et le test complet de
-l'application empaquetée, construit l'exe portable, le zip Windows et le zip de l'extension, puis
+l'application empaquetée, construit le zip Windows et le zip de l'extension, puis
 publie la release. Si une étape échoue, rien n'est publié.
 
 ## Mises à jour
@@ -244,8 +254,8 @@ publie la release. Si une étape échoue, rien n'est publié.
 Réglages → Application → **Mises à jour** : « Vérifier au démarrage » (cochée d'office) demande à
 GitHub, une fois par jour au plus, la dernière version publiée. Si elle est plus récente, une bulle
 s'affiche près de l'horloge, le menu de l'icône propose « Mise à jour disponible : … », et les
-réglages montrent les nouveautés et le fichier à prendre (exe portable ou zip, selon celui que tu
-utilises). « Ouvrir la page de téléchargement » ouvre la page de la version dans ton navigateur :
+réglages montrent les nouveautés et le fichier à prendre (le zip Windows : décompresse-le, lance
+l'exe, puis « Installer » remplace la version installée en gardant la précédente). « Ouvrir la page de téléchargement » ouvre la page de la version dans ton navigateur :
 rien n'est téléchargé ni installé tout seul. « Vérifier maintenant » et « Rechercher une mise à
 jour » (menu de l'icône) vérifient à la demande.
 
@@ -325,7 +335,10 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | Fichier | Rôle |
 |---|---|
 | `engine.js` | Le moteur Aria (plateforme Node) et son service (`core/service.js`), dans le processus principal |
-| `settings.js` | Réglages dans un fichier JSON, à côté de l'exécutable (portable) |
+| `settings.js` | Réglages dans `reglages.json`, avec une copie par jour et le journal (`donnees.js`) |
+| `donnees.js` | Rangement du dossier de données : migration, sauvegardes, journal |
+| `installation.js` | Installation par l'exe dans `programme\`, version précédente gardée |
+| `ui/installation.html` | Fenêtre « Installer Aria Plume » |
 | `preload.cjs` | Pont sécurisé : les quelques API `chrome.*` dont le correcteur a besoin, branchées sur le processus principal |
 | `windows-input.js` | Raccourci global sous Windows : copie de la sélection, recollage, presse-papiers |
 | `ui/chrome.js` | Pose ce pont à la place de `window.chrome` avant les scripts du correcteur |
