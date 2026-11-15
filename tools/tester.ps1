@@ -61,7 +61,7 @@ foreach ($test in 'tests/node/smoke.mjs', 'tests/node/chemins.mjs', 'tests/bench
 }
 # Rangement du dossier de données : Node seul, sans Electron ni dépendance, donc aussi sous Windows.
 if (-not $Moteur) {
-    foreach ($test in 'tests/donnees.mjs', 'tests/installation.mjs', 'tests/miseajour.mjs', 'tests/empaquetage.mjs', 'tests/secrets.mjs') { Lancer (Chemin @('app')) $test }
+    foreach ($test in 'tests/donnees.mjs', 'tests/installation.mjs', 'tests/miseajour.mjs', 'tests/empaquetage.mjs', 'tests/secrets.mjs', 'tests/icone.mjs') { Lancer (Chemin @('app')) $test }
 }
 
 $windows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT

@@ -70,6 +70,7 @@ const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
 const { analyserSource, dossierProgramme, estInstallee, installer, proposerInstallation, versionInstallee } = await import("./installation.js");
 const { nettoyerMisesAJour, preparerMiseAJour } = await import("./miseajour.js");
+const { dessinerIcone, etatIcone, infobulle, modeleMenu } = await import("./icone.js");
 const { OUTLOOK_MANIFEST, OUTLOOK_SIDELOAD_URL, WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered, writeOutlookManifest } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
@@ -91,7 +92,7 @@ function announceChanges(diff) {
         if (diff.startWithWindows) {
             applyStartWithWindows(diff.startWithWindows.newValue);
         }
-        tray?.setContextMenu(buildTrayMenu());
+        refreshTray();
     }
     return diff;
 }
@@ -179,6 +180,7 @@ async function onHotkey() {
         return;
     }
     capturing = true;
+    refreshTray();
     try {
         const result = input.available
             ? await captureSelection(input)
@@ -188,6 +190,7 @@ async function onHotkey() {
         await sendToPage({ target: "popup", cmd: "set-text", text: result.text ?? "", source: result.title ?? "", error: result.error ?? "" });
     } finally {
         capturing = false;
+        refreshTray();
     }
 }
 
@@ -203,7 +206,7 @@ function registerHotkey() {
         ok = false;  // combinaison invalide
     }
     hotkey = { accelerator, ok };
-    tray?.setContextMenu(buildTrayMenu());
+    refreshTray();
 }
 
 // « Alt+Shift+C » → « Alt+Maj+C ».
@@ -294,6 +297,7 @@ async function startBridge() {
         });
     } catch (error) {
         bridgeError = String(error?.message ?? error);
+        refreshTray();
         console.error("Pont :", bridgeError);
     }
 }
@@ -498,6 +502,7 @@ async function officeState() {
 // Au démarrage puis toutes les 6 heures, une vérification au plus par jour si la case est cochée ;
 // ou à la demande (réglages, menu de l'icône). Une nouvelle version n'est signalée qu'une fois.
 let lastUpdate = null;
+let updateChecking = false;
 let updateTimer = null;
 
 // Sorte d'application : installée dans programme\, zip Windows lancé sur place, exe portable des
@@ -520,12 +525,19 @@ async function runUpdateCheck({ manual = false } = {}) {
     if (testUrl === null) {
         return { status: "error", current: app.getVersion(), error: "Vérification désactivée pendant les tests.", notes: [] };
     }
-    const result = await checkForUpdate({
-        current: app.getVersion(),
-        kind: appKind(),
-        fetchImpl: (url, options) => net.fetch(url, options),
-        ...(testUrl ? { url: testUrl } : {}),
-    });
+    updateChecking = true;
+    refreshTray();
+    let result;
+    try {
+        result = await checkForUpdate({
+            current: app.getVersion(),
+            kind: appKind(),
+            fetchImpl: (url, options) => net.fetch(url, options),
+            ...(testUrl ? { url: testUrl } : {}),
+        });
+    } finally {
+        updateChecking = false;
+    }
     lastUpdate = { ...result, checkedAt: new Date().toISOString(), kind: appKind() };
     const changes = { updateCheckedAt: lastUpdate.checkedAt };
     if (result.status === "available" && (manual || loadSettings().updateNotified !== result.latest)) {
@@ -537,7 +549,7 @@ async function runUpdateCheck({ manual = false } = {}) {
         notify("Vérification impossible", result.error);
     }
     updateSettings(changes);
-    tray?.setContextMenu(buildTrayMenu());
+    refreshTray();
     for (const win of BrowserWindow.getAllWindows()) {
         win.webContents.send("update-result", lastUpdate);
     }
@@ -809,45 +821,71 @@ function applyStartWithWindows(enabled) {
     app.setLoginItemSettings({ openAtLogin: enabled, path: loginItemPath(), args: ["--silencieux"] });
 }
 
-function buildTrayMenu() {
-    const settings = loadSettings();
-    const template = [
-        { label: "Ouvrir le correcteur", click: showWindow },
-        {
-            label: hotkey.ok
-                ? `Raccourci : ${showAccelerator(hotkey.accelerator)} sur un texte sélectionné`
-                : `Raccourci ${showAccelerator(hotkey.accelerator)} indisponible (déjà pris ?)`,
-            enabled: false,
-        },
-        { type: "separator" },
-    ];
-    if (process.platform === "win32") {
-        template.push({
-            label: "Démarrer avec Windows",
-            type: "checkbox",
-            checked: settings.startWithWindows,
-            click: (item) => {
-                updateSettings({ startWithWindows: item.checked });
-            },
-        });
+// Icône de notification et son menu (icone.js) : l'état se relit à chaque changement.
+let logoBitmap = null;
+function trayState() {
+    const accelerator = showAccelerator(hotkey.accelerator);
+    const problems = [];
+    if (!hotkey.ok) {
+        problems.push(`raccourci ${accelerator} indisponible (déjà pris ?)`);
     }
-    template.push(
-        lastUpdate?.status === "available"
-            ? { label: `Mise à jour disponible : ${lastUpdate.latest}…`, click: () => openReleasePage() }
-            : { label: "Rechercher une mise à jour", click: () => runUpdateCheck({ manual: true }).catch(() => {}) },
-        { label: "Réglages…", click: openOptions },
-        { label: "Ouvrir le dossier des réglages", click: () => shell.showItemInFolder(settingsFile()) },
-        { type: "separator" },
-        { label: "Quitter Aria Plume", click: () => app.quit() },
-    );
-    return Menu.buildFromTemplate(template);
+    if (bridgeError) {
+        problems.push("pont avec l'extension en erreur");
+    }
+    return etatIcone({
+        agit: capturing ? "Capture de la sélection…" : updateChecking ? "Recherche d'une mise à jour…" : updateInstalling ? "Mise à jour en cours…" : false,
+        alerte: problems.length ? `à regarder : ${problems.join(", ")}` : null,
+        info: lastUpdate?.status === "available" ? `version ${lastUpdate.latest} disponible` : null,
+        raccourci: accelerator,
+    });
+}
+
+async function goToSection(name) {
+    showWindow();
+    const contents = mainWindow.webContents;
+    if (contents.isLoading()) {
+        await new Promise((resolve) => contents.once("did-finish-load", resolve));
+    }
+    await contents.executeJavaScript(`document.getElementById(${JSON.stringify(`tab-${name}`)})?.click()`).catch(() => {});
+}
+
+function buildTrayMenu() {
+    return Menu.buildFromTemplate(modeleMenu({
+        etat: trayState(),
+        raccourci: showAccelerator(hotkey.accelerator),
+        demarrage: loadSettings().startWithWindows,
+        miseAJour: lastUpdate?.status === "available" ? lastUpdate.latest : null,
+        windows: process.platform === "win32",
+    }, {
+        ouvrir: showWindow,
+        agir: () => onHotkey().catch((error) => console.error("Raccourci :", error)),
+        aller: (name) => goToSection(name),
+        reglages: openOptions,
+        dossier: () => shell.showItemInFolder(settingsFile()),
+        miseAJour: () => openReleasePage(),
+        verifierMiseAJour: () => runUpdateCheck({ manual: true }).catch(() => {}),
+        demarrage: (checked) => updateSettings({ startWithWindows: checked }),
+        quitter: () => app.quit(),
+    }));
+}
+
+function refreshTray() {
+    if (!tray) {
+        return;
+    }
+    const state = trayState();
+    if (!logoBitmap) {
+        const logo = nativeImage.createFromPath(path.join(ICON_DIR, "icon-32.png"));
+        logoBitmap = { data: logo.toBitmap(), size: logo.getSize().width };
+    }
+    tray.setImage(nativeImage.createFromBitmap(dessinerIcone(logoBitmap.data, logoBitmap.size, state), { width: logoBitmap.size, height: logoBitmap.size }));
+    tray.setToolTip(infobulle(state));
+    tray.setContextMenu(buildTrayMenu());
 }
 
 function createTray() {
-    const icon = nativeImage.createFromPath(path.join(ICON_DIR, "icon-32.png")).resize({ width: 16, height: 16 });
-    tray = new Tray(icon);
-    tray.setToolTip("Aria Plume");
-    tray.setContextMenu(buildTrayMenu());
+    tray = new Tray(nativeImage.createFromPath(path.join(ICON_DIR, "icon-32.png")).resize({ width: 16, height: 16 }));
+    refreshTray();
     tray.on("click", showWindow);
     tray.on("balloon-click", () => openReleasePage(notificationUrl));
 }
@@ -1050,6 +1088,7 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
         windows: BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), title: w.getTitle() })),
         tray: !!tray && !tray.isDestroyed(),
         trayMenu: buildTrayMenu().items.map((item) => item.label).filter(Boolean),
+        trayState: trayState(),
         settingsFile: settingsFile(),
     }));
     ipcMain.handle("test:quit", () => {

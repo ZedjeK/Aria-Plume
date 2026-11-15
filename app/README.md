@@ -376,6 +376,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `updates.js` | Vérification des mises à jour (API de GitHub), comparaison des versions, nouveautés |
 | `bridge/server.js` | Pont avec l'extension : canal local de la session, jeton, messages |
 | `secrets.js` | Jeton du pont chiffré par DPAPI (`secrets\pont.jeton`), repris de l'ancien fichier en clair |
+| `icone.js` | Icône de notification (délavée ou pleine, une pastille orange, cyan ou bleue, infobulle) et menu en blocs titrés |
 | `bridge/relay.cjs` | Relais lancé par le navigateur (messagerie native), démarre l'application au besoin |
 | `bridge/register.js` | Inscription du relais auprès des navigateurs (registre de Windows, dossiers sous Linux) |
 | `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
