@@ -147,7 +147,7 @@ Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume
 
 - Les règles d'homophones sont prudentes et laissent passer les cas ambigus (« **Sa** plante encore », où « plante » peut être un nom) et les mots inconnus du dictionnaire.
 - Les règles de grammaire d'Aria restent prudentes : « elle s'est **coupée** le doigt » (*coupé*, à cause du complément « le doigt ») n'est pas encore repéré, et avec *nous* ou *vous* (qui peuvent désigner une seule personne), l'accord du participe pronominal est laissé à Grammalecte.
-- Les homophones couverts par Aria sont sa/ça, et/est, a/à, ces/ses/c'est/s'est, on/ont, quel/qu'elle et ni/n'y ; son/sont, ou/où ou ce/se restent à la charge de Grammalecte.
+- Les homophones couverts par Aria sont sa/ça, et/est, a/à, ces/ses/c'est/s'est, on/ont, quel/qu'elle, ni/n'y, son/sont, ou/où et ce/se, plus des paires de sens (mer/mère, amande/amende…) que les mots de la phrase départagent. Les autres restent à la charge de Grammalecte, et un cas que le contexte ne tranche pas n'est pas signalé : « La mère était trop agitée pour sortir le bateau » passe sans alerte, « nous avons nagé dans la mère » est repéré.
 - La traduction manque parfois de contexte : seul, « Le serveur est tombé en panne » devient « The **waiter** broke down ». Le glossaire corrige les termes que tu y mets ; relis le reste du jargon technique.
 - Un terme imposé par le glossaire ne change pas les mots autour : en français, l'article reste celui que le modèle avait choisi (« le borne Wi-Fi » si le modèle pensait à « le point d'accès »).
 - La traduction de page ne traite pas le contenu des iframes, et traduit toute la page dans le même sens.
