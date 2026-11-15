@@ -7,7 +7,7 @@
 //     navigateur ⇄ relais : stdin/stdout, longueur sur 4 octets (ordre de la machine) + JSON UTF-8
 //     relais ⇄ application : canal nommé de la session (\\.\pipe\…) ou socket Unix, une ligne JSON par message
 //
-// Si l'application ne répond pas, le relais la démarre cachée (--hidden) et réessaie pendant
+// Si l'application ne répond pas, le relais la démarre cachée (--silencieux) et réessaie pendant
 // 20 secondes. Le premier message envoyé à l'application est « hello », avec le jeton lu dans un
 // fichier que seul l'utilisateur peut lire. Ce fichier est copié à côté de relay-config.json par
 // l'application (Réglages → Connecter les navigateurs) : il est autonome, sans dépendance.

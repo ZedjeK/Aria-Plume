@@ -12,7 +12,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ICON_DIR = path.join(APP_DIR, "build");
-const STARTED_HIDDEN = process.argv.includes("--hidden");
+// Lancement en arrière-plan : --silencieux (modèle des applis Aria) ; --hidden reste compris (démarrage
+// avec Windows et relais inscrits avant la 0.40).
+const SILENT_FLAGS = ["--silencieux", "--hidden"];
+const STARTED_HIDDEN = process.argv.some((arg) => SILENT_FLAGS.includes(arg));
 
 if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -258,8 +261,8 @@ function appCommand() {
     // Banc automatique : arguments en plus (--no-sandbox sous Linux en root…).
     const extra = process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_EXTRA_ARGS ? JSON.parse(process.env.ARIA_TEST_EXTRA_ARGS) : [];
     return app.isPackaged
-        ? { command: process.execPath, args: ["--hidden", ...extra] }
-        : { command: process.execPath, args: [APP_DIR, "--hidden", ...extra] };
+        ? { command: process.execPath, args: ["--silencieux", ...extra] }
+        : { command: process.execPath, args: [APP_DIR, "--silencieux", ...extra] };
 }
 
 const bridgeOptions = () => ({
@@ -630,7 +633,7 @@ function applyStartWithWindows(enabled) {
     if (process.platform !== "win32") {
         return;
     }
-    app.setLoginItemSettings({ openAtLogin: enabled, path: loginItemPath(), args: ["--hidden"] });
+    app.setLoginItemSettings({ openAtLogin: enabled, path: loginItemPath(), args: ["--silencieux"] });
 }
 
 function buildTrayMenu() {
@@ -866,9 +869,9 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
     });
 }
 
-// Une deuxième instance lancée par le relais (--hidden) ne doit pas faire apparaître la fenêtre.
+// Une deuxième instance lancée par le relais (--silencieux) ne doit pas faire apparaître la fenêtre.
 app.on("second-instance", (event, argv) => {
-    if (!argv.includes("--hidden")) {
+    if (!argv.some((arg) => SILENT_FLAGS.includes(arg))) {
         showWindow();
     }
 });

@@ -16,12 +16,18 @@ Deux formats, aucun n'installe quoi que ce soit :
 
 ```text
 C:\Users\<toi>\.Aria-Plume\
-├── aria-plume-reglages.json   réglages (dictionnaire, glossaire, mots ignorés…)
-├── extension\                 copie de l'extension que lit le navigateur
-├── pont\                      relais et jeton du pont avec l'extension
-├── office\                    certificat local et manifestes des compléments Word et Outlook
-└── electron\                  données internes de l'application (caches, verrou)
+├── reglages.json      réglages (dictionnaire, glossaire, mots ignorés…)
+├── journal.json       les 500 dernières opérations (jamais les valeurs ni tes textes)
+├── sauvegardes\       une copie des réglages par jour de modification (dix au plus)
+├── cache\             données internes de l'application (caches, verrou)
+├── extension\         copie de l'extension que lit le navigateur
+├── pont\              relais et jeton du pont avec l'extension
+└── office\            certificat local et manifestes des compléments Word et Outlook
 ```
+
+Depuis la 0.40, les noms suivent le modèle des applis Aria : au premier lancement, l'ancien
+`aria-plume-reglages.json` est copié dans `sauvegardes\`, puis renommé en `reglages.json`, et
+`electron\` devient `cache\`.
 
 Seule exception, hors de notre main : l'exe portable se décompresse d'abord dans le dossier
 temporaire de Windows. Les versions d'avant la 0.36 rangeaient les réglages à côté de l'exe : au

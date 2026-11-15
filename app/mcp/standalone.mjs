@@ -1,6 +1,6 @@
 // Aria Plume — serveur MCP avec Node seul (sans Electron) : pour les tests, ou pour qui a Node 22.
 //
-//     node app/mcp/standalone.mjs [chemin/vers/aria-plume-reglages.json]
+//     node app/mcp/standalone.mjs [chemin/vers/reglages.json]
 //
 // Les réglages (dictionnaire, glossaire, mots ignorés, français soigné…) sont lus dans le fichier
 // donné, sinon ceux par défaut. L'application, elle, se lance en serveur MCP avec « --mcp ».

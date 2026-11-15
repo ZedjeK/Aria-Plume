@@ -49,7 +49,7 @@ check("Word : désinstallation (retrait demandé, manifeste supprimé)", calls.a
 
 // --- Pont ---
 const bridgeDir = path.join(root, "pont");
-const options = { dir: bridgeDir, exe: "C:\\Aria\\Aria Plume.exe", appCommand: { command: "C:\\Aria\\Aria Plume.exe", args: ["--hidden"] }, pipe: "\\\\.\\pipe\\aria-plume-zeman", tokenFile: path.join(bridgeDir, "jeton"), extensionId: "fpgalamdbelhkacggnnglgcljhdcioca", hostName: "fr.aria_plume.app", platform: "win32" };
+const options = { dir: bridgeDir, exe: "C:\\Aria\\Aria Plume.exe", appCommand: { command: "C:\\Aria\\Aria Plume.exe", args: ["--silencieux"] }, pipe: "\\\\.\\pipe\\aria-plume-zeman", tokenFile: path.join(bridgeDir, "jeton"), extensionId: "fpgalamdbelhkacggnnglgcljhdcioca", hostName: "fr.aria_plume.app", platform: "win32" };
 // Chrome et Edge réussissent, Brave échoue, Chromium ne répond pas.
 const bridge = await registerBridge({ ...options, run: fake((script, env) => {
     const keys = env.ARIA_CLES.split(";");
