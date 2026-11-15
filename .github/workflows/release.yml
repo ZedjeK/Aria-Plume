@@ -83,7 +83,7 @@ jobs:
                   command -v xvfb-run > /dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
                   xvfb-run -a npm run test:package
 
-            # Application Windows (exe portable et zip) et extension (zip, avec LICENSE et LICENCES-TIERS.txt),
+            # Application Windows (zip) et extension (zip, avec LICENSE et LICENCES-TIERS.txt),
             # dans .work/sortie/.
             - name: Construire (build.ps1)
               shell: pwsh
@@ -98,7 +98,6 @@ jobs:
               run: |
                   version="${TAG#v}"
                   files=(
-                      ".work/sortie/Aria-Plume-${version}-portable.exe"
                       ".work/sortie/Aria-Plume-${version}-win-x64.zip"
                       ".work/sortie/Aria-Plume-extension-${version}.zip"
                   )

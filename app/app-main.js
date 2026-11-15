@@ -36,6 +36,7 @@ const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridg
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
+const { analyserSource, dossierProgramme, estInstallee, installer, proposerInstallation, versionInstallee } = await import("./installation.js");
 const { OUTLOOK_MANIFEST, OUTLOOK_SIDELOAD_URL, WORD_MANIFEST, manualCommand, registerWord, unregisterWord, wordRegistered, writeOutlookManifest } = await import("./office/manifest.js");
 const { OFFICE_FOLDER, ensureCertificates, loadCertificates, isTrusted, trust, removeCertificates } = await import("./office/install.js");
 const { EXTENSION_ID, NATIVE_HOST } = await import(pathToFileURL(path.join(ENGINE_ROOT, "core", "shared", "ids.js")).href);
@@ -453,8 +454,17 @@ async function officeState() {
 let lastUpdate = null;
 let updateTimer = null;
 
-// Sorte d'application : exe portable, zip Windows ou autre (développement, Linux).
-const appKind = () => (process.env.PORTABLE_EXECUTABLE_FILE ? "portable" : app.isPackaged && process.platform === "win32" ? "zip" : "dev");
+// Sorte d'application : installée dans programme\, zip Windows lancé sur place, exe portable des
+// versions d'avant la 0.40, ou autre (développement, Linux).
+const appKind = () => {
+    if (process.env.PORTABLE_EXECUTABLE_FILE) {
+        return "portable";
+    }
+    if (!app.isPackaged || process.platform !== "win32") {
+        return "dev";
+    }
+    return estInstallee(process.execPath, settingsDir()) ? "installee" : "zip";
+};
 
 // Banc automatique : adresse de test, et aucune vérification automatique sans elle.
 const testUpdateUrl = () => (process.env.ARIA_TEST_HOOKS === "1" ? process.env.ARIA_TEST_UPDATE_URL ?? null : undefined);
@@ -535,6 +545,123 @@ function scheduleUpdateChecks() {
     updateTimer = setInterval(tick, 6 * 3600 * 1000);
     updateTimer.unref?.();
 }
+
+// --- Installation par l'exe (voir installation.js) ---
+// Lancée depuis un zip décompressé, l'application propose de se ranger dans .Aria-Plume\programme
+// avant de démarrer quoi que ce soit (pont, serveur Office, raccourci). Renvoie true si elle s'est
+// installée et va se relancer depuis là.
+let installSession = null;
+const desktopDir = () => (process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_DESKTOP_DIR ? process.env.ARIA_TEST_DESKTOP_DIR : app.getPath("desktop"));
+const shortcutPath = () => path.join(desktopDir(), "Aria Plume.lnk");
+
+function proposeInstall() {
+    const forced = process.env.ARIA_TEST_HOOKS === "1" && process.env.ARIA_TEST_INSTALL_PROMPT === "1";
+    const wanted = forced || proposerInstallation({
+        execPath: process.execPath,
+        dossierDonnees: settingsDir(),
+        argv: process.argv,
+        proposer: loadSettings().installProposal,
+        empaquetee: app.isPackaged,
+    });
+    if (!wanted) {
+        return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+        const win = new BrowserWindow({
+            width: 640,
+            height: 470,
+            resizable: false,
+            maximizable: false,
+            minimizable: false,
+            title: "Installer Aria Plume",
+            icon: path.join(ICON_DIR, "icon-128.png"),
+            backgroundColor: "#030812",
+            autoHideMenuBar: true,
+            webPreferences: {
+                preload: path.join(APP_DIR, "preload.cjs"),
+                contextIsolation: true,
+                sandbox: true,
+                nodeIntegration: false,
+                spellcheck: false,
+            },
+        });
+        installSession = { win, busy: false, resolve };
+        // Pendant la copie, la fenêtre ne se ferme pas ; sinon, la fermer vaut « Lancer sans installer ».
+        win.on("close", (event) => {
+            if (installSession?.busy) {
+                event.preventDefault();
+            }
+        });
+        win.on("closed", () => {
+            if (installSession?.win === win) {
+                installSession = null;
+                resolve(false);
+            }
+        });
+        win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+        win.webContents.on("will-navigate", (event) => event.preventDefault());
+        win.loadURL("aria://app/app/installation.html");
+    });
+}
+
+ipcMain.handle("install:info", () => {
+    const source = path.dirname(process.execPath);
+    return {
+        version: app.getVersion(),
+        destination: dossierProgramme(settingsDir()),
+        installee: versionInstallee(settingsDir()),
+        raccourciExiste: fs.existsSync(shortcutPath()),
+        ...analyserSource(source),
+    };
+});
+
+ipcMain.handle("install:run", async (event, options) => {
+    const session = installSession;
+    if (!session || session.busy || event.sender !== session.win.webContents) {
+        return { ok: false, error: "Aucune installation en cours." };
+    }
+    session.busy = true;
+    try {
+        const { exe } = await installer({
+            source: path.dirname(process.execPath),
+            dossierDonnees: settingsDir(),
+            nomExe: path.basename(process.execPath),
+            version: app.getVersion(),
+        });
+        if (options?.raccourci && process.platform === "win32") {
+            const lnk = shortcutPath();
+            const operation = fs.existsSync(lnk) ? "update" : "create";
+            if (!shell.writeShortcutLink(lnk, operation, { target: exe, cwd: path.dirname(exe), description: "Aria Plume, correcteur et traducteur", icon: exe, iconIndex: 0 })) {
+                console.error("Raccourci du Bureau : écriture impossible.");
+            }
+        }
+        // Mode occupé levé avant de fermer : la fenêtre se ferme d'elle-même, puis l'application se
+        // relance depuis son dossier.
+        session.busy = false;
+        installSession = null;
+        session.win.destroy();
+        session.resolve(true);
+        app.relaunch({ execPath: exe, args: process.argv.slice(1).filter((arg) => arg !== "--portable") });
+        app.exit(0);
+        return { ok: true };
+    } catch (error) {
+        session.busy = false;
+        return { ok: false, error: String(error?.message ?? error) };
+    }
+});
+
+ipcMain.handle("install:skip", (event, options) => {
+    const session = installSession;
+    if (!session || session.busy || event.sender !== session.win.webContents) {
+        return;
+    }
+    if (options?.nePlusProposer) {
+        updateSettings({ installProposal: false });
+    }
+    installSession = null;
+    session.win.destroy();
+    session.resolve(false);
+});
 
 let tray = null;
 let mainWindow = null;
@@ -871,7 +998,9 @@ if (process.env.ARIA_TEST_HOOKS === "1") {
 
 // Une deuxième instance lancée par le relais (--silencieux) ne doit pas faire apparaître la fenêtre.
 app.on("second-instance", (event, argv) => {
-    if (!argv.some((arg) => SILENT_FLAGS.includes(arg))) {
+    if (installSession) {
+        installSession.win.focus();
+    } else if (!argv.some((arg) => SILENT_FLAGS.includes(arg))) {
         showWindow();
     }
 });
@@ -892,9 +1021,16 @@ app.on("window-all-closed", () => {});
 
 // Pas de « await app.whenReady() » au niveau du module : Electron n'émet « ready » qu'une fois
 // le module principal entièrement évalué, l'attendre ici bloquerait tout.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     protocol.handle("aria", servePage);
     Menu.setApplicationMenu(null);
+    if (await proposeInstall()) {
+        return;
+    }
+    // Application déplacée ou installée : l'entrée de démarrage avec Windows suit l'exe.
+    if (app.isPackaged && loadSettings().startWithWindows) {
+        applyStartWithWindows(true);
+    }
     createTray();
     registerHotkey();
     startBridge();

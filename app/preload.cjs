@@ -117,6 +117,10 @@ contextBridge.exposeInMainWorld("ariaApp", {
     onUpdateResult: (listener) => {
         ipcRenderer.on("update-result", (event, result) => listener(result));
     },
+    // Fenêtre « Installer Aria Plume » (le processus principal ne répond que pendant la proposition).
+    installInfo: () => ipcRenderer.invoke("install:info"),
+    installRun: (options) => ipcRenderer.invoke("install:run", { raccourci: !!options?.raccourci }),
+    installSkip: (options) => ipcRenderer.invoke("install:skip", { nePlusProposer: !!options?.nePlusProposer }),
 });
 
 // Banc automatique seulement (les gestionnaires n'existent que si ARIA_TEST_HOOKS=1).

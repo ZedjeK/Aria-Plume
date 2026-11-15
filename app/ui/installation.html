@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Installer Aria Plume</title>
+    <!-- Fenêtre de dialogue au gabarit des applis Aria : titre cyan, encadré « À savoir », panneau
+         accentué (celui sur lequel agit le bouton orange), ligne d'état, boutons alignés à droite. -->
+    <style>
+        @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+        @font-face { font-family: "Space Grotesk"; font-weight: 600; src: url("/fonts/space-grotesk-latin-600-normal.woff2") format("woff2"); }
+        @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+        @font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+        :root {
+            --fond: #030812; --panneau: #06101f; --texte: #ddebff; --texte-2: #93a8c8;
+            --cyan: #7df9ff; --bleu: #5c8bff; --orange: #ff8a1f; --rouge: #ff5c7a; --ambre: #ffd166; --ligne: #1a2d4d;
+            --coin: 12px;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; height: 100%; }
+        body {
+            background: var(--fond); color: var(--texte);
+            font: 500 14px/1.5 "Space Grotesk", system-ui, sans-serif;
+            display: flex; flex-direction: column; gap: 14px; padding: 22px 24px 18px;
+        }
+        h1 { margin: 0; color: var(--cyan); font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
+        code, .chemin { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--texte); word-break: break-all; }
+        .a-savoir {
+            border-left: 3px solid var(--bleu); background: rgba(92, 139, 255, 0.08);
+            padding: 10px 14px; color: var(--texte-2);
+        }
+        .a-savoir strong { color: var(--bleu); display: block; font-weight: 600; margin-bottom: 2px; }
+        /* Panneau : coins coupés, liseré cyan fin. Accentué : liseré épais et titre cyan. */
+        .panneau {
+            position: relative; background: var(--panneau); padding: 14px 16px;
+            clip-path: polygon(var(--coin) 0, 100% 0, 100% calc(100% - var(--coin)), calc(100% - var(--coin)) 100%, 0 100%, 0 var(--coin));
+            box-shadow: inset 0 0 0 1px rgba(125, 249, 255, 0.35);
+        }
+        .panneau.accent { box-shadow: inset 0 0 0 2px var(--cyan); }
+        .panneau h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--texte-2); }
+        .panneau.accent h2 { color: var(--cyan); }
+        dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
+        dt { color: var(--texte-2); }
+        dd { margin: 0; }
+        label.case { display: flex; gap: 10px; align-items: center; margin-top: 12px; cursor: pointer; }
+        label.case input { width: 16px; height: 16px; accent-color: var(--cyan); }
+        .etat { min-height: 1.5em; color: var(--texte-2); margin-top: auto; }
+        .etat.erreur { color: var(--rouge); }
+        .etat.occupe { color: var(--cyan); }
+        .bas { display: flex; align-items: center; gap: 10px; }
+        .bas label.case { margin: 0 auto 0 0; color: var(--texte-2); }
+        /* Boutons en biais, en majuscules par la feuille de style (le texte reste écrit normalement). */
+        button {
+            font: 600 13px "Space Grotesk", system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.06em;
+            padding: 9px 22px; border: 0; cursor: pointer; color: var(--texte); background: transparent;
+            clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        }
+        button.secondaire { box-shadow: inset 0 0 0 1px var(--cyan); color: var(--cyan); }
+        button.principal { background: var(--orange); color: #1b0d00; }
+        button:disabled { opacity: 0.4; cursor: default; }
+        button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    </style>
+    <script src="/app/installation.js" defer></script>
+</head>
+<body>
+    <h1>Installer Aria Plume</h1>
+    <div class="a-savoir">
+        <strong>À savoir</strong>
+        Aria Plume se range dans ton dossier personnel, à côté de ses réglages : ni droits administrateur, ni Program Files.
+        Une fois installée, elle se relance d'elle-même depuis là, et le zip peut être supprimé. Tu peux aussi la lancer
+        sans l'installer, depuis le dossier du zip.
+    </div>
+    <section class="panneau accent" aria-labelledby="titre-dossier">
+        <h2 id="titre-dossier">Dossier d'installation</h2>
+        <dl>
+            <dt>Version</dt><dd id="version">…</dd>
+            <dt>Dossier</dt><dd><span class="chemin" id="destination">…</span></dd>
+            <dt>Déjà installée</dt><dd id="precedente">…</dd>
+        </dl>
+        <label class="case"><input type="checkbox" id="raccourci"> <span id="raccourci-texte">Créer un raccourci sur le Bureau</span></label>
+    </section>
+    <p class="etat" id="etat" role="status" aria-live="polite"></p>
+    <div class="bas">
+        <label class="case"><input type="checkbox" id="ne-plus"> Ne plus me proposer</label>
+        <button type="button" class="secondaire" id="lancer">Lancer sans installer</button>
+        <button type="button" class="principal" id="installer">Installer</button>
+    </div>
+</body>
+</html>
