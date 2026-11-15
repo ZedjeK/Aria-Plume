@@ -406,3 +406,10 @@ body.app button.primary {
 body.app .actions:has(#options) {
     display: none;
 }
+
+/* Réglages affichés : le bouton Réglages est celui du menu, l'outil précédent n'est plus mis en avant. */
+body.app.vue-reglages .menu .outils button[aria-selected="true"] {
+    color: var(--muted);
+    border-left-color: transparent;
+    background: none;
+}
