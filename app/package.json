@@ -29,6 +29,7 @@
         "files": [
             "main.js",
             "paths.js",
+            "donnees.js",
             "powershell.js",
             "app-main.js",
             "engine.js",
