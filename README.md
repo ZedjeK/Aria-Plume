@@ -156,6 +156,7 @@ Dans les [Releases](https://github.com/ZedjeK/Aria-Plume/releases) : `Aria-Plume
 - Les synonymes proposés pour une répétition viennent des mêmes thésaurus, qui ignorent le contexte : pour « serveur », ils proposent « barman ». Choisis, ou clique sur « Ignorer » pour ne plus voir ce mot signalé.
 - Les thésaurus mélangent les sens d'un mot : pour « rapide », « agile » côtoie « bref » ou « alarme », et « serveur » n'a pas de sens informatique en français. En anglais, seules les formes régulières retrouvent leur base (« servers », « running », pas « broke »).
 - La mise à jour intégrée vérifie l'empreinte SHA-256 du zip : elle prouve que le fichier est arrivé intact, pas d'où il vient, puisque l'empreinte est publiée dans la même release. La provenance repose sur le compte GitHub de l'auteur ; le code n'est pas signé.
+- Le jeton du pont avec l'extension est chiffré par DPAPI (`secrets\pont.jeton`) : il ne se relit que depuis ton compte Windows, sur ce PC. DPAPI ne protège pas contre un programme lancé sous le même compte, qui peut demander lui-même le déchiffrement ; il protège le fichier copié, sauvegardé ou lu depuis un autre compte. Le jeton ne garde de toute façon que l'accès au pont local (correction, traduction, réglages de l'application).
 - Projet personnel, sans audit de sécurité indépendant.
 
 ## Moteur Aria

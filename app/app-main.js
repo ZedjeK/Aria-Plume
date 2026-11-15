@@ -63,7 +63,8 @@ const { aria, createService, ENGINE_ROOT } = await import("./engine.js");
 const { loadSettings, saveSettings, removeSettings, settingsFile, settingsDir, getValues } = await import("./settings.js");
 const { FOLDER_NAME, findBrowsers, extensionState, syncExtension, launchBrowser } = await import("./extension-install.js");
 const { createInput, captureSelection, pasteInto } = await import("./windows-input.js");
-const { bridgePipePath, ensureToken, startBridgeServer } = await import("./bridge/server.js");
+const { bridgePipePath, startBridgeServer } = await import("./bridge/server.js");
+const { fichierJeton, lireOuCreerJeton, retirerAncien } = await import("./secrets.js");
 const { BRIDGE_FOLDER, bridgeSupport, registerBridge, unregisterBridge, bridgeRegistration } = await import("./bridge/register.js");
 const { OFFICE_PORT, startOfficeServer } = await import("./office/server.js");
 const { checkForUpdate, isDue, isReleaseUrl } = await import("./updates.js");
@@ -264,15 +265,21 @@ const BRIDGE_COMMANDS = {
     "settings-remove": async (msg) => ({ changes: announceChanges(removeSettings(msg.keys)) }),
 };
 const bridgeDir = () => path.join(settingsDir(), BRIDGE_FOLDER);
-const bridgeTokenFile = () => path.join(bridgeDir(), "jeton");
+// Jeton du pont : secrets\pont.jeton, chiffré par DPAPI sous Windows (secrets.js). L'ancien fichier
+// en clair (pont\jeton, d'avant la 0.40) est repris, puis retiré une fois le relais réinscrit.
+const bridgeTokenFile = () => fichierJeton(settingsDir());
+const legacyTokenFile = () => path.join(bridgeDir(), "jeton");
 let bridge = null;
 let bridgeError = null;
+let legacyToken = null;
 
 async function startBridge() {
     try {
+        const { token, ancien } = await lireOuCreerJeton({ dossierDonnees: settingsDir(), ancienFichier: legacyTokenFile() });
+        legacyToken = ancien;
         bridge = await startBridgeServer({
             pipe: bridgePipePath(),
-            token: ensureToken(bridgeTokenFile()),
+            token,
             version: app.getVersion(),
             handle: async (msg) => {
                 const run = BRIDGE_COMMANDS[msg?.cmd];
@@ -304,6 +311,7 @@ const bridgeOptions = () => ({
     appCommand: appCommand(),
     pipe: bridgePipePath(),
     tokenFile: bridgeTokenFile(),
+    tokenDpapi: process.platform === "win32",
     extensionId: EXTENSION_ID,
     hostName: NATIVE_HOST,
 });
@@ -324,11 +332,15 @@ async function bridgeState() {
 // Application déplacée ou mise à jour : l'inscription existante est réécrite avec les bons chemins.
 async function refreshBridgeRegistration() {
     if (!bridgeSupport().ok || !fs.existsSync(path.join(bridgeDir(), `${NATIVE_HOST}.json`))) {
+        // Rien d'inscrit : plus personne ne lira l'ancien jeton en clair.
+        retirerAncien(legacyToken, settingsDir());
         return;
     }
     try {
         await registerBridge(bridgeOptions());
+        retirerAncien(legacyToken, settingsDir());
     } catch (error) {
+        // L'ancien fichier reste : un relais encore inscrit avec l'ancien chemin le relit.
         console.error("Pont : réinscription impossible :", error);
     }
 }
@@ -1108,8 +1120,8 @@ app.whenReady().then(async () => {
     }
     createTray();
     registerHotkey();
-    startBridge();
-    refreshBridgeRegistration();
+    // Le jeton d'abord (il peut demander une seconde à DPAPI), puis la réinscription du relais.
+    startBridge().then(refreshBridgeRegistration);
     startOffice();
     refreshWordRegistration();
     refreshOutlookManifest();

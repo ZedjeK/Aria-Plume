@@ -9,15 +9,17 @@
 //
 // Si l'application ne répond pas, le relais la démarre cachée (--silencieux) et réessaie pendant
 // 20 secondes. Le premier message envoyé à l'application est « hello », avec le jeton lu dans un
-// fichier que seul l'utilisateur peut lire. Ce fichier est copié à côté de relay-config.json par
-// l'application (Réglages → Connecter les navigateurs) : il est autonome, sans dépendance.
+// fichier que seul l'utilisateur peut lire (secrets\pont.jeton). Sous Windows, ce fichier est chiffré
+// par DPAPI (config.tokenDpapi) : le relais le fait déchiffrer par PowerShell, sous le même compte
+// que l'application. Ce relais est copié à côté de relay-config.json par l'application
+// (Réglages → Connecter les navigateurs) : il est autonome, sans dépendance.
 
 "use strict";
 
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { execFileSync, spawn } = require("node:child_process");
 
 const CONFIG_FILE = path.join(__dirname, "relay-config.json");
 const CONNECT_TIMEOUT_MS = 20000;
@@ -84,10 +86,31 @@ process.stdin.on("end", () => finish(0));
 process.stdin.on("error", () => finish(0));
 process.stdout.on("error", () => finish(0));
 
+// --- Jeton protégé par DPAPI ---
+// Même commande et même entropie que app/secrets.js (tests/secrets.mjs vérifie leur accord).
+const DPAPI_ENTROPY = "Aria-Plume/pont";
+const DPAPI_SCRIPT = `Add-Type -AssemblyName System.Security
+$blob = [Convert]::FromBase64String($env:ARIA_SECRET)
+$entropie = [Text.Encoding]::UTF8.GetBytes($env:ARIA_ENTROPIE)
+[Text.Encoding]::UTF8.GetString([Security.Cryptography.ProtectedData]::Unprotect($blob, $entropie, [Security.Cryptography.DataProtectionScope]::CurrentUser))`;
+
+function openDpapi(blob) {
+    const script = `[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; $ErrorActionPreference = 'Stop'
+${DPAPI_SCRIPT}`;
+    const powershell = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+    return execFileSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], {
+        env: { ...process.env, ARIA_SECRET: blob, ARIA_ENTROPIE: DPAPI_ENTROPY },
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 15000,
+    }).replace(/^﻿/, "").trim();
+}
+
 // --- Configuration ---
 function readConfig() {
     const config = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-    const token = fs.readFileSync(config.tokenFile, "utf8").trim();
+    const content = fs.readFileSync(config.tokenFile, "utf8").trim();
+    const token = config.tokenDpapi ? openDpapi(content) : content;
     return { ...config, token };
 }
 

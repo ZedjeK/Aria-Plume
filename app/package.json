@@ -30,6 +30,7 @@
             "main.js",
             "paths.js",
             "donnees.js",
+            "secrets.js",
             "installation.js",
             "miseajour.js",
             "powershell.js",

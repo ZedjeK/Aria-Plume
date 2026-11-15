@@ -34,7 +34,8 @@ C:\Users\<toi>\.Aria-Plume\
 ├── programme\         l'application, si tu l'as installée
 ├── mises-a-jour\      une mise à jour téléchargée, le temps de l'installer
 ├── extension\         copie de l'extension que lit le navigateur
-├── pont\              relais et jeton du pont avec l'extension
+├── pont\              relais du pont avec l'extension
+├── secrets\           le jeton du pont, chiffré par DPAPI (secrets\pont.jeton)
 └── office\            certificat local et manifestes des compléments Word et Outlook
 ```
 
@@ -102,7 +103,10 @@ l'extension affiche « Moteur : application ✓ ».
   qui compte, sauf s'il est encore à sa valeur par défaut (alors celui de l'extension gagne).
 - **Sécurité** : seul l'identifiant de l'extension Aria Plume est autorisé par le navigateur, et le
   canal entre le relais et l'application (`\\.\pipe\aria-plume-<utilisateur>`) exige un jeton
-  stocké dans un fichier lisible par toi seul. Aucun port réseau n'est ouvert.
+  stocké dans `secrets\pont.jeton`, chiffré par DPAPI sous Windows (il ne se relit que depuis ton
+  compte ; le relais le fait déchiffrer par PowerShell à chaque lancement, environ une demi-seconde).
+  D'avant la 0.40, le jeton était en clair dans `pont\jeton` : il est repris, chiffré, puis ce fichier
+  est retiré une fois le relais réinscrit. Aucun port réseau n'est ouvert.
 - **Dossier de l'application** : si tu la déplaces ou l'installes, elle met l'inscription à jour
   à son prochain démarrage. L'exe portable des versions d'avant la 0.40 ne pouvait pas être inscrit.
 - **Extension 0.35 ou plus récente**, chargée une nouvelle fois depuis la 0.35 : son identifiant est
@@ -370,6 +374,7 @@ copies faites par Aria Plume ; certains antivirus peuvent se méfier d'un PowerS
 | `extension-install.js` | Installation assistée de l'extension : navigateurs détectés, copie, ouverture |
 | `updates.js` | Vérification des mises à jour (API de GitHub), comparaison des versions, nouveautés |
 | `bridge/server.js` | Pont avec l'extension : canal local de la session, jeton, messages |
+| `secrets.js` | Jeton du pont chiffré par DPAPI (`secrets\pont.jeton`), repris de l'ancien fichier en clair |
 | `bridge/relay.cjs` | Relais lancé par le navigateur (messagerie native), démarre l'application au besoin |
 | `bridge/register.js` | Inscription du relais auprès des navigateurs (registre de Windows, dossiers sous Linux) |
 | `ui/options-app.js` | Section « Application » de la page de réglages, et exports par « Enregistrer sous » |
